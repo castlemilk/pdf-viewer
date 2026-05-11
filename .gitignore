@@ -1,0 +1,16 @@
+node_modules
+dist
+build
+DerivedData
+Pods
+vendor/bundle
+.bundle
+playwright-report
+test-results
+.playwright-mcp
+paperview-landing-*.png
+*.tsbuildinfo
+*.local
+*.xcuserstate
+xcuserdata
+PDFViewer/.build-release
