@@ -74,6 +74,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A20000000000000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A30000000000000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -115,22 +129,6 @@
 			path = "PDFViewer-macOS";
 			sourceTree = "<group>";
 		};
-		A20000000000000000000007 /* PDFViewer-macOSTests */ = {
-			isa = PBXGroup;
-			children = (
-				A20000000000000000000002 /* PdfKitSmokeTests.m */,
-			);
-			path = "PDFViewer-macOSTests";
-			sourceTree = "<group>";
-		};
-		A30000000000000000000007 /* PDFViewer-macOSUITests */ = {
-			isa = PBXGroup;
-			children = (
-				A30000000000000000000002 /* PDFViewerUITests.m */,
-			);
-			path = "PDFViewer-macOSUITests";
-			sourceTree = "<group>";
-		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
 			isa = PBXGroup;
 			children = (
@@ -164,6 +162,22 @@
 				A30000000000000000000003 /* PDFViewer-macOSUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A20000000000000000000007 /* PDFViewer-macOSTests */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000002 /* PdfKitSmokeTests.m */,
+			);
+			path = "PDFViewer-macOSTests";
+			sourceTree = "<group>";
+		};
+		A30000000000000000000007 /* PDFViewer-macOSUITests */ = {
+			isa = PBXGroup;
+			children = (
+				A30000000000000000000002 /* PDFViewerUITests.m */,
+			);
+			path = "PDFViewer-macOSUITests";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -323,23 +337,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXFrameworksBuildPhase section */
-		A20000000000000000000004 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		A30000000000000000000004 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */ = {

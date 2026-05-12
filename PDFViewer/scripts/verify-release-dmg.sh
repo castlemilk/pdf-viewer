@@ -58,7 +58,11 @@ codesign --verify --deep --strict "$APP" 2>&1 | sed 's/^/  /'
 echo "[6/7] Gatekeeper/notarization checks..."
 if [[ "$EXPECT_NOTARIZED" == "1" ]]; then
   xcrun stapler validate "$DMG" 2>&1 | sed 's/^/  /'
-  spctl --assess --type open --context context:primary-signature --verbose "$DMG" 2>&1 | sed 's/^/  /'
+  if command -v syspolicy_check >/dev/null 2>&1; then
+    syspolicy_check distribution "$DMG" --verbose 2>&1 | sed 's/^/  /'
+  else
+    spctl --assess --type open --verbose "$DMG" 2>&1 | sed 's/^/  /'
+  fi
 else
   echo "  skipped notarization checks"
 fi

@@ -34,6 +34,11 @@ import type {
 import {importedPdfToDocument, PdfKitBridge} from './src/native/PdfKitBridge';
 
 type ScreenMode = 'library' | 'viewer' | 'compare';
+type ScreenshotMode = 'library' | 'viewer-info' | 'comments' | 'compare';
+
+type AppProps = {
+  screenshotMode?: ScreenshotMode;
+};
 
 const initialFilter: LibraryFilter = {
   query: '',
@@ -66,21 +71,23 @@ const initialAnnotations: Annotation[] = [
   }),
 ];
 
-function App() {
+function App({screenshotMode = 'library'}: AppProps) {
   const [libraryState, dispatchLibrary] = useReducer(
     libraryReducer,
     createInitialLibraryState(),
   );
   const [filter, setFilter] = useState<LibraryFilter>(initialFilter);
-  const [screenMode, setScreenMode] = useState<ScreenMode>('library');
+  const [screenMode, setScreenMode] = useState<ScreenMode>(() =>
+    getInitialScreenMode(screenshotMode),
+  );
   const [selectedDocumentId, setSelectedDocumentId] = useState(
-    'q4-market-analysis',
+    getInitialDocumentId(screenshotMode),
   );
   const selectedDocument =
     libraryState.documents.find(document => document.id === selectedDocumentId) ??
     libraryState.documents[0];
   const [viewerState, setViewerState] = useState<ViewerState>(() =>
-    createInitialViewerState(selectedDocument.id, selectedDocument.pageCount),
+    createInitialViewerStateForMode(selectedDocument, screenshotMode),
   );
   const [annotations, setAnnotations] =
     useState<Annotation[]>(initialAnnotations);
@@ -220,6 +227,51 @@ function App() {
       )}
     </View>
   );
+}
+
+function getInitialScreenMode(screenshotMode: ScreenshotMode): ScreenMode {
+  if (screenshotMode === 'compare') {
+    return 'compare';
+  }
+
+  if (screenshotMode === 'viewer-info' || screenshotMode === 'comments') {
+    return 'viewer';
+  }
+
+  return 'library';
+}
+
+function getInitialDocumentId(screenshotMode: ScreenshotMode): string {
+  if (screenshotMode === 'comments') {
+    return 'future-work';
+  }
+
+  return 'q4-market-analysis';
+}
+
+function createInitialViewerStateForMode(
+  document: DocumentRecord,
+  screenshotMode: ScreenshotMode,
+): ViewerState {
+  const state = createInitialViewerState(document.id, document.pageCount);
+
+  if (screenshotMode === 'viewer-info' || screenshotMode === 'compare') {
+    return {
+      ...state,
+      pageIndex: Math.min(7, document.pageCount - 1),
+    };
+  }
+
+  if (screenshotMode === 'comments') {
+    return {
+      ...state,
+      pageIndex: Math.min(11, document.pageCount - 1),
+      activeTool: 'highlight',
+      inspectorTab: 'comments',
+    };
+  }
+
+  return state;
 }
 
 function TitleBar({

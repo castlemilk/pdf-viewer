@@ -8,9 +8,20 @@
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
 {
   self.moduleName = @"PDFViewer";
-  // You can add your custom initial props in the dictionary below.
-  // They will be passed down to the ViewController used by React Native.
-  self.initialProps = @{};
+  NSString *screenshotMode =
+      [[NSProcessInfo processInfo].environment objectForKey:@"PDFVIEWER_SCREENSHOT_MODE"];
+  for (NSString *argument in [NSProcessInfo processInfo].arguments) {
+    if ([argument hasPrefix:@"--screenshot="]) {
+      screenshotMode = [argument substringFromIndex:[@"--screenshot=" length]];
+      break;
+    }
+  }
+
+  NSMutableDictionary *initialProps = [NSMutableDictionary new];
+  if (screenshotMode.length > 0) {
+    initialProps[@"screenshotMode"] = screenshotMode;
+  }
+  self.initialProps = initialProps;
   self.dependencyProvider = [RCTAppDependencyProvider new];
   
   return [super applicationDidFinishLaunching:notification];

@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+#
+# Build a Mac App Store archive for PDFViewer and optionally upload it to App Store Connect.
+#
+# Usage:
+#   scripts/build-app-store-archive.sh [--version VERSION] [--build-number NUMBER] [--upload]
+#
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+# shellcheck disable=SC1091
+source "$ROOT_DIR/scripts/load-apple-publishing-env.sh"
+
+VERSION="${VERSION:-$(node -p "require('${ROOT_DIR}/package.json').version")}"
+BUILD_NUMBER="${BUILD_NUMBER:-1}"
+OUTPUT_DIR="${APP_STORE_DIST_DIR:-$ROOT_DIR/dist/app-store}"
+ARCHIVE_PATH="${ARCHIVE_PATH:-$OUTPUT_DIR/PDFViewer-${VERSION}-${BUILD_NUMBER}.xcarchive}"
+EXPORT_PATH="${EXPORT_PATH:-$OUTPUT_DIR/export}"
+WORKSPACE="${WORKSPACE:-$ROOT_DIR/macos/PDFViewer.xcworkspace}"
+SCHEME="${SCHEME:-PDFViewer-macOS}"
+ARCHS="${ARCHS:-arm64 x86_64}"
+UPLOAD=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --version) VERSION="$2"; shift 2 ;;
+    --build-number) BUILD_NUMBER="$2"; shift 2 ;;
+    --archive-path) ARCHIVE_PATH="$2"; shift 2 ;;
+    --output) OUTPUT_DIR="$2"; EXPORT_PATH="$2/export"; shift 2 ;;
+    --upload) UPLOAD=1; shift ;;
+    -h|--help)
+      sed -n '2,/^$/s/^#//p' "$0"
+      exit 0 ;;
+    *)
+      echo "Unknown option: $1" >&2
+      exit 1 ;;
+  esac
+done
+
+if [[ -z "${APP_STORE_CONNECT_API_KEY_ID:-}" || -z "${APP_STORE_CONNECT_API_ISSUER_ID:-}" ]]; then
+  echo "Missing App Store Connect API key id or issuer. Configure .env.apple or PDFVIEWER_APPLE_ENV_FILE." >&2
+  exit 1
+fi
+
+if [[ -z "${APP_STORE_CONNECT_API_PRIVATE_KEY_PATH:-}" ]]; then
+  echo "APP_STORE_CONNECT_API_PRIVATE_KEY_PATH is required for xcodebuild archive/export authentication." >&2
+  exit 1
+fi
+
+if [[ ! -f "$APP_STORE_CONNECT_API_PRIVATE_KEY_PATH" ]]; then
+  echo "ASC private key path does not exist: $APP_STORE_CONNECT_API_PRIVATE_KEY_PATH" >&2
+  exit 1
+fi
+
+rm -rf "$OUTPUT_DIR"
+mkdir -p "$OUTPUT_DIR"
+
+EXPORT_OPTIONS_PLIST="$(mktemp /tmp/PDFViewerAppStoreExportOptions.XXXXXX.plist)"
+DESTINATION="export"
+if [[ "$UPLOAD" == "1" ]]; then
+  DESTINATION="upload"
+fi
+
+cat > "$EXPORT_OPTIONS_PLIST" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>destination</key>
+  <string>${DESTINATION}</string>
+  <key>method</key>
+  <string>app-store-connect</string>
+  <key>teamID</key>
+  <string>${DEVELOPMENT_TEAM}</string>
+  <key>signingStyle</key>
+  <string>automatic</string>
+  <key>stripSwiftSymbols</key>
+  <true/>
+  <key>uploadSymbols</key>
+  <true/>
+  <key>manageAppVersionAndBuildNumber</key>
+  <false/>
+  <key>generateAppStoreInformation</key>
+  <true/>
+</dict>
+</plist>
+PLIST
+
+echo "=== PDFViewer Mac App Store archive ==="
+echo "Version:     $VERSION"
+echo "Build:       $BUILD_NUMBER"
+echo "Bundle ID:   $BUNDLE_ID"
+echo "Team:        $DEVELOPMENT_TEAM"
+echo "Destination: $DESTINATION"
+echo "Archive:     $ARCHIVE_PATH"
+echo ""
+
+xcodebuild \
+  -workspace "$WORKSPACE" \
+  -scheme "$SCHEME" \
+  -configuration Release \
+  -destination 'generic/platform=macOS' \
+  -archivePath "$ARCHIVE_PATH" \
+  -allowProvisioningUpdates \
+  -authenticationKeyPath "$APP_STORE_CONNECT_API_PRIVATE_KEY_PATH" \
+  -authenticationKeyID "$APP_STORE_CONNECT_API_KEY_ID" \
+  -authenticationKeyIssuerID "$APP_STORE_CONNECT_API_ISSUER_ID" \
+  FORCE_BUNDLING=1 \
+  ONLY_ACTIVE_ARCH=NO \
+  ARCHS="$ARCHS" \
+  CODE_SIGN_STYLE=Automatic \
+  CODE_SIGNING_ALLOWED=YES \
+  PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+  MARKETING_VERSION="$VERSION" \
+  CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+  DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
+  ENABLE_HARDENED_RUNTIME=YES \
+  clean archive
+
+echo "[export] $DESTINATION via xcodebuild -exportArchive"
+xcodebuild \
+  -exportArchive \
+  -archivePath "$ARCHIVE_PATH" \
+  -exportPath "$EXPORT_PATH" \
+  -exportOptionsPlist "$EXPORT_OPTIONS_PLIST" \
+  -allowProvisioningUpdates \
+  -authenticationKeyPath "$APP_STORE_CONNECT_API_PRIVATE_KEY_PATH" \
+  -authenticationKeyID "$APP_STORE_CONNECT_API_KEY_ID" \
+  -authenticationKeyIssuerID "$APP_STORE_CONNECT_API_ISSUER_ID"
+
+INFO_PLIST="$ARCHIVE_PATH/Info.plist"
+METADATA_PATH="$OUTPUT_DIR/app-store-upload.json"
+BUNDLE_VERSION="$(plutil -extract ApplicationProperties.CFBundleVersion raw "$INFO_PLIST" 2>/dev/null || printf '%s' "$BUILD_NUMBER")"
+SHORT_VERSION="$(plutil -extract ApplicationProperties.CFBundleShortVersionString raw "$INFO_PLIST" 2>/dev/null || printf '%s' "$VERSION")"
+ARCHIVE_BUNDLE_ID="$(plutil -extract ApplicationProperties.CFBundleIdentifier raw "$INFO_PLIST" 2>/dev/null || printf '%s' "$BUNDLE_ID")"
+DELIVERY_ID="$(plutil -extract Distributions.0.identifier raw "$INFO_PLIST" 2>/dev/null || true)"
+
+node - "$METADATA_PATH" "$ARCHIVE_PATH" "$EXPORT_PATH" "$ARCHIVE_BUNDLE_ID" "$SHORT_VERSION" "$BUNDLE_VERSION" "$DELIVERY_ID" "$DESTINATION" <<'NODE'
+const fs = require('node:fs');
+const [path, archivePath, exportPath, bundleId, marketingVersion, buildNumber, deliveryId, destination] = process.argv.slice(2);
+const metadata = {
+  archivePath,
+  exportPath,
+  bundleId,
+  marketingVersion,
+  buildNumber,
+  deliveryId: deliveryId || undefined,
+  destination,
+  updatedAt: new Date().toISOString(),
+};
+fs.writeFileSync(path, `${JSON.stringify(metadata, null, 2)}\n`);
+NODE
+
+if [[ "$DESTINATION" == "export" ]]; then
+  /usr/bin/find "$EXPORT_PATH" -maxdepth 2 -type f -print | while IFS= read -r artifact; do
+    /usr/bin/shasum -a 256 "$artifact" > "$artifact.sha256"
+  done
+fi
+
+echo ""
+echo "App Store archive complete:"
+echo "  $ARCHIVE_PATH"
+echo "  $EXPORT_PATH"
+echo "  $METADATA_PATH"

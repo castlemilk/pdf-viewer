@@ -57,6 +57,12 @@ yarn-error.log
 *.jsbundle
 /dist/
 
+# Local publishing credentials
+.env
+.env.*
+!.env.example
+!.env.apple.example
+
 # Ruby / CocoaPods
 **/Pods/
 /vendor/bundle/

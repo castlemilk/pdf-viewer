@@ -24,5 +24,26 @@ target 'PDFViewer-macOS' do
 
   post_install do |installer|
     react_native_post_install(installer)
+
+    jsinspector_header_paths = [
+      '"$(PODS_ROOT)/../../node_modules/react-native-macos/ReactCommon/jsinspector-modern"',
+      '"$(PODS_ROOT)/Headers/Public/React-jsinspector/jsinspector-modern"',
+      '"$(PODS_ROOT)/Headers/Private/React-jsinspector/jsinspector-modern"',
+    ]
+
+    installer.pods_project.targets.each do |target|
+      next unless target.name.start_with?('React-')
+
+      extra_header_paths = ['"$(PODS_TARGET_SRCROOT)"']
+      if target.name.start_with?('React-jsinspector')
+        extra_header_paths += jsinspector_header_paths
+      end
+
+      target.build_configurations.each do |config|
+        paths = config.build_settings['HEADER_SEARCH_PATHS'] || ['$(inherited)']
+        paths = paths.split(' ') if paths.is_a?(String)
+        config.build_settings['HEADER_SEARCH_PATHS'] = (paths + extra_header_paths).uniq
+      end
+    end
   end
 end
