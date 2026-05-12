@@ -1,65 +1,91 @@
-# CI/CD Runbook
+# Local Cuttlefish CI/CD Runbook
 
-This repository is wired for GitHub Actions jobs that run on a Cuttlefish-backed self-hosted macOS runner.
+This repository uses a Cuttlefish-native workflow, not GitHub Actions. There is no `.github/workflows` pipeline for this repo, so GitHub must not schedule these jobs on hosted or self-hosted GitHub runners.
 
-## Runner Labels
+## One-Time Local Onboarding
 
-The workflow requires a runner with these labels:
-
-```text
-self-hosted, cuttlefish, macOS, pdf-viewer
-```
-
-Register the local Cuttlefish GitHub Actions compatibility runner from the sibling Cuttlefish checkout:
-
-```bash
-./scripts/start-cuttlefish-runner.sh
-```
-
-For a background runner on this Mac:
-
-```bash
-./scripts/install-cuttlefish-runner-launch-agent.sh
-launchctl print gui/$(id -u)/com.castlemilk.pdf-viewer.cuttlefish-runner
-tail -f ~/.cuttlefish/pdf-viewer-gh-runner.log
-```
-
-## Cuttlefish Cloud Onboarding
-
-The Cuttlefish org and project are:
-
-```text
-org:     castlemilk
-project: pdf-viewer
-repo:    https://github.com/castlemilk/pdf-viewer
-```
-
-Finish the GitHub App mapping when repository access is granted:
+Start Cuttlefish, publish the task packages used by the workflow, then register and publish the workflow in the local catalog:
 
 ```bash
 cd ../cuttlefish
-go run ./cmd/cuttle github install --org castlemilk --project pdf-viewer --open
-go run ./cmd/cuttle github installations --org castlemilk
-go run ./cmd/cuttle github sync --org castlemilk --installation <installation-id>
-go run ./cmd/cuttle github map --org castlemilk --project pdf-viewer --repo castlemilk/pdf-viewer
-go run ./cmd/cuttle projects check pdf-viewer
+make up
+source .dev/last-dev-ports.env
+
+docker build -t pipeline/checkout:0.2.1 task-packages/pipeline/checkout
+docker build -t pipeline/run-script:0.2.0 task-packages/pipeline/run-script
+
+go run ./cmd/cuttle task-packages publish task-packages/pipeline/checkout/manifest.yaml --base-url "http://localhost:${CONTROLPLANE_HOST_PORT}"
+go run ./cmd/cuttle task-packages publish task-packages/pipeline/run-script/manifest.yaml --base-url "http://localhost:${CONTROLPLANE_HOST_PORT}"
+
+go run ./cmd/cuttle workflows create ../pdf-viewer/workflows/pdf-viewer-ci.yaml \
+  --base-url "http://localhost:${CONTROLPLANE_HOST_PORT}" \
+  --name pdf-viewer-ci \
+  --description "pdf-viewer local CI: web install, build, Playwright e2e, artifacts"
+
+go run ./cmd/cuttle workflows list --base-url "http://localhost:${CONTROLPLANE_HOST_PORT}"
+go run ./cmd/cuttle workflows publish <workflow-id> --base-url "http://localhost:${CONTROLPLANE_HOST_PORT}"
+```
+
+The local UI is available at `http://localhost:${UI_HOST_PORT}` after sourcing `.dev/last-dev-ports.env`.
+
+## Run Locally
+
+Start the sibling Cuttlefish stack and run the workflow:
+
+```bash
+./scripts/run-cuttlefish-local-ci.sh
+```
+
+That script uses `../cuttlefish`, starts the local stack when needed, and runs:
+
+```bash
+cd ../cuttlefish
+go run ./cmd/cuttle run start \
+  --base-url http://localhost:<controlplane-port> \
+  --workflow ../pdf-viewer/workflows/pdf-viewer-ci.yaml \
+  --execution-mode docker \
+  --capabilities docker \
+  --wait
+```
+
+It also builds and publishes the local `pipeline/checkout` and `pipeline/run-script` task packages into the local Cuttlefish control plane before starting the run.
+
+## Watch Jobs
+
+Active jobs are visible on the local agent while a run is executing:
+
+```bash
+cd ../cuttlefish
+source .dev/last-dev-ports.env
+go run ./cmd/cuttle agent jobs --local "http://localhost:${RUNNER_HOST_PORT}" --watch
+```
+
+Completed runs are visible through the local control plane:
+
+```bash
+cd ../cuttlefish
+source .dev/last-dev-ports.env
+go run ./cmd/cuttle run list --base-url "http://localhost:${CONTROLPLANE_HOST_PORT}"
 ```
 
 ## What The Pipeline Does
 
-- `web-landing`: installs the root Vite app, builds it, and runs Playwright e2e checks on desktop and mobile Chromium.
-- `macos-app`: installs the React Native macOS app, installs CocoaPods, runs lint, Jest, TypeScript, native XCTest, and macOS UI e2e tests.
-- `package-macos`: on manual runs or `v*.*.*` tags, builds a Release ZIP and checksum.
-- `publish-release`: on `v*.*.*` tags, creates or updates a GitHub release with the macOS ZIP assets.
+- `checkout`: clones `https://github.com/castlemilk/pdf-viewer` into the Cuttlefish workspace.
+- `install-web`: installs the root Vite app dependencies with an npm cache.
+- `build-web`: runs TypeScript checking and the production Vite build.
+- `e2e-web`: runs Playwright desktop and mobile Chromium checks.
+- `collect-web-artifacts`: uploads the built `dist` directory as Cuttlefish artifacts.
 
-## Local Validation
+## macOS App Validation
+
+Cuttlefish's native local executor currently runs Docker/Podman tasks. The React Native macOS/Xcode validation must still run directly on the Mac host:
 
 ```bash
-npm run build
-npm run test:e2e
-
 cd PDFViewer
+npm ci
+bundle config set path vendor/bundle
+bundle install --jobs 4 --retry 3
+bundle exec pod install --project-directory=macos
 npm run validate
-npm run macos:ui-build
 npm run e2e:macos
 ```

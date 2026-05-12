@@ -1,0 +1,139 @@
+apiVersion: cuttlefish.dev/v1alpha1
+kind: Workflow
+metadata:
+  name: pdf-viewer-ci
+  description: "pdf-viewer local CI: web install, build, Playwright e2e, artifacts"
+spec:
+  inputs:
+    schema:
+      type: object
+      properties:
+        repo:
+          type: string
+          description: Git repository to test.
+        ref:
+          type: string
+          description: Branch, tag, or commit ref to test.
+      additionalProperties: false
+    defaults:
+      repo: https://github.com/castlemilk/pdf-viewer
+      ref: main
+
+  nodes:
+    - id: checkout
+      taskRef:
+        name: pipeline/checkout
+        version: "0.2.1"
+      inputs:
+        repo:
+          value: ${{ inputs.repo }}
+        ref:
+          value: ${{ inputs.ref }}
+      run:
+        timeout: 5m
+        retry:
+          maxAttempts: 2
+          backoff:
+            initial: 5s
+            max: 30s
+
+    - id: install-web
+      taskRef:
+        name: pipeline/run-script
+        version: "0.2.0"
+      inputs:
+        script:
+          value: |
+            npm ci --prefer-offline --no-audit --no-fund
+      cachePolicy:
+        keys:
+          - npm-root-${{ hashFiles('package-lock.json') }}
+          - npm-root-
+        paths:
+          - /root/.npm
+      run:
+        timeout: 10m
+        retry:
+          maxAttempts: 2
+          backoff:
+            initial: 10s
+            max: 1m
+
+    - id: build-web
+      taskRef:
+        name: pipeline/run-script
+        version: "0.2.0"
+      inputs:
+        script:
+          value: |
+            npm run typecheck
+            npm run build
+      run:
+        timeout: 10m
+        retry:
+          maxAttempts: 2
+          backoff:
+            initial: 10s
+            max: 1m
+
+    - id: e2e-web
+      taskRef:
+        name: pipeline/run-script
+        version: "0.2.0"
+      inputs:
+        script:
+          value: |
+            trap 'mkdir -p "$CUTTLE_ARTIFACT_DIR"; cp -R playwright-report test-results "$CUTTLE_ARTIFACT_DIR"/ 2>/dev/null || true' EXIT
+            npx playwright install --with-deps chromium
+            CI=true npm run test:e2e
+      cachePolicy:
+        keys:
+          - playwright-${{ hashFiles('package-lock.json') }}
+          - playwright-
+        paths:
+          - /root/.cache/ms-playwright
+      run:
+        timeout: 20m
+        retry:
+          maxAttempts: 2
+          backoff:
+            initial: 10s
+            max: 1m
+
+    - id: collect-web-artifacts
+      taskRef:
+        name: pipeline/run-script
+        version: "0.2.0"
+      inputs:
+        script:
+          value: |
+            mkdir -p "$CUTTLE_ARTIFACT_DIR/web-dist"
+            cp -R dist/. "$CUTTLE_ARTIFACT_DIR/web-dist/"
+            find "$CUTTLE_ARTIFACT_DIR/web-dist" -maxdepth 2 -type f | sort
+      run:
+        timeout: 3m
+        retry:
+          maxAttempts: 2
+          backoff:
+            initial: 10s
+            max: 1m
+
+  edges:
+    - id: e_checkout__install_web
+      from: { node: checkout, port: sha }
+      to: { node: install-web, port: _dependsOn }
+    - id: e_install_web__build_web
+      from: { node: install-web, port: exitCode }
+      to: { node: build-web, port: _dependsOn }
+    - id: e_build_web__e2e_web
+      from: { node: build-web, port: exitCode }
+      to: { node: e2e-web, port: _dependsOn }
+    - id: e_e2e_web__collect_web_artifacts
+      from: { node: e2e-web, port: exitCode }
+      to: { node: collect-web-artifacts, port: _dependsOn }
+
+  triggers:
+    - kind: manual
+    - kind: github
+      events: [push, pull_request]
+      branches: [main]
