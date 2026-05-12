@@ -8,9 +8,10 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 GITHUB_REPO="${GITHUB_REPO:-castlemilk/pdf-viewer}"
 RUNNER_LABELS="${RUNNER_LABELS:-self-hosted,cuttlefish,macOS,pdf-viewer}"
-RUNNER_NAME="${RUNNER_NAME:-cuttlefish-pdf-viewer-local}"
+RUNNER_NAME="${RUNNER_NAME:-cuttlefish-pdf-viewer-launchd}"
 CUTTLEFISH_PROJECT="${CUTTLEFISH_PROJECT:-pdf-viewer}"
 CUTTLEFISH_DIR="${CUTTLEFISH_DIR:-${REPO_ROOT}/../cuttlefish}"
+RUNNER_DOWNLOAD_TIMEOUT="${RUNNER_DOWNLOAD_TIMEOUT:-15m}"
 
 if [[ ! -d "${CUTTLEFISH_DIR}" ]]; then
   echo "Cuttlefish checkout not found at ${CUTTLEFISH_DIR}" >&2
@@ -34,4 +35,5 @@ exec go run ./cmd/cuttle agent github-runner register \
   --repo "${GITHUB_REPO}" \
   --name "${RUNNER_NAME}" \
   --labels "${RUNNER_LABELS}" \
+  --download-timeout "${RUNNER_DOWNLOAD_TIMEOUT}" \
   --token "${REGISTRATION_TOKEN}"
