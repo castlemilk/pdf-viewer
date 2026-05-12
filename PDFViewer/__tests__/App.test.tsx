@@ -23,6 +23,34 @@ test('renders the PDF library shell with core document workflows', async () => {
   expect(output).toContain('Compare');
 });
 
+test('opens the first matching search result from the inspector', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  const searchInput = renderer!.root.findByProps({
+    testID: 'library-search-input',
+  });
+
+  await ReactTestRenderer.act(() => {
+    searchInput.props.onChangeText('roadmap');
+  });
+
+  const openAction = renderer!.root.findByProps({
+    testID: 'inspector-open-action',
+  });
+
+  await ReactTestRenderer.act(() => {
+    openAction.props.onPress();
+  });
+
+  const output = JSON.stringify(renderer?.toJSON());
+
+  expect(output).toContain('Viewer screen Product Roadmap 2025');
+});
+
 test('opens directly into the viewer info screenshot state', async () => {
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 

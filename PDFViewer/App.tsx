@@ -1,4 +1,4 @@
-import React, {useMemo, useReducer, useState} from 'react';
+import React, {useEffect, useMemo, useReducer, useState} from 'react';
 import {
   Alert,
   Pressable,
@@ -96,6 +96,14 @@ function App({screenshotMode = 'library'}: AppProps) {
     () => getFilteredDocuments(libraryState, filter),
     [filter, libraryState],
   );
+  useEffect(() => {
+    if (
+      visibleDocuments.length > 0 &&
+      !visibleDocuments.some(document => document.id === selectedDocumentId)
+    ) {
+      setSelectedDocumentId(visibleDocuments[0].id);
+    }
+  }, [selectedDocumentId, visibleDocuments]);
   const continueReading = useMemo(
     () => getContinueReadingDocuments(libraryState, 4),
     [libraryState],

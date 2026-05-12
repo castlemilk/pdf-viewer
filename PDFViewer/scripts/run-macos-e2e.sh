@@ -43,7 +43,7 @@ FORCE_BUNDLING=1 xcodebuild \
   -workspace macos/PDFViewer.xcworkspace \
   -scheme PDFViewer-macOS-UI \
   -configuration Release \
-  -destination 'platform=macOS' \
+  -destination "platform=macOS,arch=${ARCHS}" \
   -derivedDataPath "$DERIVED_DATA_PATH" \
   -resultBundlePath "$RESULT_BUNDLE_PATH" \
   ONLY_ACTIVE_ARCH=YES \
