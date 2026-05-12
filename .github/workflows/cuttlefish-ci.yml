@@ -114,10 +114,6 @@ jobs:
         working-directory: PDFViewer
         run: npm run validate
 
-      - name: Build macOS UI test bundle
-        working-directory: PDFViewer
-        run: npm run macos:ui-build
-
       - name: Run macOS UI e2e tests
         working-directory: PDFViewer
         run: npm run e2e:macos
