@@ -18,15 +18,20 @@ guard let logo = NSImage(contentsOf: logoURL) else {
 
 struct IconSlot {
   let idiom: String
-  let points: Int
+  let points: Double
   let scale: Int
 
-  var pixels: Int { points * scale }
+  var pixels: Int { Int((points * Double(scale)).rounded()) }
   var filename: String {
+    let normalizedIdiom = idiom.replacingOccurrences(of: "-", with: "_")
+    let normalizedPoints = String(format: "%g", points).replacingOccurrences(of: ".", with: "_")
     let suffix = scale == 1 ? "" : "@\(scale)x"
-    return "icon_\(points)x\(points)\(suffix).png"
+    return "\(normalizedIdiom)_icon_\(normalizedPoints)x\(normalizedPoints)\(suffix).png"
   }
-  var size: String { "\(points)x\(points)" }
+  var size: String {
+    let normalizedPoints = String(format: "%g", points)
+    return "\(normalizedPoints)x\(normalizedPoints)"
+  }
   var scaleName: String { "\(scale)x" }
 }
 
@@ -62,6 +67,15 @@ let iconSets = [
       IconSlot(idiom: "iphone", points: 40, scale: 3),
       IconSlot(idiom: "iphone", points: 60, scale: 2),
       IconSlot(idiom: "iphone", points: 60, scale: 3),
+      IconSlot(idiom: "ipad", points: 20, scale: 1),
+      IconSlot(idiom: "ipad", points: 20, scale: 2),
+      IconSlot(idiom: "ipad", points: 29, scale: 1),
+      IconSlot(idiom: "ipad", points: 29, scale: 2),
+      IconSlot(idiom: "ipad", points: 40, scale: 1),
+      IconSlot(idiom: "ipad", points: 40, scale: 2),
+      IconSlot(idiom: "ipad", points: 76, scale: 1),
+      IconSlot(idiom: "ipad", points: 76, scale: 2),
+      IconSlot(idiom: "ipad", points: 83.5, scale: 2),
       IconSlot(idiom: "ios-marketing", points: 1024, scale: 1),
     ]
   ),
@@ -137,6 +151,13 @@ func writeContents(for iconSet: IconSet, to iconsetURL: URL) throws {
 for iconSet in iconSets {
   let iconsetURL = root.appendingPathComponent(iconSet.path, isDirectory: true)
   try FileManager.default.createDirectory(at: iconsetURL, withIntermediateDirectories: true)
+
+  for fileURL in try FileManager.default.contentsOfDirectory(
+    at: iconsetURL,
+    includingPropertiesForKeys: nil
+  ) where fileURL.pathExtension == "png" {
+    try FileManager.default.removeItem(at: fileURL)
+  }
 
   for slot in iconSet.slots {
     let data = try drawIcon(pixelSize: slot.pixels)

@@ -12,11 +12,43 @@ BUILD_NUMBER="${BUILD_NUMBER:-${APP_STORE_BUILD_NUMBER:-1}}"
 PLATFORM="${APP_STORE_PLATFORM:-MAC_OS}"
 METADATA_PATH="${APP_STORE_UPLOAD_METADATA_PATH:-$ROOT_DIR/dist/app-store/app-store-upload.json}"
 USE_DELIVERY_STATUS="${APP_STORE_STATUS_USE_DELIVERY_ID:-0}"
+VERSION_EXPLICIT=0
+BUILD_NUMBER_EXPLICIT=0
+PLATFORM_EXPLICIT=0
+METADATA_PATH_EXPLICIT=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --version) VERSION="$2"; VERSION_EXPLICIT=1; shift 2 ;;
+    --build-number) BUILD_NUMBER="$2"; BUILD_NUMBER_EXPLICIT=1; shift 2 ;;
+    --platform) PLATFORM="$2"; PLATFORM_EXPLICIT=1; shift 2 ;;
+    --metadata-path) METADATA_PATH="$2"; METADATA_PATH_EXPLICIT=1; shift 2 ;;
+    --use-delivery-status) USE_DELIVERY_STATUS="1"; shift ;;
+    -h|--help)
+      cat <<'USAGE'
+Usage:
+  scripts/check-app-store-status.sh [--version VERSION] [--build-number NUMBER]
+                                    [--platform MAC_OS|IOS]
+                                    [--metadata-path PATH]
+                                    [--use-delivery-status]
+USAGE
+      exit 0 ;;
+    *)
+      echo "Unknown option: $1" >&2
+      exit 1 ;;
+  esac
+done
 
 if [[ -f "$METADATA_PATH" ]]; then
-  VERSION="$(node -e "const m=require('$METADATA_PATH'); console.log(m.marketingVersion || '$VERSION')")"
-  BUILD_NUMBER="$(node -e "const m=require('$METADATA_PATH'); console.log(m.buildNumber || '$BUILD_NUMBER')")"
-  PLATFORM="$(node -e "const m=require('$METADATA_PATH'); console.log(m.platform || '$PLATFORM')")"
+  if [[ "$VERSION_EXPLICIT" == "0" || "$METADATA_PATH_EXPLICIT" == "1" ]]; then
+    VERSION="$(node -e "const m=require('$METADATA_PATH'); console.log(m.marketingVersion || '$VERSION')")"
+  fi
+  if [[ "$BUILD_NUMBER_EXPLICIT" == "0" || "$METADATA_PATH_EXPLICIT" == "1" ]]; then
+    BUILD_NUMBER="$(node -e "const m=require('$METADATA_PATH'); console.log(m.buildNumber || '$BUILD_NUMBER')")"
+  fi
+  if [[ "$PLATFORM_EXPLICIT" == "0" || "$METADATA_PATH_EXPLICIT" == "1" ]]; then
+    PLATFORM="$(node -e "const m=require('$METADATA_PATH'); console.log(m.platform || '$PLATFORM')")"
+  fi
   DELIVERY_ID="$(node -e "const m=require('$METADATA_PATH'); console.log(m.deliveryId || '')")"
 else
   DELIVERY_ID="${APP_STORE_DELIVERY_ID:-}"
