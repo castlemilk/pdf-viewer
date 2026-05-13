@@ -1214,7 +1214,7 @@ function ViewerScreen({
         onAction={onViewerAction}
         onAddHighlight={onAddHighlight}
       />
-      <View style={styles.readerBody}>
+      <View style={styles.readerBody} testID="reader-body">
         {viewer.showThumbnails ? (
           <ThumbnailRail
             document={document}
@@ -1276,7 +1276,7 @@ function CompareScreen({
       testID="compare-screen"
       accessible
       accessibilityLabel={`Compare screen ${leftDocument.title}`}>
-      <View style={styles.readerToolbar}>
+      <View style={styles.readerToolbar} testID="compare-toolbar">
         <ButtonChrome label="Library" onPress={onBack} testID="compare-library-button" />
         <ButtonChrome
           label="Compare"
@@ -1309,7 +1309,7 @@ function CompareScreen({
           />
         </View>
       </View>
-      <View style={styles.readerBody}>
+      <View style={styles.readerBody} testID="compare-reader-body">
         <ThumbnailRail
           document={leftDocument}
           pageIndex={viewer.pageIndex}
@@ -1681,7 +1681,7 @@ function ReaderToolbar({
   ];
 
   return (
-    <View style={styles.readerToolbar}>
+    <View style={styles.readerToolbar} testID="reader-toolbar">
       <ButtonChrome
         label="Library"
         onPress={onBack}
@@ -2395,6 +2395,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F8FA',
   },
   titleBar: {
+    position: 'relative',
     height: 64,
     backgroundColor: '#FBFBFD',
     borderBottomColor: '#DADDE4',
@@ -2402,6 +2403,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
+    zIndex: 3,
   },
   trafficLights: {
     flexDirection: 'row',
@@ -2934,9 +2936,16 @@ const styles = StyleSheet.create({
     color: '#1769E8',
   },
   readerShell: {
+    position: 'relative',
     flex: 1,
+    overflow: 'hidden',
+    zIndex: 0,
   },
   readerToolbar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     height: 54,
     backgroundColor: '#FAFBFD',
     borderBottomColor: '#DADDE4',
@@ -2944,6 +2953,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
+    zIndex: 10,
   },
   zoomText: {
     color: '#1F2633',
@@ -2980,8 +2990,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   readerBody: {
-    flex: 1,
+    position: 'absolute',
+    top: 54,
+    right: 0,
+    bottom: 52,
+    left: 0,
     flexDirection: 'row',
+    overflow: 'hidden',
+    zIndex: 0,
   },
   thumbnailRail: {
     width: 214,
@@ -3114,6 +3130,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   bottomBar: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    left: 0,
     height: 52,
     backgroundColor: '#FAFBFD',
     borderTopColor: '#DADDE4',
@@ -3121,6 +3141,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 24,
+    zIndex: 10,
   },
   bottomLabel: {
     width: 190,

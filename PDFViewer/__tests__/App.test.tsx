@@ -3,6 +3,7 @@
  */
 
 import React from 'react';
+import {StyleSheet} from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import App from '../App';
 
@@ -192,6 +193,69 @@ test('desktop document clicks open the reader and controls update visible state'
 
   expect(output).toContain('Comments');
   expect(output).toContain('Local non-destructive highlight');
+});
+
+test('desktop reader clips the canvas below toolbar and scrubber controls', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findAllByProps({testID: 'doc-card-q4-market-analysis'})[0]
+      .props.onPress();
+  });
+
+  expect(
+    StyleSheet.flatten(
+      renderer!.root.findByProps({testID: 'viewer-screen'}).props.style,
+    ),
+  ).toEqual(
+    expect.objectContaining({
+      flex: 1,
+      overflow: 'hidden',
+      zIndex: 0,
+    }),
+  );
+  expect(
+    StyleSheet.flatten(
+      renderer!.root.findByProps({testID: 'reader-toolbar'}).props.style,
+    ),
+  ).toEqual(
+    expect.objectContaining({
+      position: 'absolute',
+      top: 0,
+      height: 54,
+      zIndex: 10,
+    }),
+  );
+  expect(
+    StyleSheet.flatten(
+      renderer!.root.findByProps({testID: 'reader-body'}).props.style,
+    ),
+  ).toEqual(
+    expect.objectContaining({
+      position: 'absolute',
+      top: 54,
+      bottom: 52,
+      overflow: 'hidden',
+      zIndex: 0,
+    }),
+  );
+  expect(
+    StyleSheet.flatten(
+      renderer!.root.findByProps({testID: 'bottom-scrubber'}).props.style,
+    ),
+  ).toEqual(
+    expect.objectContaining({
+      position: 'absolute',
+      bottom: 0,
+      height: 52,
+      zIndex: 10,
+    }),
+  );
 });
 
 test('desktop library view mode toggle swaps recent documents between grid and list', async () => {

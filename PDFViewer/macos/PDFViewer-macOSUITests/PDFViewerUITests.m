@@ -103,6 +103,17 @@
                 expected);
 }
 
+- (void)assertElement:(XCUIElement *)inner staysInsideElement:(XCUIElement *)outer name:(NSString *)name
+{
+  XCTAssertFalse(CGRectIsEmpty(inner.frame), @"Expected %@ to have a measurable frame", name);
+  XCTAssertFalse(CGRectIsEmpty(outer.frame), @"Expected containing element for %@ to have a measurable frame", name);
+  XCTAssertTrue(CGRectContainsRect(CGRectInset(outer.frame, -1, -1), inner.frame),
+                @"Expected %@ frame %@ to stay inside %@",
+                name,
+                NSStringFromRect(inner.frame),
+                NSStringFromRect(outer.frame));
+}
+
 - (void)testSeededLibraryLaunchesWithMajorRegions
 {
   [self launchAndWaitForLibrary];
@@ -166,6 +177,26 @@
 {
   [self launchAndWaitForLibrary];
   [self openSelectedDocument];
+
+  XCUIElement *window = self.app.windows.firstMatch;
+  XCUIElement *viewer = [self waitForIdentifier:@"viewer-screen"];
+  XCUIElement *canvas = [self waitForIdentifier:@"pdf-canvas-fallback"];
+  XCUIElement *bottomScrubber = [self waitForIdentifier:@"bottom-scrubber"];
+  XCUIElement *nextButton = [self waitForIdentifier:@"viewer-page-next"];
+  XCUIElement *previousButton = [self waitForIdentifier:@"viewer-page-previous"];
+
+  [self assertElement:viewer staysInsideElement:window name:@"viewer"];
+  [self assertElement:canvas staysInsideElement:viewer name:@"PDF canvas"];
+  XCTAssertLessThanOrEqual(CGRectGetMaxY(canvas.frame),
+                           CGRectGetMinY(bottomScrubber.frame) + 1,
+                           @"PDF canvas should not cover the bottom page scrubber");
+  XCTAssertTrue(nextButton.isHittable, @"Next page control should be hittable");
+  XCTAssertTrue(previousButton.isHittable, @"Previous page control should be hittable");
+
+  [self tapIdentifier:@"viewer-page-next"];
+  [self assertPageLabelContains:@"Page 2"];
+  [self tapIdentifier:@"viewer-page-previous"];
+  [self assertPageLabelContains:@"Page 1"];
 
   [self tapIdentifier:@"thumbnail-page-8"];
   [self assertPageLabelContains:@"Page 8"];
