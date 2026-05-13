@@ -1,4 +1,4 @@
-PDFViewer is a local-first PDF workspace for Mac users who review, organize, annotate, and compare professional documents.
+Acacia is a local-first PDF workspace for Mac users who review, organize, annotate, and compare professional documents.
 
 Open PDFs into a polished native macOS reading surface with thumbnail navigation, page controls, zoom, metadata, comments, and export actions. Keep reports, research, invoices, contracts, and review documents organized with tags, collections, favorites, recent activity, and reading progress.
 
@@ -13,6 +13,6 @@ Built for focused desktop work:
 - Compare two PDF versions side by side with synced navigation
 - Work offline with local sidecar metadata
 
-PDFViewer is designed for solo professionals, researchers, operators, and finance or strategy teams who want a quiet, fast Mac document workspace without cloud lock-in.
+Acacia is designed for solo professionals, researchers, operators, and finance or strategy teams who want a quiet, fast Mac document workspace without cloud lock-in.
 
 Your original PDF files stay untouched. Local annotations, comments, tags, collections, and progress are stored as sidecar app data, and exports create new copies when you need to share reviewed documents.

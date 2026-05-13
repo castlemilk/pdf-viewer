@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1140"
+   LastUpgradeVersion = "2630"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -9,15 +9,15 @@
          <BuildActionEntry
             buildForTesting = "YES"
             buildForRunning = "YES"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "514201482437B4B30078DB4F"
-               BuildableName = "PDFViewer.app"
-               BlueprintName = "PDFViewer-macOS"
-               ReferencedContainer = "container:PDFViewer.xcodeproj">
+               BuildableName = "Acacia.app"
+               BlueprintName = "Acacia-macOS"
+               ReferencedContainer = "container:Acacia.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
          <BuildActionEntry
@@ -28,10 +28,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "A30000000000000000000008"
-               BuildableName = "PDFViewer-macOSUITests.xctest"
-               BlueprintName = "PDFViewer-macOSUITests"
-               ReferencedContainer = "container:PDFViewer.xcodeproj">
+               BlueprintIdentifier = "A20000000000000000000008"
+               BuildableName = "Acacia-macOSTests.xctest"
+               BlueprintName = "Acacia-macOSTests"
+               ReferencedContainer = "container:Acacia.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -43,25 +43,17 @@
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
          <TestableReference
-            skipped = "NO">
+            skipped = "NO"
+            parallelizable = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "A30000000000000000000008"
-               BuildableName = "PDFViewer-macOSUITests.xctest"
-               BlueprintName = "PDFViewer-macOSUITests"
-               ReferencedContainer = "container:PDFViewer.xcodeproj">
+               BlueprintIdentifier = "A20000000000000000000008"
+               BuildableName = "Acacia-macOSTests.xctest"
+               BlueprintName = "Acacia-macOSTests"
+               ReferencedContainer = "container:Acacia.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "514201482437B4B30078DB4F"
-            BuildableName = "PDFViewer.app"
-            BlueprintName = "PDFViewer-macOS"
-            ReferencedContainer = "container:PDFViewer.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -78,9 +70,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "514201482437B4B30078DB4F"
-            BuildableName = "PDFViewer.app"
-            BlueprintName = "PDFViewer-macOS"
-            ReferencedContainer = "container:PDFViewer.xcodeproj">
+            BuildableName = "Acacia.app"
+            BlueprintName = "Acacia-macOS"
+            ReferencedContainer = "container:Acacia.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -95,9 +87,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "514201482437B4B30078DB4F"
-            BuildableName = "PDFViewer.app"
-            BlueprintName = "PDFViewer-macOS"
-            ReferencedContainer = "container:PDFViewer.xcodeproj">
+            BuildableName = "Acacia.app"
+            BlueprintName = "Acacia-macOS"
+            ReferencedContainer = "container:Acacia.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

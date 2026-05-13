@@ -7,7 +7,7 @@ cd "$ROOT_DIR"
 # shellcheck disable=SC1091
 source "$ROOT_DIR/scripts/load-apple-publishing-env.sh"
 
-VERSION="${VERSION:-$(node -p "require('${ROOT_DIR}/package.json').version")}"
+VERSION="${VERSION:-${APP_STORE_VERSION:-$(node -p "require('${ROOT_DIR}/package.json').version")}}"
 TEXT_DIR="${APP_STORE_TEXT_DIR:-$ROOT_DIR/publishing/app-store-text}"
 
 if [[ -z "${APP_STORE_CONNECT_APP_ID:-}" ]]; then

@@ -20,6 +20,20 @@
                ReferencedContainer = "container:PDFViewer.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "C0A000000000000000000007"
+               BuildableName = "PDFViewerUITests.xctest"
+               BlueprintName = "PDFViewerUITests"
+               ReferencedContainer = "container:PDFViewer.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -32,9 +46,9 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "PDFViewerTests.xctest"
-               BlueprintName = "PDFViewerTests"
+               BlueprintIdentifier = "C0A000000000000000000007"
+               BuildableName = "PDFViewerUITests.xctest"
+               BlueprintName = "PDFViewerUITests"
                ReferencedContainer = "container:PDFViewer.xcodeproj">
             </BuildableReference>
          </TestableReference>

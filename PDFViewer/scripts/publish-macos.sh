@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${VERSION:-$(node -p "require('${ROOT_DIR}/package.json').version")}"
 BUILD_NUMBER="${BUILD_NUMBER:-1}"
-DMG_PATH="${DIST_DIR:-${ROOT_DIR}/dist/macos}/PDFViewer-${VERSION}.dmg"
+DMG_PATH="${DIST_DIR:-${ROOT_DIR}/dist/macos}/Acacia-${VERSION}.dmg"
 
 cd "$ROOT_DIR"
 

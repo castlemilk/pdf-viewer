@@ -67,10 +67,28 @@ export function getFilteredDocuments(
       const matchesCollection =
         filter.collectionId === 'all' ||
         document.collectionIds.includes(filter.collectionId);
+      const matchesScope = matchesLibraryScope(document, filter.scope);
 
-      return matchesQuery && matchesTag && matchesCollection;
+      return matchesQuery && matchesTag && matchesCollection && matchesScope;
     })
     .sort((left, right) => compareDocuments(left, right, filter.sortBy));
+}
+
+function matchesLibraryScope(
+  document: DocumentRecord,
+  scope: LibraryFilter['scope'],
+) {
+  switch (scope) {
+    case 'recent':
+      return document.progress > 0;
+    case 'favorites':
+      return document.favorite;
+    case 'shared':
+      return document.shared;
+    case 'library':
+    default:
+      return true;
+  }
 }
 
 export function getContinueReadingDocuments(

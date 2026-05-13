@@ -1,4 +1,4 @@
-# PDFViewer Publishing
+# Acacia Publishing
 
 ## Direct Developer ID Distribution
 
@@ -12,9 +12,9 @@ This runs JS tests, TypeScript, XCTest, macOS UI e2e, builds a universal Release
 
 Artifacts:
 
-- `dist/macos/PDFViewer-<version>.dmg`
-- `dist/macos/PDFViewer-<version>.zip`
-- `dist/macos/PDFViewer-<version>.manifest.json`
+- `dist/macos/Acacia-<version>.dmg`
+- `dist/macos/Acacia-<version>.zip`
+- `dist/macos/Acacia-<version>.manifest.json`
 - SHA-256 files beside each artifact
 
 ## Mac App Store
@@ -32,6 +32,19 @@ Check credentials and local signing:
 ```sh
 npm run publish:prereqs
 ```
+
+Create or confirm the Apple Developer Bundle ID:
+
+```sh
+npm run publish:appstore:bundle-id
+```
+
+Current App Store export requirements:
+
+- Local `Mac App Distribution` or `Apple Distribution` signing identity for team `WFTX6CN23F`.
+- Local `Mac Installer Distribution` signing identity for team `WFTX6CN23F`.
+- Or an App Store Connect API key with cloud signing permission, then run with `ALLOW_APP_STORE_CLOUD_SIGNING=1`.
+- `APP_STORE_CONNECT_APP_ID` is needed for metadata upload and build status checks after the app exists in App Store Connect.
 
 Build an App Store archive without upload:
 
@@ -51,10 +64,33 @@ Upload the archive to App Store Connect only when ready:
 npm run publish:appstore -- --upload
 ```
 
+Run the Greenveil-style local rollout command:
+
+```sh
+npm run publish:appstore:rollout -- --version 1.0
+```
+
+This runs the local validation gate, confirms the Bundle ID, archives, uploads
+to App Store Connect, then polls Apple processing. If `--build-number` is not
+provided, it uses a timestamp build number. Useful options:
+
+```sh
+npm run publish:appstore:rollout -- --version 1.0 --build-number 2
+npm run publish:appstore:rollout -- --version 1.0 --skip-validation
+npm run publish:appstore:rollout -- --version 1.0 --skip-archive --archive-path dist/app-store/Acacia-1.0-2.xcarchive
+npm run publish:appstore:rollout -- --version 1.0 --no-wait
+```
+
 Check build processing after upload:
 
 ```sh
 APP_STORE_CONNECT_APP_ID=<apple-app-id> npm run publish:appstore:status
+```
+
+Wait for build processing after upload:
+
+```sh
+npm run publish:appstore:wait -- --version 1.0 --build-number 2
 ```
 
 Upload App Store text metadata after replacing support and marketing URLs:

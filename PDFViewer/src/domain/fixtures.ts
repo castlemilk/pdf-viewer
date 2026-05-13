@@ -50,7 +50,7 @@ export const demoDocuments: DocumentRecord[] = [
     tags: ['work', 'research'],
     collectionIds: ['q4-reports', 'research-papers'],
     favorite: false,
-    shared: false,
+    shared: true,
     thumbnailTone: 'paper',
   },
   {
@@ -135,7 +135,7 @@ export const demoDocuments: DocumentRecord[] = [
     tags: ['work'],
     collectionIds: ['archive'],
     favorite: false,
-    shared: false,
+    shared: true,
     thumbnailTone: 'paper',
   },
   {

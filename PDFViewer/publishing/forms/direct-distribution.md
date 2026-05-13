@@ -1,25 +1,25 @@
-# PDFViewer Direct Distribution Packet
+# Acacia Direct Distribution Packet
 
 Prepared on 2026-05-12.
 
 ## Status
 
-Direct Developer ID distribution is technically ready.
+Direct Developer ID distribution is technically ready for the Acacia brand.
 
 Artifact:
-dist/macos/PDFViewer-0.0.1.dmg
+dist/macos/Acacia-0.0.1.dmg
 
 SHA-256:
-0c21af237f156d031e6a0d65e7a9593b5bbe5da465e8d54e3602d3a678c8f099
+6a11e7fefccb82a8d58f5eb53eaaf9befe38eb346a0ce16b96a4974e603147d1
 
 Bundle ID:
-com.benebsworth.pdfviewer
+com.benebsworth.acacia
 
 Team ID:
 WFTX6CN23F
 
 Notarization submission:
-c1aa6ab6-20e1-4bec-989f-07f5afe67ac2
+a32b0b6f-87b6-4954-b77b-901ae9b7bd00
 
 ## Verification Completed
 
@@ -31,11 +31,11 @@ c1aa6ab6-20e1-4bec-989f-07f5afe67ac2
 - DMG stapled and validated
 - syspolicy_check distribution passed
 - Mounted-DMG launch smoke test passed
-- Full npm run publish:macos pipeline passed
+- Mounted-DMG verification passed with `scripts/verify-release-dmg.sh`
 
 ## Release Notes
 
-PDFViewer 0.0.1 introduces the first macOS release:
+Acacia 0.0.1 introduces the first macOS release:
 
 - Local-first PDF library with tags, collections, favorites, recents, and reading progress
 - Native PDFKit viewer with thumbnails, zoom, page navigation, search, and metadata
@@ -47,13 +47,13 @@ PDFViewer 0.0.1 introduces the first macOS release:
 ## Download Page Copy
 
 Headline:
-PDFViewer for macOS
+Acacia for macOS
 
 Subheadline:
 A local-first PDF workspace for reading, annotating, organizing, and comparing documents on your Mac.
 
 Body:
-PDFViewer keeps professional PDF workflows fast and private. Organize reports, contracts, research, invoices, and reference material in a clean local library, then open documents in a native PDFKit viewer with thumbnails, search, zoom, comments, annotations, exports, and side-by-side comparison.
+Acacia keeps professional PDF workflows fast and private. Organize reports, contracts, research, invoices, and reference material in a clean local library, then open documents in a native PDFKit viewer with thumbnails, search, zoom, comments, annotations, exports, and side-by-side comparison.
 
 Your original PDFs are never modified. Review notes and annotations are stored locally as sidecar metadata, and exports create separate copies when you need to share work.
 
@@ -61,19 +61,19 @@ System requirements:
 macOS 14 or later recommended.
 
 Install:
-Download the DMG, open it, and drag PDFViewer to Applications.
+Download the DMG, open it, and drag Acacia to Applications.
 
 Security:
 Signed and notarized with Apple Developer ID.
 
 Checksum:
-0c21af237f156d031e6a0d65e7a9593b5bbe5da465e8d54e3602d3a678c8f099
+6a11e7fefccb82a8d58f5eb53eaaf9befe38eb346a0ce16b96a4974e603147d1
 
 ## Support Page Copy
 
-PDFViewer Support
+Acacia Support
 
-PDFViewer is a local-first macOS PDF app. It does not require an account and does not upload your PDFs to a cloud service.
+Acacia is a local-first macOS PDF app. It does not require an account and does not upload your PDFs to a cloud service.
 
 Common tasks:
 - Import a PDF with Open File.
@@ -93,13 +93,13 @@ TBD support email, legal address, and phone number.
 
 ## Privacy Policy Draft
 
-PDFViewer Privacy Policy
+Acacia Privacy Policy
 
-PDFViewer is designed as a local-first macOS app.
+Acacia is designed as a local-first macOS app.
 
 We do not collect personal data through the app. The app does not include analytics, advertising SDKs, accounts, telemetry, or cloud sync.
 
-Documents you import remain on your Mac. Tags, collections, favorites, comments, annotations, reading progress, bookmarks, and compare sessions are stored locally on your device. PDFViewer does not upload this content to our servers.
+Documents you import remain on your Mac. Tags, collections, favorites, comments, annotations, reading progress, bookmarks, and compare sessions are stored locally on your device. Acacia does not upload this content to our servers.
 
 If you choose to export, share, or send a file using macOS sharing features, that action is initiated by you and handled by the destination you choose.
 
@@ -113,9 +113,6 @@ Last updated:
 
 ## Remaining Direct Distribution Work
 
-1. Choose public version number. Consider 1.0.0 for launch instead of 0.0.1.
-2. Add a final branded app icon.
-3. Publish support/privacy pages with real contact details.
-4. Upload the DMG and checksum to the chosen download host.
-5. Optionally create a GitHub Release or website changelog entry.
-6. Smoke test the downloaded DMG from the final public URL.
+1. Publish support/privacy pages with real contact details.
+2. Upload the DMG and checksum to the GCP download bucket.
+3. Smoke test the downloaded DMG from the final public URL.

@@ -3,11 +3,19 @@
 #import <React/RCTBundleURLProvider.h>
 #import <ReactAppDependencyProvider/RCTAppDependencyProvider.h>
 
+@interface RCTAppDelegate (AcaciaWindowLoading)
+- (void)loadReactNativeWindow:(NSDictionary *)launchOptions;
+@end
+
+@interface AppDelegate ()
+- (void)ensureMainWindowVisibleWithLaunchOptions:(NSDictionary *)launchOptions;
+@end
+
 @implementation AppDelegate
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
 {
-  self.moduleName = @"PDFViewer";
+  self.moduleName = @"Acacia";
   NSString *screenshotMode =
       [[NSProcessInfo processInfo].environment objectForKey:@"PDFVIEWER_SCREENSHOT_MODE"];
   for (NSString *argument in [NSProcessInfo processInfo].arguments) {
@@ -23,8 +31,46 @@
   }
   self.initialProps = initialProps;
   self.dependencyProvider = [RCTAppDependencyProvider new];
+  self.automaticallyLoadReactNativeWindow = YES;
   
-  return [super applicationDidFinishLaunching:notification];
+  [super applicationDidFinishLaunching:notification];
+  [self ensureMainWindowVisibleWithLaunchOptions:[notification userInfo]];
+}
+
+- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
+{
+  [self ensureMainWindowVisibleWithLaunchOptions:@{}];
+  return YES;
+}
+
+- (void)ensureMainWindowVisibleWithLaunchOptions:(NSDictionary *)launchOptions
+{
+  if (self.window == nil) {
+    [self loadReactNativeWindow:launchOptions ?: @{}];
+  }
+
+  NSRect visibleFrame = NSScreen.mainScreen.visibleFrame;
+  if (NSIsEmptyRect(visibleFrame)) {
+    visibleFrame = NSMakeRect(0, 0, 1440, 900);
+  }
+
+  NSRect frame = self.window.frame;
+  BOOL frameTooSmall = NSWidth(frame) < 640 || NSHeight(frame) < 480;
+  BOOL frameOffscreen = NSIsEmptyRect(NSIntersectionRect(frame, visibleFrame));
+  if (frameTooSmall || frameOffscreen) {
+    CGFloat width = MIN(MAX(NSWidth(visibleFrame) - 96, 960), 1320);
+    CGFloat height = MIN(MAX(NSHeight(visibleFrame) - 96, 680), 860);
+    NSRect defaultFrame = NSMakeRect(NSMidX(visibleFrame) - width / 2,
+                                     NSMidY(visibleFrame) - height / 2,
+                                     width,
+                                     height);
+    [self.window setFrame:defaultFrame display:YES];
+  }
+
+  self.window.title = @"Acacia";
+  [self.window setFrameAutosaveName:@"AcaciaMainWindow"];
+  [self.window makeKeyAndOrderFront:nil];
+  [NSApp activateIgnoringOtherApps:YES];
 }
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge
@@ -34,19 +80,17 @@
 
 - (NSURL *)bundleURL
 {
+  NSURL *bundledURL = [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
 #if DEBUG
-  BOOL isUITesting =
-      [[[NSProcessInfo processInfo].environment objectForKey:@"PDFVIEWER_UITESTING"] isEqualToString:@"1"] ||
-      [[NSProcessInfo processInfo].arguments containsObject:@"--uitesting"];
-  if (isUITesting) {
-    NSURL *bundledURL = [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
-    if (bundledURL != nil) {
-      return bundledURL;
-    }
+  BOOL useMetro =
+      [[[NSProcessInfo processInfo].environment objectForKey:@"ACACIA_USE_METRO"] isEqualToString:@"1"] ||
+      [[NSProcessInfo processInfo].arguments containsObject:@"--metro"];
+  if (!useMetro && bundledURL != nil) {
+    return bundledURL;
   }
   return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index"];
 #else
-  return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
+  return bundledURL;
 #endif
 }
 

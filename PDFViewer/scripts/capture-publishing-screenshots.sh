@@ -5,7 +5,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_PATH="${APP_PATH:-$ROOT_DIR/.build-release/PDFViewer.app}"
+APP_PATH="${APP_PATH:-$ROOT_DIR/.build-release/Acacia.app}"
 OUT_DIR="${SCREENSHOT_DIR:-$ROOT_DIR/publishing/screenshots/app-store}"
 RECT="${SCREENSHOT_RECT:-80,180,1440,900}"
 
@@ -20,14 +20,14 @@ capture_mode() {
   local mode="$1"
   local output="$2"
 
-  pkill -x PDFViewer >/dev/null 2>&1 || true
-  "$APP_PATH/Contents/MacOS/PDFViewer" --uitesting "--screenshot=$mode" >/tmp/pdfviewer-screenshot.log 2>&1 &
+  pkill -x Acacia >/dev/null 2>&1 || true
+  "$APP_PATH/Contents/MacOS/Acacia" --uitesting "--screenshot=$mode" >/tmp/acacia-screenshot.log 2>&1 &
   local pid=$!
   sleep 2
 
   osascript <<OSA >/dev/null 2>&1 || true
 tell application "System Events"
-  tell process "PDFViewer"
+  tell process "Acacia"
     set frontmost to true
     try
       set position of window 1 to {80, 180}
@@ -48,6 +48,6 @@ capture_mode viewer-info 02-viewer-info.png
 capture_mode comments 03-comments-annotations.png
 capture_mode compare 04-compare-changes.png
 
-pkill -x PDFViewer >/dev/null 2>&1 || true
+pkill -x Acacia >/dev/null 2>&1 || true
 
 sips -g pixelWidth -g pixelHeight "$OUT_DIR"/*.png

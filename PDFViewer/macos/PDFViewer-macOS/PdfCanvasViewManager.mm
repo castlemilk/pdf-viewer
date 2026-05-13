@@ -82,7 +82,7 @@
   for (NSUInteger pageIndex = 0; pageIndex < document.pageCount; pageIndex += 1) {
     PDFPage *page = [document pageAtIndex:pageIndex];
     for (PDFAnnotation *annotation in page.annotations.copy) {
-      if ([annotation.contents hasPrefix:@"PaperView:"]) {
+      if ([annotation.contents hasPrefix:@"Acacia:"]) {
         [page removeAnnotation:annotation];
       }
     }
@@ -106,7 +106,7 @@
                                                              forType:PDFAnnotationSubtypeHighlight
                                                       withProperties:nil];
     annotation.color = [NSColor colorWithCalibratedRed:1 green:0.82 blue:0.12 alpha:0.42];
-    annotation.contents = [NSString stringWithFormat:@"PaperView:%@", [RCTConvert NSString:annotationInfo[@"id"]]];
+    annotation.contents = [NSString stringWithFormat:@"Acacia:%@", [RCTConvert NSString:annotationInfo[@"id"]]];
     [page addAnnotation:annotation];
   }
 }

@@ -3,7 +3,7 @@
 # Source Apple publishing credentials for local release scripts.
 #
 # This intentionally loads only an allowlist from shared fallback env files so
-# a neighboring app's App Store app id cannot be applied to PDFViewer by accident.
+# a neighboring app's App Store app id cannot be applied to Acacia by accident.
 #
 # Usage:
 #   source scripts/load-apple-publishing-env.sh
@@ -68,8 +68,9 @@ _pdfviewer_load_allowed_env_file \
   APPLE_APP_SPECIFIC_PASSWORD_KEYCHAIN_ITEM
 
 export DEVELOPMENT_TEAM="${PDFVIEWER_DEVELOPMENT_TEAM:-${DEVELOPMENT_TEAM:-WFTX6CN23F}}"
-export BUNDLE_ID="${PDFVIEWER_BUNDLE_ID:-${BUNDLE_ID:-com.benebsworth.pdfviewer}}"
+export BUNDLE_ID="${PDFVIEWER_BUNDLE_ID:-${BUNDLE_ID:-com.benebsworth.acacia}}"
 export APP_STORE_CONNECT_BUNDLE_ID="${PDFVIEWER_APP_STORE_CONNECT_BUNDLE_ID:-${APP_STORE_CONNECT_BUNDLE_ID:-$BUNDLE_ID}}"
+export APP_STORE_CONNECT_APP_ID="${PDFVIEWER_APP_STORE_CONNECT_APP_ID:-${APP_STORE_CONNECT_APP_ID:-6768526705}}"
 
 if [[ -n "${PDFVIEWER_APP_STORE_CONNECT_APP_ID:-}" ]]; then
   export APP_STORE_CONNECT_APP_ID="$PDFVIEWER_APP_STORE_CONNECT_APP_ID"

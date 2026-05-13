@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1140"
+   LastUpgradeVersion = "2630"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "A20000000000000000000008"
-               BuildableName = "PDFViewer-macOSTests.xctest"
-               BlueprintName = "PDFViewer-macOSTests"
-               ReferencedContainer = "container:PDFViewer.xcodeproj">
+               BuildableName = "Acacia-macOSTests.xctest"
+               BlueprintName = "Acacia-macOSTests"
+               ReferencedContainer = "container:Acacia.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "A20000000000000000000008"
-               BuildableName = "PDFViewer-macOSTests.xctest"
-               BlueprintName = "PDFViewer-macOSTests"
-               ReferencedContainer = "container:PDFViewer.xcodeproj">
+               BuildableName = "Acacia-macOSTests.xctest"
+               BlueprintName = "Acacia-macOSTests"
+               ReferencedContainer = "container:Acacia.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>

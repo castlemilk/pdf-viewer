@@ -9,7 +9,7 @@ source "$ROOT_DIR/scripts/load-apple-publishing-env.sh"
 
 required_tools=(xcodebuild xcrun codesign security plutil hdiutil shasum)
 
-echo "=== PDFViewer publishing prerequisites ==="
+echo "=== Acacia publishing prerequisites ==="
 echo "Bundle ID: $BUNDLE_ID"
 echo "Team ID:   $DEVELOPMENT_TEAM"
 echo ""
@@ -30,10 +30,26 @@ if ! security find-identity -v -p codesigning | grep -q "Developer ID Applicatio
 fi
 echo "  Developer ID Application identity found"
 
+HAS_APP_STORE_APP_CERT=0
+HAS_APP_STORE_INSTALLER_CERT=0
 if security find-identity -v -p codesigning | grep -Eq "(Apple Distribution|Mac App Distribution): .*\\($DEVELOPMENT_TEAM\\)"; then
-  echo "  App Store distribution identity found locally"
+  HAS_APP_STORE_APP_CERT=1
+fi
+if security find-identity -v -p codesigning | grep -Eq "Mac Installer Distribution: .*\\($DEVELOPMENT_TEAM\\)"; then
+  HAS_APP_STORE_INSTALLER_CERT=1
+fi
+
+if [[ "$HAS_APP_STORE_APP_CERT" == "1" && "$HAS_APP_STORE_INSTALLER_CERT" == "1" ]]; then
+  echo "  App Store distribution identities found locally"
 else
-  echo "  App Store distribution identity not found locally; xcodebuild can use ASC API cloud signing if the key has access"
+  echo "  App Store distribution identities not complete locally"
+  [[ "$HAS_APP_STORE_APP_CERT" == "1" ]] || echo "    missing: Mac App Distribution or Apple Distribution"
+  [[ "$HAS_APP_STORE_INSTALLER_CERT" == "1" ]] || echo "    missing: Mac Installer Distribution"
+  if [[ "${APP_STORE_EXPORT_USE_XCODE_ACCOUNT:-0}" == "1" ]]; then
+    echo "    signed-in Xcode account export is enabled for App Store upload"
+  else
+    echo "    xcodebuild export can use cloud signing only if the ASC API key has that permission"
+  fi
 fi
 
 echo "[3/5] Notarization profile"
@@ -91,4 +107,13 @@ else
 fi
 
 echo ""
-echo "Publishing prerequisites look ready."
+echo "Developer ID publishing prerequisites look ready."
+if [[ "$HAS_APP_STORE_APP_CERT" == "1" && "$HAS_APP_STORE_INSTALLER_CERT" == "1" ]]; then
+  echo "Mac App Store local signing prerequisites look ready."
+else
+  if [[ "${APP_STORE_EXPORT_USE_XCODE_ACCOUNT:-0}" == "1" ]]; then
+    echo "Mac App Store export will use the signed-in Xcode account."
+  else
+    echo "Mac App Store export is blocked until local App Store signing certs are installed, ASC cloud signing permission is enabled, or APP_STORE_EXPORT_USE_XCODE_ACCOUNT=1 is set."
+  fi
+fi

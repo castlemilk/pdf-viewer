@@ -23,7 +23,7 @@ RCT_EXPORT_METHOD(openPdf:(RCTPromiseResolveBlock)resolve
     panel.allowsMultipleSelection = NO;
     panel.canChooseDirectories = NO;
     panel.canChooseFiles = YES;
-    panel.message = @"Choose a PDF to add to PaperView";
+    panel.message = @"Choose a PDF to add to Acacia";
 
     if ([panel runModal] != NSModalResponseOK || panel.URL == nil) {
       resolve(nil);
@@ -136,7 +136,7 @@ RCT_EXPORT_METHOD(exportPageImage:(NSString *)path
     return;
   }
 
-  NSString *fileName = [NSString stringWithFormat:@"paperview-page-%@.png", pageIndex];
+  NSString *fileName = [NSString stringWithFormat:@"acacia-page-%@.png", pageIndex];
   NSURL *url = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:fileName]];
   NSError *error = nil;
 
@@ -321,7 +321,7 @@ RCT_EXPORT_METHOD(writeSidecar:(NSString *)documentId
     NSString *subtype = [kind isEqualToString:@"note"] ? PDFAnnotationSubtypeText : PDFAnnotationSubtypeHighlight;
     PDFAnnotation *annotation = [[PDFAnnotation alloc] initWithBounds:bounds forType:subtype withProperties:nil];
     annotation.color = [NSColor colorWithCalibratedRed:1 green:0.82 blue:0.12 alpha:0.45];
-    annotation.contents = [RCTConvert NSString:annotationInfo[@"text"]] ?: @"PaperView annotation";
+    annotation.contents = [RCTConvert NSString:annotationInfo[@"text"]] ?: @"Acacia annotation";
     [page addAnnotation:annotation];
   }
 }
@@ -330,7 +330,7 @@ RCT_EXPORT_METHOD(writeSidecar:(NSString *)documentId
 {
   NSURL *supportURL = [[NSFileManager defaultManager] URLsForDirectory:NSApplicationSupportDirectory
                                                              inDomains:NSUserDomainMask].firstObject;
-  return [[supportURL URLByAppendingPathComponent:@"PaperView/Sidecars" isDirectory:YES]
+  return [[supportURL URLByAppendingPathComponent:@"Acacia/Sidecars" isDirectory:YES]
           URLByAppendingPathComponent:[NSString stringWithFormat:@"%@.json", documentId]];
 }
 

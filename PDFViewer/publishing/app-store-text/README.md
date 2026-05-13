@@ -2,7 +2,7 @@
 
 This folder is the local source for `xcrun altool --app-store-text`.
 
-Before running `npm run publish:appstore:text`, download the live App Store Connect text once for the PDFViewer app and compare the generated file layout:
+Before running `npm run publish:appstore:text`, download the live App Store Connect text once for the Acacia app and compare the generated file layout:
 
 ```sh
 xcrun altool --app-store-text publishing/app-store-text-download \

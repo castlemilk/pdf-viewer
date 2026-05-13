@@ -13,6 +13,7 @@ describe('library state', () => {
       query: 'market',
       tagId: 'all',
       collectionId: 'all',
+      scope: 'library',
       sortBy: 'lastOpened',
       viewMode: 'grid',
     });
@@ -61,5 +62,38 @@ describe('library state', () => {
 
     expect(results).toHaveLength(3);
     expect(results.map(document => document.progress)).toEqual([0.6, 0.4, 0.25]);
+  });
+
+  it('filters documents by recent favorites and shared scopes', () => {
+    const state = createInitialLibraryState();
+    const baseFilter = {
+      query: '',
+      tagId: 'all',
+      collectionId: 'all',
+      sortBy: 'lastOpened' as const,
+      viewMode: 'grid' as const,
+    };
+
+    expect(
+      getFilteredDocuments(state, {...baseFilter, scope: 'favorites'}).map(
+        document => document.id,
+      ),
+    ).toEqual(['product-roadmap', 'future-work']);
+    expect(
+      getFilteredDocuments(state, {...baseFilter, scope: 'shared'}).map(
+        document => document.id,
+      ),
+    ).toEqual(['competitive-landscape', 'board-minutes-apr']);
+    expect(
+      getFilteredDocuments(state, {...baseFilter, scope: 'recent'}).map(
+        document => document.id,
+      ),
+    ).toEqual([
+      'q4-market-analysis',
+      'competitive-landscape',
+      'product-roadmap',
+      'annual-financial-report',
+      'future-work',
+    ]);
   });
 });

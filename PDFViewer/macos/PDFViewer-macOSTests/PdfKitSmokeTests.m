@@ -53,7 +53,7 @@
                                                            forType:PDFAnnotationSubtypeHighlight
                                                     withProperties:nil];
   annotation.color = [NSColor colorWithCalibratedRed:1 green:0.82 blue:0.12 alpha:0.45];
-  annotation.contents = @"PaperView test annotation";
+  annotation.contents = @"Acacia test annotation";
   [page addAnnotation:annotation];
 
   XCTAssertTrue([workingCopy writeToURL:copyURL]);

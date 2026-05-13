@@ -3,12 +3,12 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="${DIST_DIR:-$ROOT_DIR/dist/macos}"
-DERIVED_DATA_PATH="${DERIVED_DATA_PATH:-$(mktemp -d /tmp/PDFViewerPackageDerivedData.XXXXXX)}"
+DERIVED_DATA_PATH="${DERIVED_DATA_PATH:-$(mktemp -d /tmp/AcaciaPackageDerivedData.XXXXXX)}"
 CONFIGURATION="${CONFIGURATION:-Release}"
 SCHEME="${SCHEME:-PDFViewer-macOS}"
 WORKSPACE="${WORKSPACE:-$ROOT_DIR/macos/PDFViewer.xcworkspace}"
-APP_NAME="${APP_NAME:-PDFViewer.app}"
-ZIP_NAME="${ZIP_NAME:-PDFViewer-macOS-$CONFIGURATION.zip}"
+APP_NAME="${APP_NAME:-Acacia.app}"
+ZIP_NAME="${ZIP_NAME:-Acacia-macOS-$CONFIGURATION.zip}"
 PACKAGE_ARCHS="${ARCHS:-$(uname -m)}"
 XCODEBUILD_ARGS=()
 

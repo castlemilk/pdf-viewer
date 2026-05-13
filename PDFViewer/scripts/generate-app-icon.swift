@@ -2,194 +2,147 @@ import AppKit
 import Foundation
 
 let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-let iconset = root
-  .appendingPathComponent("macos/PDFViewer-macOS/Assets.xcassets/AppIcon.appiconset", isDirectory: true)
+let defaultLogo = root
+  .appendingPathComponent("../public/logo.png")
+  .standardizedFileURL
+let logoPath = ProcessInfo.processInfo.environment["ACACIA_LOGO_PATH"]
+let logoURL = logoPath.map { URL(fileURLWithPath: $0) } ?? defaultLogo
 
-try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
+guard let logo = NSImage(contentsOf: logoURL) else {
+  throw NSError(
+    domain: "AcaciaIcon",
+    code: 1,
+    userInfo: [NSLocalizedDescriptionKey: "Unable to load logo image at \(logoURL.path)"]
+  )
+}
 
 struct IconSlot {
+  let idiom: String
   let points: Int
   let scale: Int
 
   var pixels: Int { points * scale }
   var filename: String {
-    scale == 1 ? "icon_\(points)x\(points).png" : "icon_\(points)x\(points)@2x.png"
+    let suffix = scale == 1 ? "" : "@\(scale)x"
+    return "icon_\(points)x\(points)\(suffix).png"
   }
+  var size: String { "\(points)x\(points)" }
+  var scaleName: String { "\(scale)x" }
 }
 
-let slots = [
-  IconSlot(points: 16, scale: 1),
-  IconSlot(points: 16, scale: 2),
-  IconSlot(points: 32, scale: 1),
-  IconSlot(points: 32, scale: 2),
-  IconSlot(points: 128, scale: 1),
-  IconSlot(points: 128, scale: 2),
-  IconSlot(points: 256, scale: 1),
-  IconSlot(points: 256, scale: 2),
-  IconSlot(points: 512, scale: 1),
-  IconSlot(points: 512, scale: 2),
+struct IconSet {
+  let path: String
+  let slots: [IconSlot]
+}
+
+let iconSets = [
+  IconSet(
+    path: "macos/PDFViewer-macOS/Assets.xcassets/AppIcon.appiconset",
+    slots: [
+      IconSlot(idiom: "mac", points: 16, scale: 1),
+      IconSlot(idiom: "mac", points: 16, scale: 2),
+      IconSlot(idiom: "mac", points: 32, scale: 1),
+      IconSlot(idiom: "mac", points: 32, scale: 2),
+      IconSlot(idiom: "mac", points: 128, scale: 1),
+      IconSlot(idiom: "mac", points: 128, scale: 2),
+      IconSlot(idiom: "mac", points: 256, scale: 1),
+      IconSlot(idiom: "mac", points: 256, scale: 2),
+      IconSlot(idiom: "mac", points: 512, scale: 1),
+      IconSlot(idiom: "mac", points: 512, scale: 2),
+    ]
+  ),
+  IconSet(
+    path: "ios/PDFViewer/Images.xcassets/AppIcon.appiconset",
+    slots: [
+      IconSlot(idiom: "iphone", points: 20, scale: 2),
+      IconSlot(idiom: "iphone", points: 20, scale: 3),
+      IconSlot(idiom: "iphone", points: 29, scale: 2),
+      IconSlot(idiom: "iphone", points: 29, scale: 3),
+      IconSlot(idiom: "iphone", points: 40, scale: 2),
+      IconSlot(idiom: "iphone", points: 40, scale: 3),
+      IconSlot(idiom: "iphone", points: 60, scale: 2),
+      IconSlot(idiom: "iphone", points: 60, scale: 3),
+      IconSlot(idiom: "ios-marketing", points: 1024, scale: 1),
+    ]
+  ),
 ]
 
-func color(_ hex: UInt32) -> NSColor {
-  NSColor(
-    calibratedRed: CGFloat((hex >> 16) & 0xff) / 255,
-    green: CGFloat((hex >> 8) & 0xff) / 255,
-    blue: CGFloat(hex & 0xff) / 255,
-    alpha: 1
-  )
-}
-
 func drawIcon(pixelSize: Int) throws -> Data {
-  guard
-    let rep = NSBitmapImageRep(
-      bitmapDataPlanes: nil,
-      pixelsWide: pixelSize,
-      pixelsHigh: pixelSize,
-      bitsPerSample: 8,
-      samplesPerPixel: 4,
-      hasAlpha: true,
-      isPlanar: false,
-      colorSpaceName: .deviceRGB,
-      bitmapFormat: [.alphaFirst],
-      bytesPerRow: 0,
-      bitsPerPixel: 0
-    ),
-    let context = NSGraphicsContext(bitmapImageRep: rep)
-  else {
-    throw NSError(domain: "PDFViewerIcon", code: 1)
+  let colorSpace = CGColorSpaceCreateDeviceRGB()
+  guard let context = CGContext(
+    data: nil,
+    width: pixelSize,
+    height: pixelSize,
+    bitsPerComponent: 8,
+    bytesPerRow: pixelSize * 4,
+    space: colorSpace,
+    bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+  ) else {
+    throw NSError(domain: "AcaciaIcon", code: 2)
   }
 
-  let size = CGFloat(pixelSize)
-  NSGraphicsContext.saveGraphicsState()
-  NSGraphicsContext.current = context
+  let canvas = CGRect(x: 0, y: 0, width: pixelSize, height: pixelSize)
+  context.interpolationQuality = .high
 
-  let canvas = NSRect(x: 0, y: 0, width: size, height: size)
-  NSColor.clear.setFill()
-  canvas.fill()
+  context.setFillColor(CGColor(red: 0.972, green: 0.976, blue: 0.984, alpha: 1))
+  context.fill(canvas)
 
-  let radius = size * 0.23
-  let background = NSBezierPath(roundedRect: canvas.insetBy(dx: size * 0.035, dy: size * 0.035), xRadius: radius, yRadius: radius)
-  let gradient = NSGradient(colors: [color(0x2563eb), color(0x0f766e), color(0xf8fafc)])!
-  gradient.draw(in: background, angle: 135)
-
-  color(0x0f172a).withAlphaComponent(0.18).setFill()
-  NSBezierPath(roundedRect: NSRect(x: size * 0.22, y: size * 0.15, width: size * 0.58, height: size * 0.68), xRadius: size * 0.075, yRadius: size * 0.075).fill()
-
-  let page = NSRect(x: size * 0.18, y: size * 0.19, width: size * 0.58, height: size * 0.68)
-  let pagePath = NSBezierPath(roundedRect: page, xRadius: size * 0.07, yRadius: size * 0.07)
-  color(0xffffff).setFill()
-  pagePath.fill()
-
-  color(0xdbeafe).setFill()
-  NSBezierPath(roundedRect: NSRect(x: page.minX + size * 0.08, y: page.maxY - size * 0.20, width: size * 0.33, height: size * 0.045), xRadius: size * 0.02, yRadius: size * 0.02).fill()
-  NSBezierPath(roundedRect: NSRect(x: page.minX + size * 0.08, y: page.maxY - size * 0.30, width: size * 0.42, height: size * 0.035), xRadius: size * 0.018, yRadius: size * 0.018).fill()
-  NSBezierPath(roundedRect: NSRect(x: page.minX + size * 0.08, y: page.maxY - size * 0.38, width: size * 0.36, height: size * 0.035), xRadius: size * 0.018, yRadius: size * 0.018).fill()
-
-  color(0x2563eb).setFill()
-  let barWidth = size * 0.055
-  let chartBase = page.minY + size * 0.12
-  for (index, height) in [0.16, 0.24, 0.34].enumerated() {
-    let x = page.minX + size * (0.12 + CGFloat(index) * 0.13)
-    let rect = NSRect(x: x, y: chartBase, width: barWidth, height: size * CGFloat(height))
-    NSBezierPath(roundedRect: rect, xRadius: barWidth * 0.45, yRadius: barWidth * 0.45).fill()
+  guard let cgLogo = logo.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+    throw NSError(domain: "AcaciaIcon", code: 3)
   }
 
-  color(0xfacc15).setStroke()
-  let marker = NSBezierPath()
-  marker.move(to: NSPoint(x: page.maxX - size * 0.18, y: page.minY + size * 0.18))
-  marker.line(to: NSPoint(x: page.maxX + size * 0.08, y: page.minY + size * 0.40))
-  marker.lineWidth = max(2, size * 0.035)
-  marker.lineCapStyle = .round
-  marker.stroke()
+  let sourceSize = CGSize(width: cgLogo.width, height: cgLogo.height)
+  let scale = min(canvas.width / sourceSize.width, canvas.height / sourceSize.height)
+  let drawSize = CGSize(width: sourceSize.width * scale, height: sourceSize.height * scale)
+  let drawRect = CGRect(
+    x: canvas.midX - drawSize.width / 2,
+    y: canvas.midY - drawSize.height / 2,
+    width: drawSize.width,
+    height: drawSize.height
+  )
 
-  color(0x0f172a).withAlphaComponent(0.20).setStroke()
-  pagePath.lineWidth = max(1, size * 0.01)
-  pagePath.stroke()
+  context.draw(cgLogo, in: drawRect)
 
-  NSGraphicsContext.restoreGraphicsState()
-
+  guard let rendered = context.makeImage() else {
+    throw NSError(domain: "AcaciaIcon", code: 4)
+  }
+  let rep = NSBitmapImageRep(cgImage: rendered)
   guard let data = rep.representation(using: .png, properties: [:]) else {
-    throw NSError(domain: "PDFViewerIcon", code: 2)
+    throw NSError(domain: "AcaciaIcon", code: 5)
   }
 
   return data
 }
 
-for slot in slots {
-  let data = try drawIcon(pixelSize: slot.pixels)
-  try data.write(to: iconset.appendingPathComponent(slot.filename))
-}
-
-let contents = """
-{
-  "images" : [
-    {
-      "filename" : "icon_16x16.png",
-      "idiom" : "mac",
-      "scale" : "1x",
-      "size" : "16x16"
-    },
-    {
-      "filename" : "icon_16x16@2x.png",
-      "idiom" : "mac",
-      "scale" : "2x",
-      "size" : "16x16"
-    },
-    {
-      "filename" : "icon_32x32.png",
-      "idiom" : "mac",
-      "scale" : "1x",
-      "size" : "32x32"
-    },
-    {
-      "filename" : "icon_32x32@2x.png",
-      "idiom" : "mac",
-      "scale" : "2x",
-      "size" : "32x32"
-    },
-    {
-      "filename" : "icon_128x128.png",
-      "idiom" : "mac",
-      "scale" : "1x",
-      "size" : "128x128"
-    },
-    {
-      "filename" : "icon_128x128@2x.png",
-      "idiom" : "mac",
-      "scale" : "2x",
-      "size" : "128x128"
-    },
-    {
-      "filename" : "icon_256x256.png",
-      "idiom" : "mac",
-      "scale" : "1x",
-      "size" : "256x256"
-    },
-    {
-      "filename" : "icon_256x256@2x.png",
-      "idiom" : "mac",
-      "scale" : "2x",
-      "size" : "256x256"
-    },
-    {
-      "filename" : "icon_512x512.png",
-      "idiom" : "mac",
-      "scale" : "1x",
-      "size" : "512x512"
-    },
-    {
-      "filename" : "icon_512x512@2x.png",
-      "idiom" : "mac",
-      "scale" : "2x",
-      "size" : "512x512"
-    }
-  ],
-  "info" : {
-    "author" : "xcode",
-    "version" : 1
+func writeContents(for iconSet: IconSet, to iconsetURL: URL) throws {
+  let images = iconSet.slots.map { slot -> [String: String] in
+    [
+      "filename": slot.filename,
+      "idiom": slot.idiom,
+      "scale": slot.scaleName,
+      "size": slot.size,
+    ]
   }
+  let contents: [String: Any] = [
+    "images": images,
+    "info": [
+      "author": "xcode",
+      "version": 1,
+    ],
+  ]
+  let data = try JSONSerialization.data(withJSONObject: contents, options: [.prettyPrinted, .sortedKeys])
+  try data.write(to: iconsetURL.appendingPathComponent("Contents.json"), options: .atomic)
 }
-"""
 
-try contents.write(to: iconset.appendingPathComponent("Contents.json"), atomically: true, encoding: .utf8)
-print("Generated PDFViewer app icon set at \(iconset.path)")
+for iconSet in iconSets {
+  let iconsetURL = root.appendingPathComponent(iconSet.path, isDirectory: true)
+  try FileManager.default.createDirectory(at: iconsetURL, withIntermediateDirectories: true)
+
+  for slot in iconSet.slots {
+    let data = try drawIcon(pixelSize: slot.pixels)
+    try data.write(to: iconsetURL.appendingPathComponent(slot.filename), options: .atomic)
+  }
+
+  try writeContents(for: iconSet, to: iconsetURL)
+  print("Generated Acacia app icon set at \(iconsetURL.path)")
+}

@@ -8,7 +8,8 @@ vendor/bundle
 playwright-report
 test-results
 .playwright-mcp
-paperview-landing-*.png
+.gcp
+acacia-landing-*.png
 *.tsbuildinfo
 *.local
 *.xcuserstate

@@ -3,13 +3,32 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_ID="${RUN_ID:-$$}"
-DERIVED_DATA_PATH="${DERIVED_DATA_PATH:-${TMPDIR:-/tmp}/PDFViewerUIDerivedData-${RUN_ID}}"
-RESULT_BUNDLE_PATH="${RESULT_BUNDLE_PATH:-${TMPDIR:-/tmp}/PDFViewer-macOS-UI-${RUN_ID}.xcresult}"
+DERIVED_DATA_PATH="${DERIVED_DATA_PATH:-${TMPDIR:-/tmp}/AcaciaUIDerivedData-${RUN_ID}}"
+RESULT_BUNDLE_PATH="${RESULT_BUNDLE_PATH:-${TMPDIR:-/tmp}/Acacia-macOS-UI-${RUN_ID}.xcresult}"
 ARCHS="${ARCHS:-$(uname -m)}"
 
+assert_automation_mode_enabled() {
+  local status
+
+  status="$(xcrun automationmodetool 2>&1 || true)"
+  if [[ "$status" == *"Automation Mode is disabled"* ]]; then
+    cat >&2 <<'EOF'
+macOS Automation Mode is disabled, so XCTest UI tests cannot run.
+
+Enable it once from a local terminal, then rerun this command:
+  sudo xcrun automationmodetool enable-automationmode-without-authentication
+
+The command prompts for your macOS admin password. Codex cannot provide that
+password for you.
+EOF
+    exit 70
+  fi
+}
+
 cleanup_stale_test_processes() {
-  pkill -f "${DERIVED_DATA_PATH}/Build/Products/Release/PDFViewer.app/Contents/MacOS/PDFViewer" >/dev/null 2>&1 || true
+  pkill -f "${DERIVED_DATA_PATH}/Build/Products/Release/Acacia.app/Contents/MacOS/Acacia" >/dev/null 2>&1 || true
   pkill -f "${DERIVED_DATA_PATH}/Build/Products/Release/PDFViewer-macOSUITests-Runner.app" >/dev/null 2>&1 || true
+  pkill -f "${DERIVED_DATA_PATH}/Build/Products/Release/Acacia-macOSUITests-Runner.app" >/dev/null 2>&1 || true
 }
 
 remove_path() {
@@ -37,6 +56,8 @@ trap cleanup EXIT
 
 cd "$ROOT_DIR"
 
+assert_automation_mode_enabled
+
 FORCE_BUNDLING=1 xcodebuild \
   -quiet \
   test \
@@ -48,4 +69,5 @@ FORCE_BUNDLING=1 xcodebuild \
   -resultBundlePath "$RESULT_BUNDLE_PATH" \
   ONLY_ACTIVE_ARCH=YES \
   ARCHS="$ARCHS" \
-  ENABLE_HARDENED_RUNTIME=NO
+  ENABLE_HARDENED_RUNTIME=NO \
+  TEST_TARGET_NAME="Acacia-macOS"

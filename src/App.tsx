@@ -2,6 +2,7 @@ type DownloadLink = {
   label: string;
   href: string;
   detail: string;
+  download?: boolean;
 };
 
 type Feature = {
@@ -11,82 +12,96 @@ type Feature = {
   visual: "reader" | "annotate" | "edit" | "pages" | "secure" | "devices";
 };
 
+const release = {
+  appName: "Acacia",
+  bundleId: "com.benebsworth.acacia",
+  version: import.meta.env.VITE_DOWNLOAD_VERSION ?? "0.0.1",
+  href: import.meta.env.VITE_DOWNLOAD_URL ?? "/downloads/Acacia-0.0.1.dmg",
+  checksum: import.meta.env.VITE_DOWNLOAD_SHA256 ?? "pending release checksum",
+  size: import.meta.env.VITE_DOWNLOAD_SIZE ?? "9.1 MB",
+  manifestHref: import.meta.env.VITE_DOWNLOAD_MANIFEST_URL ?? "/downloads/Acacia-0.0.1.manifest.json",
+  checksumHref: import.meta.env.VITE_DOWNLOAD_CHECKSUM_URL ?? "/downloads/Acacia-0.0.1.dmg.sha256",
+};
+
+const logoSrc = "/logo.png";
+
 const downloads: DownloadLink[] = [
   {
-    label: "Download Free",
-    href: "/downloads/PaperView-mac-universal.dmg",
-    detail: "Universal macOS installer",
+    label: "Download Acacia",
+    href: release.href,
+    detail: `Universal macOS DMG, ${release.size}`,
+    download: true,
   },
   {
-    label: "Download for Apple Silicon",
-    href: "/downloads/PaperView-arm64.dmg",
-    detail: "M1, M2, M3, and M4 Macs",
+    label: "SHA-256 checksum",
+    href: release.checksumHref,
+    detail: "Verify the downloaded DMG",
   },
   {
-    label: "Download for Intel Mac",
-    href: "/downloads/PaperView-x64.dmg",
-    detail: "Intel-based Mac models",
+    label: "Release manifest",
+    href: release.manifestHref,
+    detail: "Version, bundle ID, and notarization metadata",
   },
 ];
 
 const features: Feature[] = [
   {
-    title: "Read. Smooth and clear.",
-    body: "Enjoy a distraction-free reading experience with typography and smooth scrolling that feels right at home on Mac.",
+    title: "Organize a local PDF library.",
+    body: "Keep documents, tags, collections, favorites, recents, and reading progress in a clean Mac workspace.",
     tone: "violet",
+    visual: "pages",
+  },
+  {
+    title: "Read with native PDFKit.",
+    body: "Open real PDFs with thumbnails, page navigation, zoom, search, metadata, and a polished macOS viewer shell.",
+    tone: "blue",
     visual: "reader",
   },
   {
-    title: "Annotate with ease.",
-    body: "Highlight, underline, strikethrough, and add notes. Every markup tool stays one click away.",
+    title: "Annotate without touching originals.",
+    body: "Highlights, notes, comments, signatures, and bookmarks are stored as local sidecar metadata.",
     tone: "amber",
     visual: "annotate",
   },
   {
-    title: "Edit like a pro.",
-    body: "Edit text, images, and pages in your PDFs without leaving the app.",
-    tone: "blue",
+    title: "Export review-ready copies.",
+    body: "Create annotated copies, page images, and extracted text when you need to share or archive work.",
+    tone: "green",
     visual: "edit",
   },
   {
-    title: "Organize pages.",
-    body: "Reorder, delete, rotate, or extract pages without breaking your focus.",
-    tone: "green",
-    visual: "pages",
-  },
-  {
-    title: "Keep it secure.",
-    body: "Your documents stay private on your Mac. No uploads. No tracking.",
-    tone: "violet",
-    visual: "secure",
-  },
-  {
-    title: "Work across devices.",
-    body: "Sync with iCloud so your PDFs are available on all your Apple devices.",
+    title: "Compare versions side by side.",
+    body: "Review two documents together with synced navigation and a changes panel for additions and edits.",
     tone: "blue",
     visual: "devices",
   },
-];
-
-const testimonials = [
   {
-    quote: "Finally, a PDF app that feels like it was built for Mac. Fast, beautiful, and packed with everything I need.",
-    name: "Sarah J.",
-    role: "Product Designer",
-  },
-  {
-    quote: "PaperView has become my go-to PDF app. The annotation tools are incredibly intuitive.",
-    name: "Michael T.",
-    role: "Architect",
-  },
-  {
-    quote: "Clean interface, syncs perfectly with iCloud, and best of all, my files stay private. Love it.",
-    name: "Priya K.",
-    role: "Student",
+    title: "Private by default.",
+    body: "No account, telemetry, or document upload. Acacia keeps your PDF workflow on your Mac.",
+    tone: "violet",
+    visual: "secure",
   },
 ];
 
-const partnerLogos = ["PIXAR", "shopify", "Notion", "FRONT", "duolingo"];
+const workflows = [
+  {
+    quote: "Review quarterly reports, contracts, invoices, and research without sending private files to a cloud service.",
+    name: "Local-first review",
+    role: "Built for private document work",
+  },
+  {
+    quote: "Use comments and non-destructive annotations to mark up a document, then export a separate annotated copy.",
+    name: "Sidecar annotations",
+    role: "Original PDFs stay untouched",
+  },
+  {
+    quote: "Open two versions together and keep navigation synced while you inspect text-level changes.",
+    name: "Compare mode",
+    role: "Fast version review",
+  },
+];
+
+const audienceLabels = ["Reports", "Contracts", "Research", "Invoices", "Reference"];
 
 export function App() {
   const primaryDownload = downloads[0];
@@ -113,22 +128,22 @@ export function App() {
 function Header({ primaryDownload }: { primaryDownload: DownloadLink }) {
   return (
     <header className="site-header">
-      <a className="brand" href="/" aria-label="PaperView home">
+      <a className="brand" href="/" aria-label="Acacia home">
         <span className="brand-mark" aria-hidden="true">
-          <span />
+          <img src={logoSrc} alt="" />
         </span>
-        <span>PaperView</span>
+        <span>Acacia</span>
       </a>
       <nav className="primary-nav" aria-label="Primary navigation">
         <a href="#features">Features</a>
         <a href="#whats-new">What's New</a>
-        <a href="#security">Security</a>
-        <a href="#pricing">Pricing</a>
+        <a href="#security">Privacy</a>
+        <a href="#download">Download</a>
         <a href="#support">Support</a>
       </nav>
       <div className="header-actions">
-        <a className="login-link" href="/login">
-          Log in
+        <a className="login-link" href="#bundle-id">
+          Bundle ID
         </a>
         <DownloadButton href={primaryDownload.href} label={primaryDownload.label} variant="dark" />
       </div>
@@ -142,14 +157,14 @@ function Hero({ primaryDownload }: { primaryDownload: DownloadLink }) {
       <div className="hero-copy">
         <p className="sonoma-badge">
           <span className="sonoma-dot" aria-hidden="true" />
-          Optimized for macOS Sonoma
+          Signed and notarized for macOS
         </p>
         <h1 id="hero-title">
-          The PDF viewer <span>made for Mac.</span>
+          Acacia <span>for Mac PDFs.</span>
         </h1>
         <p className="hero-lede">
-          PaperView is a fast, beautiful, and powerful PDF viewer for macOS. Read, annotate, edit, and organize your
-          documents with ease.
+          A sleek local-first PDF workspace for reading, annotating, organizing, exporting, and comparing professional
+          documents on macOS.
         </p>
         <div className="hero-actions">
           <DownloadButton href={primaryDownload.href} label={primaryDownload.label} variant="dark" />
@@ -158,9 +173,9 @@ function Hero({ primaryDownload }: { primaryDownload: DownloadLink }) {
           </a>
         </div>
         <ul className="hero-proof" aria-label="Product qualities">
-          <li>Native macOS experience</li>
-          <li>Lightning fast</li>
-          <li>Private & Secure</li>
+          <li>Universal macOS app</li>
+          <li>Native PDFKit rendering</li>
+          <li id="bundle-id">Bundle ID: {release.bundleId}</li>
         </ul>
       </div>
       <ProductPreview />
@@ -186,7 +201,7 @@ function DownloadButton({
 
 function ProductPreview() {
   return (
-    <div className="product-preview" role="img" aria-label="PaperView app preview">
+    <div className="product-preview" role="img" aria-label="Acacia app preview">
       <div className="mock-laptop">
         <div className="mock-screen">
           <div className="app-toolbar">
@@ -195,7 +210,7 @@ function ProductPreview() {
               <span />
               <span />
             </div>
-            <div className="file-pill">Architecture_Proposal.pdf</div>
+            <div className="file-pill">Q4_Market_Analysis.pdf</div>
             <div className="toolbar-dots" aria-hidden="true">
               <span />
               <span />
@@ -204,18 +219,18 @@ function ProductPreview() {
           </div>
           <div className="app-body">
             <aside className="page-rail" aria-hidden="true">
-              {[1, 2, 3, 4].map((page) => (
-                <span className={page === 1 ? "active" : ""} key={page}>
+              {[1, 2, 8, 12].map((page) => (
+                <span className={page === 8 ? "active" : ""} key={page}>
                   {page}
                 </span>
               ))}
             </aside>
             <article className="pdf-page">
               <div className="pdf-copy">
-                <p>Architecture</p>
-                <strong>Proposal</strong>
-                <span>A bold vision for sustainable design and modern living.</span>
-                <em>Focus Here</em>
+                <p>Market</p>
+                <strong>Overview</strong>
+                <span>Global markets closed the year with steady growth across key segments.</span>
+                <em>Review note</em>
               </div>
               <div className="building-preview" aria-hidden="true">
                 <span />
@@ -238,11 +253,11 @@ function ProductPreview() {
 
 function TrustedBy() {
   return (
-    <section className="trusted-by" aria-label="Trusted by professionals">
-      <p>Trusted by professionals at</p>
+    <section className="trusted-by" aria-label="Built for professional PDFs">
+      <p>Built for local-first document review</p>
       <div className="logo-row">
-        {partnerLogos.map((logo) => (
-          <span key={logo}>{logo}</span>
+        {audienceLabels.map((label) => (
+          <span key={label}>{label}</span>
         ))}
       </div>
     </section>
@@ -252,8 +267,8 @@ function TrustedBy() {
 function Features() {
   return (
     <section className="features-section" id="features" aria-labelledby="features-title">
-      <p className="section-eyebrow">Powerful features. Beautifully simple.</p>
-      <h2 id="features-title">Everything you need, right where you need it.</h2>
+      <p className="section-eyebrow">Native Mac workflow. Local-first storage.</p>
+      <h2 id="features-title">Everything a serious PDF review flow needs.</h2>
       <div className="feature-grid">
         {features.map((feature) => (
           <FeatureCard feature={feature} key={feature.title} />
@@ -279,7 +294,7 @@ function FeatureVisual({ visual }: { visual: Feature["visual"] }) {
     return (
       <div className="mini-visual reader-visual" aria-hidden="true">
         <div className="reader-window">
-          <span>1 / 24</span>
+          <span>8 / 32</span>
           <div />
         </div>
       </div>
@@ -290,9 +305,9 @@ function FeatureVisual({ visual }: { visual: Feature["visual"] }) {
     return (
       <div className="mini-visual annotate-visual" aria-hidden="true">
         <p>
-          A bold vision for <mark>sustainable design</mark> and modern living.
+          The hybrid model has become <mark>the new standard</mark> for work.
         </p>
-        <span>Focus Here</span>
+        <span>Add Note</span>
       </div>
     );
   }
@@ -300,7 +315,7 @@ function FeatureVisual({ visual }: { visual: Feature["visual"] }) {
   if (visual === "edit") {
     return (
       <div className="mini-visual edit-visual" aria-hidden="true">
-        <p>Our approach combines functionality, aesthetics, and sustainability to create spaces that inspire and endure.</p>
+        <p>Export annotated copies, selected page images, or extracted text without changing the source document.</p>
       </div>
     );
   }
@@ -337,16 +352,16 @@ function FeatureVisual({ visual }: { visual: Feature["visual"] }) {
 function Testimonials() {
   return (
     <section className="testimonials-section" aria-labelledby="testimonials-title">
-      <h2 id="testimonials-title">Loved by Mac users</h2>
+      <h2 id="testimonials-title">Built around real review workflows</h2>
       <div className="testimonial-grid">
-        {testimonials.map((testimonial) => (
-          <article className="testimonial-card" key={testimonial.name}>
-            <blockquote>"{testimonial.quote}"</blockquote>
+        {workflows.map((workflow) => (
+          <article className="testimonial-card" key={workflow.name}>
+            <blockquote>"{workflow.quote}"</blockquote>
             <div className="person">
-              <span aria-hidden="true">{testimonial.name.slice(0, 1)}</span>
+              <span aria-hidden="true">{workflow.name.slice(0, 1)}</span>
               <p>
-                <strong>{testimonial.name}</strong>
-                {testimonial.role}
+                <strong>{workflow.name}</strong>
+                {workflow.role}
               </p>
             </div>
           </article>
@@ -364,32 +379,36 @@ function Testimonials() {
 }
 
 function DownloadPanel() {
-  const [primaryDownload, appleSiliconDownload, intelDownload] = downloads;
+  const [primaryDownload, checksumDownload, manifestDownload] = downloads;
 
   return (
-    <section className="download-panel" id="pricing" aria-labelledby="download-title">
+    <section className="download-panel" id="download" aria-labelledby="download-title">
       <div className="download-icon" aria-hidden="true">
-        <span />
+        <img src={logoSrc} alt="" />
       </div>
       <div className="download-copy">
-        <h2 id="download-title">Ready to elevate your PDF experience?</h2>
-        <p>Download PaperView for free and see the difference.</p>
+        <h2 id="download-title">Download Acacia directly.</h2>
+        <p>
+          Version {release.version}. Signed with Developer ID, notarized by Apple, and distributed as a universal macOS
+          DMG.
+        </p>
         <div className="download-actions">
           <DownloadButton href={primaryDownload.href} label={primaryDownload.label} variant="dark" />
-          <a className="secondary-button" href="#pricing">
-            View Pricing
+          <a className="secondary-button" href={checksumDownload.href}>
+            Verify Checksum
           </a>
         </div>
-        <div className="download-options" aria-label="Platform downloads">
-          <DownloadOption link={appleSiliconDownload} />
-          <DownloadOption link={intelDownload} />
+        <div className="download-options" aria-label="Release downloads">
+          <DownloadOption link={primaryDownload} />
+          <DownloadOption link={checksumDownload} />
+          <DownloadOption link={manifestDownload} />
         </div>
       </div>
-      <div className="rating-card" aria-label="macOS App Store rating 4.8 out of 5 from 18 thousand ratings">
-        <span>macOS App Store</span>
-        <strong>4.8 out of 5</strong>
-        <p>5 stars</p>
-        <small>18K+ Ratings</small>
+      <div className="rating-card" aria-label={`Acacia ${release.version} release metadata`}>
+        <span>Release {release.version}</span>
+        <strong>{release.size}</strong>
+        <p>{release.bundleId}</p>
+        <small>SHA-256: {release.checksum}</small>
       </div>
     </section>
   );
@@ -397,7 +416,7 @@ function DownloadPanel() {
 
 function DownloadOption({ link }: { link: DownloadLink }) {
   return (
-    <a className="download-option" href={link.href} download="">
+    <a className="download-option" href={link.href} download={link.download ? "" : undefined}>
       <strong>{link.label}</strong>
       <span>{link.detail}</span>
     </a>
@@ -406,22 +425,22 @@ function DownloadOption({ link }: { link: DownloadLink }) {
 
 function ValueStrip() {
   return (
-    <section className="value-strip" id="whats-new" aria-label="PaperView benefits">
+    <section className="value-strip" id="whats-new" aria-label="Acacia benefits">
       <article>
         <strong>Universal App</strong>
-        <span>Works on Intel & Apple Silicon</span>
+        <span>Works on Intel and Apple Silicon</span>
       </article>
       <article>
-        <strong>Shortcuts Support</strong>
-        <span>Automate your workflow</span>
+        <strong>Offline First</strong>
+        <span>No account or cloud sync required</span>
       </article>
       <article>
-        <strong>Regular Updates</strong>
-        <span>New features and improvements</span>
+        <strong>Sidecar Data</strong>
+        <span>Original PDFs stay untouched</span>
       </article>
       <article id="support">
-        <strong>Dedicated Support</strong>
-        <span>We're here to help</span>
+        <strong>Direct Support</strong>
+        <span>support@benebsworth.com</span>
       </article>
     </section>
   );
@@ -431,51 +450,51 @@ function Footer() {
   return (
     <footer className="site-footer">
       <div>
-        <a className="brand" href="/" aria-label="PaperView home">
+        <a className="brand" href="/" aria-label="Acacia home">
           <span className="brand-mark" aria-hidden="true">
-            <span />
+            <img src={logoSrc} alt="" />
           </span>
-          <span>PaperView</span>
+          <span>Acacia</span>
         </a>
-        <p>The PDF viewer made for Mac.</p>
-        <p>Fast, Powerful, Beautiful.</p>
+        <p>The local-first PDF workspace for Mac.</p>
+        <p>Bundle ID: {release.bundleId}</p>
       </div>
       <nav aria-label="Product links">
         <strong>Product</strong>
         <a href="#features">Features</a>
         <a href="#whats-new">What's New</a>
-        <a href="#pricing">Pricing</a>
+        <a href="#download">Download</a>
         <a href={downloads[0].href} download="">
-          Download
+          Direct DMG
         </a>
       </nav>
       <nav aria-label="Resource links">
         <strong>Resources</strong>
-        <a href="#support">User Guide</a>
-        <a href="#support">Shortcuts</a>
+        <a href={release.checksumHref}>Checksum</a>
+        <a href={release.manifestHref}>Manifest</a>
         <a href="#support">Support</a>
-        <a href="#support">FAQ</a>
+        <a href="#security">Privacy</a>
       </nav>
       <nav aria-label="Company links">
         <strong>Company</strong>
         <a href="#support">About</a>
-        <a href="#support">Privacy</a>
+        <a href="#security">Privacy</a>
         <a href="#support">Terms</a>
-        <a href="mailto:support@paperview.app">Contact</a>
+        <a href="mailto:support@benebsworth.com">Contact</a>
       </nav>
       <div className="footer-meta">
         <div className="social-links" aria-label="Social links">
-          <a href="#support" aria-label="PaperView on X">
+          <a href="#support" aria-label="Acacia on X">
             X
           </a>
-          <a href="#support" aria-label="PaperView on Instagram">
+          <a href="#support" aria-label="Acacia on Instagram">
             IG
           </a>
-          <a href="mailto:support@paperview.app" aria-label="Email PaperView">
+          <a href="mailto:support@benebsworth.com" aria-label="Email Acacia">
             @
           </a>
         </div>
-        <p>(c) 2026 PaperView Inc.</p>
+        <p>(c) 2026 Acacia.</p>
         <p>All rights reserved.</p>
       </div>
     </footer>

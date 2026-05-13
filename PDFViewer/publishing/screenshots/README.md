@@ -1,4 +1,4 @@
-# PDFViewer Screenshots
+# Acacia Screenshots
 
 Captured on 2026-05-12 from the notarized release app.
 
@@ -13,4 +13,4 @@ All App Store screenshots are PNG files at 2880 x 1800, matching Apple's current
 
 ## Recapture Command Summary
 
-The screenshots were captured by launching `.build-release/PDFViewer.app --uitesting`, positioning the window to 1440 x 900 points on a Retina display, and capturing a 1440 x 900 point region. The resulting PNGs are 2880 x 1800 pixels.
+The screenshots were captured by launching `.build-release/Acacia.app --uitesting`, positioning the window to 1440 x 900 points on a Retina display, and capturing a 1440 x 900 point region. The resulting PNGs are 2880 x 1800 pixels.

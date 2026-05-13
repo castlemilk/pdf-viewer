@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -32,9 +32,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		13B07F961A680F5B00A75B9A /* PDFViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PDFViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		2185E252EF00F8121E8B571B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		514201492437B4B30078DB4F /* PDFViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PDFViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		13B07F961A680F5B00A75B9A /* Acacia.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Acacia.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2185E252EF00F8121E8B571B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		514201492437B4B30078DB4F /* Acacia.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Acacia.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5142014B2437B4B30078DB4F /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		5142014C2437B4B30078DB4F /* AppDelegate.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = AppDelegate.mm; sourceTree = "<group>"; };
 		514201512437B4B40078DB4F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -48,9 +48,9 @@
 		A10000000000000000000007 /* PdfCanvasViewManager.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = PdfCanvasViewManager.mm; sourceTree = "<group>"; };
 		A10000000000000000000008 /* PDFKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PDFKit.framework; path = System/Library/Frameworks/PDFKit.framework; sourceTree = SDKROOT; };
 		A20000000000000000000002 /* PdfKitSmokeTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PdfKitSmokeTests.m; sourceTree = "<group>"; };
-		A20000000000000000000003 /* PDFViewer-macOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "PDFViewer-macOSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000003 /* Acacia-macOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Acacia-macOSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A30000000000000000000002 /* PDFViewerUITests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PDFViewerUITests.m; sourceTree = "<group>"; };
-		A30000000000000000000003 /* PDFViewer-macOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "PDFViewer-macOSUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A30000000000000000000003 /* Acacia-macOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Acacia-macOSUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C3FA98074FC4EA524C3584CD /* Pods-PDFViewer-macOS.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PDFViewer-macOS.debug.xcconfig"; path = "Target Support Files/Pods-PDFViewer-macOS/Pods-PDFViewer-macOS.debug.xcconfig"; sourceTree = "<group>"; };
 		C576218D4E89CA42B385CB2E /* Pods-PDFViewer-macOS.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PDFViewer-macOS.release.xcconfig"; path = "Target Support Files/Pods-PDFViewer-macOS/Pods-PDFViewer-macOS.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -107,7 +107,6 @@
 				C3FA98074FC4EA524C3584CD /* Pods-PDFViewer-macOS.debug.xcconfig */,
 				C576218D4E89CA42B385CB2E /* Pods-PDFViewer-macOS.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -156,10 +155,10 @@
 		83CBBA001A601CBA00E9B192 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				13B07F961A680F5B00A75B9A /* PDFViewer.app */,
-				514201492437B4B30078DB4F /* PDFViewer.app */,
-				A20000000000000000000003 /* PDFViewer-macOSTests.xctest */,
-				A30000000000000000000003 /* PDFViewer-macOSUITests.xctest */,
+				13B07F961A680F5B00A75B9A /* Acacia.app */,
+				514201492437B4B30078DB4F /* Acacia.app */,
+				A20000000000000000000003 /* Acacia-macOSTests.xctest */,
+				A30000000000000000000003 /* Acacia-macOSUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -183,9 +182,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		13B07F861A680F5B00A75B9A /* PDFViewer-iOS */ = {
+		13B07F861A680F5B00A75B9A /* Acacia-iOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "PDFViewer-iOS" */;
+			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Acacia-iOS" */;
 			buildPhases = (
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
@@ -196,14 +195,14 @@
 			);
 			dependencies = (
 			);
-			name = "PDFViewer-iOS";
+			name = "Acacia-iOS";
 			productName = PDFViewer;
-			productReference = 13B07F961A680F5B00A75B9A /* PDFViewer.app */;
+			productReference = 13B07F961A680F5B00A75B9A /* Acacia.app */;
 			productType = "com.apple.product-type.application";
 		};
-		514201482437B4B30078DB4F /* PDFViewer-macOS */ = {
+		514201482437B4B30078DB4F /* Acacia-macOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 5142015A2437B4B40078DB4F /* Build configuration list for PBXNativeTarget "PDFViewer-macOS" */;
+			buildConfigurationList = 5142015A2437B4B40078DB4F /* Build configuration list for PBXNativeTarget "Acacia-macOS" */;
 			buildPhases = (
 				1A938104A937498D81B3BD3B /* [CP] Check Pods Manifest.lock */,
 				514201452437B4B30078DB4F /* Sources */,
@@ -217,14 +216,14 @@
 			);
 			dependencies = (
 			);
-			name = "PDFViewer-macOS";
+			name = "Acacia-macOS";
 			productName = PDFViewer;
-			productReference = 514201492437B4B30078DB4F /* PDFViewer.app */;
+			productReference = 514201492437B4B30078DB4F /* Acacia.app */;
 			productType = "com.apple.product-type.application";
 		};
-		A20000000000000000000008 /* PDFViewer-macOSTests */ = {
+		A20000000000000000000008 /* Acacia-macOSTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A20000000000000000000009 /* Build configuration list for PBXNativeTarget "PDFViewer-macOSTests" */;
+			buildConfigurationList = A20000000000000000000009 /* Build configuration list for PBXNativeTarget "Acacia-macOSTests" */;
 			buildPhases = (
 				A20000000000000000000005 /* Sources */,
 				A20000000000000000000004 /* Frameworks */,
@@ -234,14 +233,14 @@
 			);
 			dependencies = (
 			);
-			name = "PDFViewer-macOSTests";
+			name = "Acacia-macOSTests";
 			productName = "PDFViewer-macOSTests";
-			productReference = A20000000000000000000003 /* PDFViewer-macOSTests.xctest */;
+			productReference = A20000000000000000000003 /* Acacia-macOSTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		A30000000000000000000008 /* PDFViewer-macOSUITests */ = {
+		A30000000000000000000008 /* Acacia-macOSUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A30000000000000000000009 /* Build configuration list for PBXNativeTarget "PDFViewer-macOSUITests" */;
+			buildConfigurationList = A30000000000000000000009 /* Build configuration list for PBXNativeTarget "Acacia-macOSUITests" */;
 			buildPhases = (
 				A30000000000000000000005 /* Sources */,
 				A30000000000000000000004 /* Frameworks */,
@@ -252,9 +251,9 @@
 			dependencies = (
 				A30000000000000000000012 /* PBXTargetDependency */,
 			);
-			name = "PDFViewer-macOSUITests";
+			name = "Acacia-macOSUITests";
 			productName = "PDFViewer-macOSUITests";
-			productReference = A30000000000000000000003 /* PDFViewer-macOSUITests.xctest */;
+			productReference = A30000000000000000000003 /* Acacia-macOSUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -263,7 +262,8 @@
 		83CBB9F71A601CBA00E9B192 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1130;
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1120;
@@ -282,7 +282,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "PDFViewer" */;
+			buildConfigurationList = 83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "Acacia" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -295,10 +295,10 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				13B07F861A680F5B00A75B9A /* PDFViewer-iOS */,
-				514201482437B4B30078DB4F /* PDFViewer-macOS */,
-				A20000000000000000000008 /* PDFViewer-macOSTests */,
-				A30000000000000000000008 /* PDFViewer-macOSUITests */,
+				13B07F861A680F5B00A75B9A /* Acacia-iOS */,
+				514201482437B4B30078DB4F /* Acacia-macOS */,
+				A20000000000000000000008 /* Acacia-macOSTests */,
+				A30000000000000000000008 /* Acacia-macOSUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -351,7 +351,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export NODE_BINARY=node\n../node_modules/react-native-macos/scripts/react-native-xcode.sh\n";
+			shellScript = "RESOLVED_NODE_BINARY=\"$(${PROJECT_DIR}/../scripts/resolve-node-binary.sh)\"\nif [ -z \"${NODE_BINARY:-}\" ] || ! command -v \"$NODE_BINARY\" >/dev/null 2>&1; then\n  export NODE_BINARY=\"$RESOLVED_NODE_BINARY\"\nfi\nif [ \"${PLATFORM_NAME:-}\" = \"macosx\" ]; then\n  case \"${CONFIGURATION:-}\" in\n    *Debug*)\n      if [ \"${ACACIA_USE_METRO:-0}\" != \"1\" ]; then\n        export FORCE_BUNDLING=1\n      fi\n      ;;\n  esac\nfi\n../node_modules/react-native-macos/scripts/react-native-xcode.sh\n";
 		};
 		0B5083CCB28456305328C5B6 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -417,7 +417,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export NODE_BINARY=node\n../node_modules/react-native-macos/scripts/react-native-xcode.sh\n";
+			shellScript = "RESOLVED_NODE_BINARY=\"$(${PROJECT_DIR}/../scripts/resolve-node-binary.sh)\"\nif [ -z \"${NODE_BINARY:-}\" ] || ! command -v \"$NODE_BINARY\" >/dev/null 2>&1; then\n  export NODE_BINARY=\"$RESOLVED_NODE_BINARY\"\nfi\nif [ \"${PLATFORM_NAME:-}\" = \"macosx\" ]; then\n  case \"${CONFIGURATION:-}\" in\n    *Debug*)\n      if [ \"${ACACIA_USE_METRO:-0}\" != \"1\" ]; then\n        export FORCE_BUNDLING=1\n      fi\n      ;;\n  esac\nfi\n../node_modules/react-native-macos/scripts/react-native-xcode.sh\n";
 		};
 		479BE5BB77AA98E292E3343E /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -479,7 +479,7 @@
 /* Begin PBXTargetDependency section */
 		A30000000000000000000012 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 514201482437B4B30078DB4F /* PDFViewer-macOS */;
+			target = 514201482437B4B30078DB4F /* Acacia-macOS */;
 			targetProxy = A30000000000000000000013 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -502,16 +502,20 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WFTX6CN23F;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = "PDFViewer-iOS/Info.plist";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.$(PRODUCT_NAME:rfc1034identifier)";
-				PRODUCT_NAME = PDFViewer;
+				PRODUCT_BUNDLE_IDENTIFIER = com.benebsworth.acacia;
+				PRODUCT_NAME = Acacia;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -524,15 +528,19 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WFTX6CN23F;
 				INFOPLIST_FILE = "PDFViewer-iOS/Info.plist";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.$(PRODUCT_NAME:rfc1034identifier)";
-				PRODUCT_NAME = PDFViewer;
+				PRODUCT_BUNDLE_IDENTIFIER = com.benebsworth.acacia;
+				PRODUCT_NAME = Acacia;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -545,10 +553,19 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = "PDFViewer-macOS/PDFViewer.entitlements";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CURRENT_PROJECT_VERSION = 1;
-				DEAD_CODE_STRIPPING = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = WFTX6CN23F;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				INFOPLIST_FILE = "PDFViewer-macos/Info.plist";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 0.0.1;
 				OTHER_LDFLAGS = (
@@ -556,8 +573,8 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.benebsworth.pdfviewer;
-				PRODUCT_NAME = PDFViewer;
+				PRODUCT_BUNDLE_IDENTIFIER = com.benebsworth.acacia;
+				PRODUCT_NAME = Acacia;
 				SDKROOT = macosx;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -571,9 +588,19 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = "PDFViewer-macOS/PDFViewer.entitlements";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = WFTX6CN23F;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				INFOPLIST_FILE = "PDFViewer-macos/Info.plist";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 0.0.1;
 				OTHER_LDFLAGS = (
@@ -581,8 +608,8 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.benebsworth.pdfviewer;
-				PRODUCT_NAME = PDFViewer;
+				PRODUCT_BUNDLE_IDENTIFIER = com.benebsworth.acacia;
+				PRODUCT_NAME = Acacia;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.0;
 			};
@@ -611,6 +638,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -620,6 +648,7 @@
 				COPY_PHASE_STRIP = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -635,8 +664,11 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
-				LD_RUNPATH_SEARCH_PATHS = "/usr/lib/swift $(inherited)";
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					/usr/lib/swift,
+					"$(inherited)",
+				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(SDKROOT)/usr/lib/swift",
 					"\"$(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)\"",
@@ -646,6 +678,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				USE_HERMES = true;
 			};
@@ -674,6 +707,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -683,6 +717,7 @@
 				COPY_PHASE_STRIP = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -691,8 +726,11 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
-				LD_RUNPATH_SEARCH_PATHS = "/usr/lib/swift $(inherited)";
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					/usr/lib/swift,
+					"$(inherited)",
+				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(SDKROOT)/usr/lib/swift",
 					"\"$(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)\"",
@@ -701,6 +739,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -711,8 +750,13 @@
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.PDFViewer-macOSTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -727,8 +771,13 @@
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.PDFViewer-macOSTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -743,14 +792,19 @@
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.PDFViewer-macOSUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = "PDFViewer-macOS";
+				TEST_TARGET_NAME = "Acacia-macOS";
 				WRAPPER_EXTENSION = xctest;
 			};
 			name = Debug;
@@ -760,14 +814,19 @@
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.PDFViewer-macOSUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = "PDFViewer-macOS";
+				TEST_TARGET_NAME = "Acacia-macOS";
 				WRAPPER_EXTENSION = xctest;
 			};
 			name = Release;
@@ -775,7 +834,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "PDFViewer-iOS" */ = {
+		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Acacia-iOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				13B07F941A680F5B00A75B9A /* Debug */,
@@ -784,7 +843,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		5142015A2437B4B40078DB4F /* Build configuration list for PBXNativeTarget "PDFViewer-macOS" */ = {
+		5142015A2437B4B40078DB4F /* Build configuration list for PBXNativeTarget "Acacia-macOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				5142015B2437B4B40078DB4F /* Debug */,
@@ -793,7 +852,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "PDFViewer" */ = {
+		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "Acacia" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,
@@ -802,7 +861,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A20000000000000000000009 /* Build configuration list for PBXNativeTarget "PDFViewer-macOSTests" */ = {
+		A20000000000000000000009 /* Build configuration list for PBXNativeTarget "Acacia-macOSTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A20000000000000000000010 /* Debug */,
@@ -811,7 +870,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A30000000000000000000009 /* Build configuration list for PBXNativeTarget "PDFViewer-macOSUITests" */ = {
+		A30000000000000000000009 /* Build configuration list for PBXNativeTarget "Acacia-macOSUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A30000000000000000000010 /* Debug */,

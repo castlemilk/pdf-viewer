@@ -11,6 +11,7 @@ import {
 import type {Annotation, DocumentRecord, ViewerState} from '../domain/types';
 
 type NativePdfCanvasProps = {
+  testID?: string;
   documentPath?: string;
   pageIndex: number;
   zoom: number;
@@ -26,7 +27,8 @@ type PdfCanvasProps = {
 };
 
 const NativePdfCanvas =
-  (Platform.OS as string) === 'macos'
+  (Platform.OS as string) === 'macos' ||
+  ((Platform.OS as string) === 'ios' && !isJestRuntime())
     ? requireNativeComponent<NativePdfCanvasProps>('PdfCanvas')
     : undefined;
 
@@ -39,6 +41,7 @@ export function PdfCanvas({
   if (document.path && NativePdfCanvas) {
     return (
       <NativePdfCanvas
+        testID="pdf-canvas-native"
         documentPath={document.path}
         pageIndex={viewer.pageIndex}
         zoom={viewer.zoom}
@@ -49,7 +52,9 @@ export function PdfCanvas({
   }
 
   return (
-    <View style={[styles.canvas, compact && styles.canvasCompact]}>
+    <View
+      testID="pdf-canvas-fallback"
+      style={[styles.canvas, compact && styles.canvasCompact]}>
       <View style={[styles.page, compact && styles.pageCompact]}>
         <View style={styles.pageHeader}>
           <Text style={styles.pageKicker}>{document.title}</Text>
@@ -260,3 +265,9 @@ const styles = StyleSheet.create({
     opacity: 0.58,
   },
 });
+
+function isJestRuntime() {
+  const globals = globalThis as {it?: unknown; jest?: unknown};
+
+  return typeof globals.it === 'function' || globals.jest !== undefined;
+}

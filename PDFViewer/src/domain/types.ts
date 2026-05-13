@@ -36,10 +36,13 @@ export type LibraryViewMode = 'grid' | 'list';
 
 export type LibrarySort = 'lastOpened' | 'modified' | 'name' | 'size';
 
+export type LibraryScope = 'library' | 'recent' | 'favorites' | 'shared';
+
 export type LibraryFilter = {
   query: string;
   tagId: string;
   collectionId: string;
+  scope: LibraryScope;
   sortBy: LibrarySort;
   viewMode: LibraryViewMode;
 };

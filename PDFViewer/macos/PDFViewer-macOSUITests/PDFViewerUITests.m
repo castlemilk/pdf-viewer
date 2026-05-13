@@ -110,7 +110,11 @@
   [self waitForIdentifier:@"library-search-input"];
   [self waitForIdentifier:@"view-mode-grid"];
   [self waitForIdentifier:@"view-mode-list"];
+  [self waitForIdentifier:@"recent-grid"];
   [self waitForIdentifier:@"doc-card-q4-market-analysis"];
+
+  [self tapIdentifier:@"view-mode-list"];
+  [self waitForIdentifier:@"recent-table"];
   [self waitForIdentifier:@"doc-row-q4-market-analysis"];
   [self waitForIdentifier:@"doc-row-product-roadmap"];
   [self waitForIdentifier:@"doc-row-annual-financial-report"];
@@ -129,13 +133,33 @@
   [self clickElement:search];
   [search typeText:@"roadmap"];
 
+  [self tapIdentifier:@"view-mode-list"];
   [self waitForIdentifier:@"doc-row-product-roadmap"];
   [self tapIdentifier:@"doc-row-product-roadmap"];
-  [self tapIdentifier:@"inspector-open-action"];
 
   [self waitForIdentifier:@"viewer-screen"];
   [self assertIdentifier:@"viewer-screen" labelContains:@"Product Roadmap 2025"];
   [self assertPageLabelContains:@"Page 1"];
+}
+
+- (void)testSidebarRecentFavoritesAndSharedScopes
+{
+  [self launchAndWaitForLibrary];
+
+  [self tapIdentifier:@"nav-favorites"];
+  [self waitForText:@"Favorite Documents"];
+  [self waitForIdentifier:@"doc-card-product-roadmap"];
+  [self waitForIdentifier:@"doc-card-future-work"];
+
+  [self tapIdentifier:@"nav-shared"];
+  [self waitForText:@"Shared Documents"];
+  [self waitForIdentifier:@"doc-card-competitive-landscape"];
+  [self waitForIdentifier:@"doc-card-board-minutes-apr"];
+
+  [self tapIdentifier:@"nav-recent"];
+  [self waitForText:@"Recently Opened"];
+  [self waitForIdentifier:@"doc-card-q4-market-analysis"];
+  [self waitForIdentifier:@"doc-card-annual-financial-report"];
 }
 
 - (void)testViewerNavigationAnnotationAndCommentsFlow
