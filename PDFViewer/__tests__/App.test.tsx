@@ -3,9 +3,10 @@
  */
 
 import React from 'react';
-import {StyleSheet} from 'react-native';
+import {Alert, StyleSheet} from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import App from '../App';
+import {importedPdfToDocument, PdfKitBridge} from '../src/native/PdfKitBridge';
 
 function pressSidebarItem(
   renderer: ReactTestRenderer.ReactTestRenderer,
@@ -33,6 +34,32 @@ function visibleGridDocumentIds(renderer: ReactTestRenderer.ReactTestRenderer) {
   );
 }
 
+function signatureCommentItems(renderer: ReactTestRenderer.ReactTestRenderer) {
+  return visibleCommentItemIds(renderer).filter(testID =>
+    testID.startsWith('comment-item-signature-'),
+  );
+}
+
+function visibleCommentItemIds(renderer: ReactTestRenderer.ReactTestRenderer) {
+  return Array.from(
+    new Set(
+      renderer.root
+        .findAll(
+          instance =>
+            typeof instance.props.testID === 'string' &&
+            instance.props.testID.startsWith('comment-item-'),
+        )
+        .map(instance => instance.props.testID as string),
+    ),
+  );
+}
+
+function localHighlightCommentItems(renderer: ReactTestRenderer.ReactTestRenderer) {
+  return visibleCommentItemIds(renderer).filter(
+    testID => testID === 'comment-item-local-highlight',
+  );
+}
+
 test('renders the PDF library shell with core document workflows', async () => {
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 
@@ -46,8 +73,30 @@ test('renders the PDF library shell with core document workflows', async () => {
   expect(output).toContain('Continue Reading');
   expect(output).toContain('Recent Documents');
   expect(output).toContain('Q4 Market Analysis Report');
-  expect(output).toContain('Open File');
+  expect(output).toContain('Open PDF');
   expect(output).toContain('Compare');
+});
+
+test('hides account storage quota while signed out', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  const storageLabels = renderer!.root.findAll(
+    instance =>
+      Array.isArray(instance.props.children) &&
+      instance.props.children.some(
+        (child: unknown) =>
+          typeof child === 'string' && child.includes('GB of'),
+      ),
+  );
+
+  expect(storageLabels).toHaveLength(0);
+  expect(
+    renderer!.root.findAllByProps({testID: 'account-storage-usage'}),
+  ).toHaveLength(0);
 });
 
 test('renders a compact mobile shell when requested', async () => {
@@ -118,11 +167,94 @@ test('mobile viewer controls page, zoom, and highlight state', async () => {
     renderer!.root.findByProps({testID: 'mobile-highlight'}).props.onPress();
   });
 
+  expect(JSON.stringify(renderer?.toJSON())).toContain('pdf-tool-hint');
+  expect(JSON.stringify(renderer?.toJSON())).not.toContain(
+    'comment-item-local-highlight',
+  );
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props.onResponderRelease({
+      nativeEvent: {locationX: 150, locationY: 220},
+    });
+  });
+
   const output = JSON.stringify(renderer?.toJSON());
 
   expect(output).toContain('Comments');
-  expect(output).toContain('Local non-destructive highlight');
-  expect(output).toContain('comment-item-local-highlight');
+  expect(output).toContain('Sign in to unlock comments');
+  expect(output).toContain('comments-paywall');
+  expect(output).not.toContain('comment-item-local-highlight');
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'unlock-comments-button'}).props.onPress();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain(
+    'comment-item-local-highlight',
+  );
+});
+
+test('mobile demo canvas scrolling updates the visible page state', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App forceCompactLayout />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findByProps({testID: 'mobile-doc-row-q4-market-analysis'})
+      .props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'pdf-demo-scroll'}).props.onScroll({
+      nativeEvent: {contentOffset: {y: 1000}},
+    });
+  });
+
+  expect(
+    renderer!.root.findByProps({testID: 'mobile-page-label'}).props.children,
+  ).toEqual([3, ' / ', 32]);
+});
+
+test('mobile signature tool exposes signature manager and stamps the page', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App forceCompactLayout />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findByProps({testID: 'mobile-doc-row-q4-market-analysis'})
+      .props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'mobile-signature'}).props.onPress();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain('signature-manager');
+  expect(JSON.stringify(renderer?.toJSON())).toContain('pdf-tool-hint');
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'signature-name-input'}).props.onChangeText('Ben Ebsworth');
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'save-signature-button'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props.onResponderRelease({
+      nativeEvent: {locationX: 220, locationY: 300},
+    });
+  });
+
+  const output = JSON.stringify(renderer?.toJSON());
+  expect(output).toContain('pdf-annotation-signature');
+  expect(output).toContain('Ben Ebsworth');
 });
 
 test('opens the first matching search result from the inspector', async () => {
@@ -151,6 +283,25 @@ test('opens the first matching search result from the inspector', async () => {
   const output = JSON.stringify(renderer?.toJSON());
 
   expect(output).toContain('Viewer screen Product Roadmap 2025');
+});
+
+test('submitting library search opens the current matching document', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(async () => {
+    await renderer!.root
+      .findByProps({testID: 'library-search-input'})
+      .props.onSubmitEditing({nativeEvent: {text: 'roadmap'}});
+  });
+
+  const output = JSON.stringify(renderer?.toJSON());
+
+  expect(output).toContain('Viewer screen Product Roadmap 2025');
+  expect(output).toContain('Page 1 of 44');
 });
 
 test('desktop document clicks open the reader and controls update visible state', async () => {
@@ -189,10 +340,60 @@ test('desktop document clicks open the reader and controls update visible state'
     renderer!.root.findByProps({testID: 'quick-action-highlight'}).props.onPress();
   });
 
+  expect(JSON.stringify(renderer?.toJSON())).toContain('pdf-tool-hint');
+  expect(JSON.stringify(renderer?.toJSON())).not.toContain(
+    'pdf-annotation-highlight',
+  );
+  expect(JSON.stringify(renderer?.toJSON())).not.toContain('comments-paywall');
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-9'}).props.onResponderRelease({
+      nativeEvent: {locationX: 220, locationY: 280},
+    });
+  });
+
   const output = JSON.stringify(renderer?.toJSON());
 
   expect(output).toContain('Comments');
-  expect(output).toContain('Local non-destructive highlight');
+  expect(output).toContain('Sign in to unlock comments');
+  expect(output).not.toContain('comment-item-local-highlight');
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'unlock-comments-button'}).props.onPress();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain(
+    'Local non-destructive highlight',
+  );
+});
+
+test('document titles and inspector metadata are selectable for copy workflows', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  expect(
+    renderer!.root.findByProps({testID: 'library-inspector-title'}).props
+      .selectable,
+  ).toBe(true);
+  expect(
+    renderer!.root.findByProps({testID: 'info-value-author'}).props.selectable,
+  ).toBe(true);
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'inspector-open-action'}).props.onPress();
+  });
+
+  expect(
+    renderer!.root.findByProps({testID: 'title-document-name'}).props
+      .selectable,
+  ).toBe(true);
+  expect(
+    renderer!.root.findByProps({testID: 'viewer-inspector-title'}).props
+      .selectable,
+  ).toBe(true);
 });
 
 test('desktop reader clips the canvas below toolbar and scrubber controls', async () => {
@@ -308,9 +509,570 @@ test('desktop library favorite, sort, and filter controls update visible state',
     renderer!.root.findByProps({testID: 'filter-button'}).props.onPress();
   });
 
+  expect(JSON.stringify(renderer?.toJSON())).toContain('filter-panel');
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'clear-filters-button'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'filter-tag-finance'}).props.onPress();
+  });
+
+  expect(visibleGridDocumentIds(renderer!)).toEqual([
+    'doc-card-annual-financial-report',
+    'doc-card-invoice-0042',
+  ]);
+
+  expect(renderer!.root.findByProps({testID: 'library-search-input'}).props.value).toBe('');
+});
+
+test('desktop library surfaces active navigation context and empty results', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
   expect(
-    renderer!.root.findByProps({testID: 'library-search-input'}).props.value,
-  ).toBe('');
+    renderer!.root.findByProps({testID: 'library-results-summary-text'}).props
+      .accessibilityLabel,
+  ).toBe('Showing 8 documents in Recent Documents');
+  expect(
+    renderer!.root.findByProps({testID: 'filter-button'}).props
+      .accessibilityLabel,
+  ).toBe('Filters');
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'filter-button'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'filter-tag-finance'}).props.onPress();
+  });
+
+  expect(
+    renderer!.root.findByProps({testID: 'filter-button'}).props
+      .accessibilityLabel,
+  ).toBe('Filters, 1 active');
+  expect(JSON.stringify(renderer?.toJSON())).toContain('Finance');
+  expect(
+    renderer!.root.findByProps({testID: 'library-results-summary-text'}).props
+      .accessibilityLabel,
+  ).toBe('Showing 2 documents in Recent Documents');
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findByProps({testID: 'library-search-input'})
+      .props.onChangeText('no matching local pdf');
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain('library-empty-state');
+  expect(JSON.stringify(renderer?.toJSON())).toContain('No documents found');
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'clear-empty-state-filters'}).props.onPress();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).not.toContain('library-empty-state');
+  expect(visibleGridDocumentIds(renderer!)).toHaveLength(8);
+});
+
+test('desktop sidebar exposes friendly navigation labels and counts', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  expect(
+    renderer!.root.findByProps({testID: 'nav-library'}).props
+      .accessibilityLabel,
+  ).toBe('Library, 8 documents');
+  expect(
+    renderer!.root.findByProps({testID: 'nav-favorites'}).props
+      .accessibilityLabel,
+  ).toBe('Favorites, 2 documents');
+  expect(
+    renderer!.root.findByProps({testID: 'nav-shared'}).props
+      .accessibilityLabel,
+  ).toBe('Shared, 2 documents');
+  expect(
+    renderer!.root.findByProps({testID: 'all-tags-filter'}).props
+      .accessibilityLabel,
+  ).toBe('Show all tags');
+  expect(
+    renderer!.root.findByProps({testID: 'all-collections-filter'}).props
+      .accessibilityLabel,
+  ).toBe('Show all collections');
+});
+
+test('mobile library scope chips filter documents without relying on the desktop sidebar', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App forceCompactLayout />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'mobile-scope-favorites'}).props.onPress();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain('Favorite Documents');
+  expect(JSON.stringify(renderer?.toJSON())).toContain('Product Roadmap 2025');
+  expect(JSON.stringify(renderer?.toJSON())).not.toContain(
+    'Q4 Market Analysis Report',
+  );
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'mobile-scope-library'}).props.onPress();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain('Q4 Market Analysis Report');
+});
+
+test('mobile library search submit opens the first matching document', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App forceCompactLayout />);
+  });
+
+  await ReactTestRenderer.act(async () => {
+    const searchInput = renderer!.root.findByProps({
+      testID: 'mobile-library-search-input',
+    });
+    searchInput.props.onChangeText('roadmap');
+    await searchInput.props.onSubmitEditing({nativeEvent: {text: 'roadmap'}});
+  });
+
+  const output = JSON.stringify(renderer?.toJSON());
+
+  expect(output).toContain('mobile-viewer-screen');
+  expect(output).toContain('Product Roadmap 2025');
+});
+
+test('desktop title bar relies on native macOS chrome instead of synthetic traffic lights', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  expect(
+    renderer!.root.findAllByProps({testID: 'synthetic-traffic-lights'}),
+  ).toHaveLength(0);
+});
+
+test('opening a local PDF adds it to recent documents and opens the viewer', async () => {
+  const importedAt = '2026-05-12T12:00:00.000Z';
+  jest.spyOn(PdfKitBridge, 'openPdf').mockResolvedValueOnce({
+    id: 'manual-imported-pdf',
+    title: 'Manual Imported PDF',
+    author: 'Local Author',
+    pageCount: 5,
+    sizeMb: 2.5,
+    createdAt: importedAt,
+    modifiedAt: importedAt,
+    path: '/tmp/manual-imported.pdf',
+    bookmark: 'bookmark',
+  });
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(async () => {
+    await renderer!.root.findByProps({testID: 'open-file-button'}).props.onPress();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain(
+    'Viewer screen Manual Imported PDF',
+  );
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'viewer-library-button'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'nav-recent'}).props.onPress();
+  });
+
+  expect(visibleGridDocumentIds(renderer!)[0]).toBe(
+    'doc-card-manual-imported-pdf',
+  );
+});
+
+test('opening an existing document promotes it to the top of recent documents', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findAllByProps({testID: 'doc-card-invoice-0042'})[0]
+      .props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'viewer-library-button'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'nav-recent'}).props.onPress();
+  });
+
+  expect(visibleGridDocumentIds(renderer!)[0]).toBe(
+    'doc-card-invoice-0042',
+  );
+});
+
+test('viewer thumbnail rail only offers pages that exist for short documents', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findAllByProps({testID: 'doc-card-invoice-0042'})[0]
+      .props.onPress();
+  });
+
+  expect(
+    renderer!.root.findAllByProps({testID: 'thumbnail-page-4'}).length,
+  ).toBeGreaterThan(0);
+  expect(
+    renderer!.root.findAllByProps({testID: 'thumbnail-page-8'}),
+  ).toHaveLength(0);
+  expect(
+    renderer!.root.findAllByProps({testID: 'thumbnail-page-12'}),
+  ).toHaveLength(0);
+});
+
+test('bottom scrubber exposes navigation to the final page of long documents', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findAllByProps({testID: 'doc-card-product-roadmap'})[0]
+      .props.onPress();
+  });
+
+  expect(
+    renderer!.root.findAllByProps({testID: 'scrubber-page-44'}).length,
+  ).toBeGreaterThan(0);
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'scrubber-page-44'}).props.onPress();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain('Page 44 of 44');
+});
+
+test('desktop export actions use the native PDFKit bridge for imported PDFs', async () => {
+  const importedAt = '2026-05-12T12:00:00.000Z';
+  const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation();
+  jest.spyOn(PdfKitBridge, 'openPdf').mockResolvedValueOnce({
+    id: 'manual-imported-pdf',
+    title: 'Manual Imported PDF',
+    author: 'Local Author',
+    pageCount: 5,
+    sizeMb: 2.5,
+    createdAt: importedAt,
+    modifiedAt: importedAt,
+    path: '/tmp/manual-imported.pdf',
+    bookmark: 'bookmark-data',
+  });
+  const exportImageSpy = jest
+    .spyOn(PdfKitBridge, 'exportPageImage')
+    .mockResolvedValueOnce('/tmp/acacia-page-0.png');
+  const exportTextSpy = jest
+    .spyOn(PdfKitBridge, 'exportPageText')
+    .mockResolvedValueOnce('/tmp/acacia-page-0.txt');
+  const exportAnnotatedSpy = jest
+    .spyOn(PdfKitBridge, 'exportAnnotatedCopy')
+    .mockResolvedValueOnce('/tmp/manual-imported-annotated.pdf');
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(async () => {
+    await renderer!.root.findByProps({testID: 'open-file-button'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(async () => {
+    await renderer!.root.findByProps({testID: 'export-png-action'}).props.onPress();
+  });
+
+  expect(exportImageSpy).toHaveBeenCalledWith(
+    '/tmp/manual-imported.pdf',
+    0,
+    'bookmark-data',
+    'png',
+  );
+  expect(alertSpy).toHaveBeenLastCalledWith(
+    'Export ready',
+    expect.stringContaining('/tmp/acacia-page-0.png'),
+  );
+
+  await ReactTestRenderer.act(async () => {
+    await renderer!.root.findByProps({testID: 'export-text-action'}).props.onPress();
+  });
+
+  expect(exportTextSpy).toHaveBeenCalledWith(
+    '/tmp/manual-imported.pdf',
+    0,
+    'bookmark-data',
+  );
+  expect(alertSpy).toHaveBeenLastCalledWith(
+    'Export ready',
+    expect.stringContaining('/tmp/acacia-page-0.txt'),
+  );
+
+  await ReactTestRenderer.act(async () => {
+    await renderer!.root.findByProps({testID: 'export-annotated-action'}).props.onPress();
+  });
+
+  expect(exportAnnotatedSpy).toHaveBeenCalledWith(
+    '/tmp/manual-imported.pdf',
+    expect.any(Array),
+    'bookmark-data',
+  );
+  expect(alertSpy).toHaveBeenLastCalledWith(
+    'Export ready',
+    expect.stringContaining('/tmp/manual-imported-annotated.pdf'),
+  );
+});
+
+test('imported PDF records retain the security-scoped bookmark', () => {
+  const document = importedPdfToDocument({
+    id: 'manual-imported-pdf',
+    title: 'Manual Imported PDF',
+    author: 'Local Author',
+    pageCount: 5,
+    sizeMb: 2.5,
+    createdAt: '2026-05-12T12:00:00.000Z',
+    modifiedAt: '2026-05-12T12:00:00.000Z',
+    path: '/tmp/manual-imported.pdf',
+    bookmark: 'bookmark-data',
+  });
+
+  expect(document.bookmark).toBe('bookmark-data');
+});
+
+test('library supports adding collections and tags from the visible controls', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'add-collection-button'}).props.onPress();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain('New Collection');
+  expect(JSON.stringify(renderer?.toJSON())).toContain('0');
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'add-tag-button'}).props.onPress();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain('Research');
+});
+
+test('viewer search navigates within demo documents', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findAllByProps({testID: 'doc-card-future-work'})[0].props.onPress();
+  });
+
+  const searchInput = renderer!.root.findByProps({
+    testID: 'document-search-input',
+  });
+
+  await ReactTestRenderer.act(async () => {
+    searchInput.props.onChangeText('hybrid');
+    await searchInput.props.onSubmitEditing({nativeEvent: {text: 'hybrid'}});
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain('Page 12 of 32');
+});
+
+test('signature manager saves a custom signature and stamps it on the clicked page', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findAllByProps({testID: 'doc-card-q4-market-analysis'})[0].props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'quick-action-signature'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'signature-name-input'}).props.onChangeText('Ben Ebsworth');
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'save-signature-button'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props.onResponderRelease({
+      nativeEvent: {locationX: 210, locationY: 320},
+    });
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain('Ben Ebsworth');
+  expect(JSON.stringify(renderer?.toJSON())).toContain('pdf-annotation-signature');
+});
+
+test('signature tool opens the manager even after comments are selected', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findAllByProps({testID: 'doc-card-q4-market-analysis'})[0].props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'quick-action-add-note'}).props.onPress();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain('comments-paywall');
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'tool-signature'}).props.onPress();
+  });
+
+  const output = JSON.stringify(renderer?.toJSON());
+  expect(output).toContain('signature-manager');
+  expect(output).toContain('pdf-tool-hint');
+});
+
+test('note and drawing tools create page-anchored review items', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findAllByProps({testID: 'doc-card-q4-market-analysis'})[0].props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'quick-action-add-note'}).props.onPress();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain('pdf-tool-hint');
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props.onResponderRelease({
+      nativeEvent: {locationX: 180, locationY: 240},
+    });
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'unlock-comments-button'}).props.onPress();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain('Local note on page 1');
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'inspector-tab-info'}).props.onPress();
+  });
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'quick-action-draw'}).props.onPress();
+  });
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props.onResponderRelease({
+      nativeEvent: {locationX: 220, locationY: 320},
+    });
+  });
+
+  const output = JSON.stringify(renderer?.toJSON());
+  expect(output).toContain('Local drawing on page 1');
+  expect(output).toContain('comment-filter-drawings');
+});
+
+test('comments panel filters highlights and signatures as actionable controls', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findAllByProps({testID: 'doc-card-q4-market-analysis'})[0].props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'quick-action-highlight'}).props.onPress();
+  });
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props.onResponderRelease({
+      nativeEvent: {locationX: 180, locationY: 260},
+    });
+  });
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'unlock-comments-button'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'tool-signature'}).props.onPress();
+  });
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props.onResponderRelease({
+      nativeEvent: {locationX: 240, locationY: 360},
+    });
+  });
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'inspector-tab-comments'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'comment-filter-signatures'}).props.onPress();
+  });
+
+  expect(signatureCommentItems(renderer!).length).toBeGreaterThan(0);
+  expect(localHighlightCommentItems(renderer!)).toHaveLength(0);
+  expect(
+    visibleCommentItemIds(renderer!).every(testID =>
+      testID.startsWith('comment-item-signature-'),
+    ),
+  ).toBe(true);
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'comment-filter-highlights'}).props.onPress();
+  });
+
+  expect(localHighlightCommentItems(renderer!)).toHaveLength(1);
+  expect(signatureCommentItems(renderer!)).toHaveLength(0);
 });
 
 test('desktop sidebar scopes recent favorite and shared documents', async () => {
@@ -351,6 +1113,9 @@ test('desktop sidebar scopes recent favorite and shared documents', async () => 
     'doc-card-product-roadmap',
     'doc-card-annual-financial-report',
     'doc-card-future-work',
+    'doc-card-board-minutes-apr',
+    'doc-card-marketing-strategy',
+    'doc-card-invoice-0042',
   ]);
 });
 
@@ -369,6 +1134,14 @@ test('desktop viewer bookmark and compare sync controls update visible state', a
 
   await ReactTestRenderer.act(() => {
     renderer!.root.findByProps({testID: 'quick-action-bookmark'}).props.onPress();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain(
+    'Sign in to unlock comments',
+  );
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'unlock-comments-button'}).props.onPress();
   });
 
   expect(JSON.stringify(renderer?.toJSON())).toContain('Bookmark on page 1');
@@ -412,6 +1185,7 @@ test('opens directly into the comments screenshot state', async () => {
   expect(output).toContain('Viewer screen Future of Work Report');
   expect(output).toContain('Page 12 of 32');
   expect(output).toContain('Comments');
+  expect(output).toContain('Sign in to unlock comments');
 });
 
 test('opens directly into the compare screenshot state', async () => {

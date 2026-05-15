@@ -29,6 +29,7 @@ export type DocumentRecord = {
   shared: boolean;
   thumbnailTone: 'pastel' | 'navy' | 'ice' | 'paper' | 'red' | 'teal';
   path?: string;
+  bookmark?: string;
   versionLabel?: string;
 };
 
@@ -71,6 +72,11 @@ export type PdfRect = {
   height: number;
 };
 
+export type PdfPoint = {
+  x: number;
+  y: number;
+};
+
 export type Annotation = {
   id: string;
   documentId: string;
@@ -78,6 +84,7 @@ export type Annotation = {
   kind: AnnotationKind;
   color: string;
   bounds: PdfRect;
+  points?: PdfPoint[];
   text?: string;
   createdAt: string;
   updatedAt: string;

@@ -45,4 +45,33 @@ describe('annotation sidecars', () => {
       'Great point. This is a key takeaway.',
     );
   });
+
+  it('preserves freehand ink paths for non-destructive pen annotations', () => {
+    const annotation = createAnnotation({
+      id: 'drawing-1',
+      documentId: 'tax-pack',
+      pageIndex: 3,
+      kind: 'drawing',
+      color: '#EF4444',
+      bounds: {x: 130, y: 220, width: 180, height: 72},
+      points: [
+        {x: 130, y: 240},
+        {x: 175, y: 228},
+        {x: 230, y: 265},
+        {x: 310, y: 292},
+      ],
+      text: 'Freehand drawing',
+    });
+
+    const parsed = deserializeAnnotationSidecar(
+      serializeAnnotationSidecar({
+        documentId: 'tax-pack',
+        sourceFingerprint: 'sha256-tax-pack',
+        annotations: [annotation],
+        commentThreads: [],
+      }),
+    );
+
+    expect(parsed.annotations[0].points).toEqual(annotation.points);
+  });
 });

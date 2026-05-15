@@ -1,16 +1,17 @@
 import {
   createInitialLibraryState,
+  getCollectionCounts,
   getContinueReadingDocuments,
   getFilteredDocuments,
   libraryReducer,
 } from '../src/domain/libraryState';
 
 describe('library state', () => {
-  it('filters documents by query and sorts by last opened descending', () => {
+  it('filters documents by query, tags, and collections', () => {
     const state = createInitialLibraryState();
 
     const results = getFilteredDocuments(state, {
-      query: 'market',
+      query: 'market work q4',
       tagId: 'all',
       collectionId: 'all',
       scope: 'library',
@@ -65,7 +66,28 @@ describe('library state', () => {
   });
 
   it('filters documents by recent favorites and shared scopes', () => {
-    const state = createInitialLibraryState();
+    const importedAt = '2026-05-12T12:00:00.000Z';
+    const state = libraryReducer(createInitialLibraryState(), {
+      type: 'addDocument',
+      document: {
+        id: 'manual-pdf',
+        title: 'Manual Imported PDF',
+        author: 'Local Document',
+        kind: 'pdf',
+        pageCount: 3,
+        sizeMb: 1.4,
+        progress: 0,
+        createdAt: importedAt,
+        modifiedAt: importedAt,
+        lastOpenedAt: importedAt,
+        tags: ['work'],
+        collectionIds: ['archive'],
+        favorite: false,
+        shared: false,
+        thumbnailTone: 'paper',
+        path: '/tmp/manual.pdf',
+      },
+    });
     const baseFilter = {
       query: '',
       tagId: 'all',
@@ -89,11 +111,39 @@ describe('library state', () => {
         document => document.id,
       ),
     ).toEqual([
+      'manual-pdf',
       'q4-market-analysis',
       'competitive-landscape',
       'product-roadmap',
       'annual-financial-report',
       'future-work',
+      'board-minutes-apr',
+      'marketing-strategy',
+      'invoice-0042',
     ]);
+  });
+
+  it('derives collection counts from the actual visible documents', () => {
+    const state = createInitialLibraryState();
+
+    expect(getCollectionCounts(state.documents)).toEqual({
+      archive: 2,
+      contracts: 0,
+      invoices: 1,
+      marketing: 1,
+      'q4-reports': 3,
+      'research-papers': 2,
+    });
+
+    const withNewCollection = libraryReducer(state, {
+      type: 'addCollection',
+      label: 'Client Decks',
+    });
+
+    expect(withNewCollection.collections).toContainEqual({
+      id: 'client-decks',
+      label: 'Client Decks',
+      count: 0,
+    });
   });
 });

@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo, useReducer, useState} from 'react';
 import {
   Alert,
+  type TextProps,
   Platform,
   Pressable,
   SafeAreaView,
@@ -11,7 +12,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import {PdfCanvas} from './src/components/PdfCanvas';
+import {type CanvasAnnotationRequest, PdfCanvas} from './src/components/PdfCanvas';
 import {
   compareDocumentText,
   createAnnotation,
@@ -46,6 +47,26 @@ type AppProps = {
   forceCompactLayout?: boolean;
 };
 
+type AccountState = {
+  signedIn: boolean;
+  plan: 'free' | 'pro';
+};
+
+type SignatureProfile = {
+  id: string;
+  label: string;
+  value: string;
+  updatedAt: string;
+};
+
+type ScopeCounts = Record<LibraryScope, number>;
+type CommentAnnotationFilter =
+  | 'all'
+  | 'highlight'
+  | 'note'
+  | 'drawing'
+  | 'signature';
+
 const initialFilter: LibraryFilter = {
   query: '',
   tagId: 'all',
@@ -54,6 +75,13 @@ const initialFilter: LibraryFilter = {
   sortBy: 'lastOpened',
   viewMode: 'grid',
 };
+
+const libraryScopeOptions: LibraryScope[] = [
+  'library',
+  'recent',
+  'favorites',
+  'shared',
+];
 
 const initialAnnotations: Annotation[] = [
   createAnnotation({
@@ -98,12 +126,30 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
   );
   const [annotations, setAnnotations] =
     useState<Annotation[]>(initialAnnotations);
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const [signatures, setSignatures] = useState<SignatureProfile[]>([
+    {
+      id: 'signature-default',
+      label: 'Default Signature',
+      value: 'Ben Ebsworth',
+      updatedAt: '2026-05-11T08:10:00.000Z',
+    },
+  ]);
+  const [activeSignatureId, setActiveSignatureId] = useState('signature-default');
+  const [accountState, setAccountState] = useState<AccountState>({
+    signedIn: false,
+    plan: 'free',
+  });
   const [compareSynced, setCompareSynced] = useState(true);
   const windowMetrics = useWindowDimensions();
 
   const visibleDocuments = useMemo(
     () => getFilteredDocuments(libraryState, filter),
     [filter, libraryState],
+  );
+  const scopeCounts = useMemo(
+    () => getScopeCounts(libraryState.documents),
+    [libraryState.documents],
   );
   useEffect(() => {
     if (
@@ -120,6 +166,8 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
   const selectedAnnotations = annotations.filter(
     annotation => annotation.documentId === selectedDocument.id,
   );
+  const canUseReviewFeatures =
+    accountState.signedIn && accountState.plan === 'pro';
   const compareRightDocument =
     libraryState.documents.find(
       document => document.id === 'annual-financial-report',
@@ -147,6 +195,14 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
   }
 
   function openDocument(document: DocumentRecord, mode: ScreenMode = 'viewer') {
+    dispatchLibrary({
+      type: 'updateDocument',
+      documentId: document.id,
+      patch: {
+        lastOpenedAt: new Date().toISOString(),
+        progress: document.progress > 0 ? document.progress : 0.01,
+      },
+    });
     setSelectedDocumentId(document.id);
     setViewerState(createInitialViewerState(document.id, document.pageCount));
     setScreenMode(mode);
@@ -182,20 +238,37 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
     }
   }
 
-  function addHighlight() {
+  function selectViewerTool(tool: ViewerTool) {
+    updateViewer({type: 'setTool', tool});
+
+    if (tool === 'comment') {
+      updateViewer({type: 'setInspectorTab', tab: 'comments'});
+    }
+
+    if (tool === 'signature') {
+      updateViewer({type: 'setInspectorTab', tab: 'info'});
+    }
+  }
+
+  function addCanvasAnnotation(request: CanvasAnnotationRequest) {
+    const signature = signatures.find(item => item.id === activeSignatureId) ?? signatures[0];
+    const copy = annotationCopyForRequest(request, signature?.value);
     const annotation = createAnnotation({
-      id: `annotation-${Date.now()}`,
+      id: `${request.kind}-${Date.now()}`,
       documentId: selectedDocument.id,
-      pageIndex: viewerState.pageIndex,
-      kind: 'highlight',
-      color: '#F7D64A',
-      bounds: {x: 132, y: 252, width: 320, height: 24},
-      text: 'Local non-destructive highlight',
+      pageIndex: request.pageIndex,
+      kind: request.kind,
+      color: annotationColorForKind(request.kind),
+      bounds: request.bounds,
+      points: request.points,
+      text: copy,
     });
 
     setAnnotations(current => [...current, annotation]);
-    updateViewer({type: 'setTool', tool: 'highlight'});
-    updateViewer({type: 'setInspectorTab', tab: 'comments'});
+    updateViewer({
+      type: 'setInspectorTab',
+      tab: request.kind === 'signature' ? 'info' : 'comments',
+    });
   }
 
   function addBookmark() {
@@ -213,6 +286,10 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
     updateViewer({type: 'setInspectorTab', tab: 'comments'});
   }
 
+  function unlockReviewFeatures() {
+    setAccountState({signedIn: true, plan: 'pro'});
+  }
+
   function toggleFavorite(document: DocumentRecord) {
     dispatchLibrary({
       type: 'updateDocument',
@@ -221,8 +298,154 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
     });
   }
 
+  function addCollection() {
+    dispatchLibrary({type: 'addCollection', label: nextCollectionLabel(libraryState.collections)});
+  }
+
+  function addTagToSelectedDocument() {
+    const preferredTags = ['research', 'finance', 'marketing', 'personal', 'work'];
+    const nextTag =
+      preferredTags.find(tagId => !selectedDocument.tags.includes(tagId)) ??
+      libraryState.tags.find(tag => !selectedDocument.tags.includes(tag.id))?.id;
+
+    if (!nextTag) {
+      return;
+    }
+
+    dispatchLibrary({
+      type: 'addTagToDocument',
+      documentId: selectedDocument.id,
+      tagId: nextTag,
+    });
+  }
+
+  function saveSignature(value: string) {
+    const trimmedValue = value.trim();
+
+    if (trimmedValue.length === 0) {
+      return;
+    }
+
+    setSignatures(current => {
+      const updatedAt = new Date().toISOString();
+      const existing = current.find(item => item.id === activeSignatureId);
+
+      if (existing) {
+        return current.map(item =>
+          item.id === activeSignatureId
+            ? {...item, value: trimmedValue, label: trimmedValue, updatedAt}
+            : item,
+        );
+      }
+
+      const signature = {
+        id: `signature-${Date.now()}`,
+        label: trimmedValue,
+        value: trimmedValue,
+        updatedAt,
+      };
+      setActiveSignatureId(signature.id);
+      return [...current, signature];
+    });
+  }
+
+  async function submitSearch(overrideQuery?: string) {
+    const query =
+      overrideQuery?.trim() ??
+      (screenMode === 'library'
+        ? filter.query.trim()
+        : viewerState.searchQuery.trim());
+
+    if (query.length === 0) {
+      return;
+    }
+
+    if (screenMode === 'library') {
+      const firstMatch = getFilteredDocuments(libraryState, {
+        ...filter,
+        query,
+      })[0];
+      if (firstMatch) {
+        openDocument(firstMatch);
+      }
+      return;
+    }
+
+    if (selectedDocument.path) {
+      const matches = await PdfKitBridge.search(
+        selectedDocument.path,
+        query,
+        selectedDocument.bookmark,
+      );
+      if (matches[0]) {
+        updateViewer({type: 'setPage', pageIndex: matches[0].pageIndex});
+      }
+      return;
+    }
+
+    const demoMatch = searchDemoDocument(selectedDocument, query);
+    if (demoMatch !== undefined) {
+      updateViewer({type: 'setPage', pageIndex: demoMatch});
+    }
+  }
+
   function showLocalAction(title: string, message: string) {
     Alert.alert(title, message);
+  }
+
+  async function exportCurrentDocument(
+    format: 'png' | 'jpg' | 'text' | 'annotated',
+  ) {
+    if (!selectedDocument.path) {
+      showLocalAction(
+        'Import a PDF to export',
+        'Demo documents can be inspected locally. Open a PDF from your Mac to export rendered pages or page text.',
+      );
+      return;
+    }
+
+    try {
+      let outputPath: string | undefined;
+
+      if (format === 'annotated') {
+        outputPath = await PdfKitBridge.exportAnnotatedCopy(
+          selectedDocument.path,
+          selectedAnnotations,
+          selectedDocument.bookmark,
+        );
+      } else if (format === 'text') {
+        outputPath = await PdfKitBridge.exportPageText(
+          selectedDocument.path,
+          viewerState.pageIndex,
+          selectedDocument.bookmark,
+        );
+      } else {
+        outputPath = await PdfKitBridge.exportPageImage(
+          selectedDocument.path,
+          viewerState.pageIndex,
+          selectedDocument.bookmark,
+          format,
+        );
+      }
+
+      if (!outputPath) {
+        showLocalAction(
+          'Export unavailable',
+          'The native PDF exporter did not return an output file.',
+        );
+        return;
+      }
+
+      showLocalAction(
+        'Export ready',
+        `${selectedDocument.title} page ${viewerState.pageIndex + 1} was exported to ${outputPath}`,
+      );
+    } catch (error) {
+      showLocalAction(
+        'Export failed',
+        error instanceof Error ? error.message : 'The selected page could not be exported.',
+      );
+    }
   }
 
   const isCompactPhone =
@@ -240,12 +463,17 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
         selectedDocument={selectedDocument}
         rightDocument={compareRightDocument}
         tags={libraryState.tags}
+        scopeCounts={scopeCounts}
         documents={visibleDocuments}
         continueReading={continueReading}
         viewer={viewerState}
         annotations={selectedAnnotations}
+        canUseReviewFeatures={canUseReviewFeatures}
         compareSummary={compareSummary}
+        signatures={signatures}
+        activeSignatureId={activeSignatureId}
         onQueryChange={query => setFilter(current => ({...current, query}))}
+        onSearchSubmit={submitSearch}
         onFilterChange={patch => setFilter(current => ({...current, ...patch}))}
         onOpenFile={openImportedPdf}
         onSelectDocument={document => setSelectedDocumentId(document.id)}
@@ -253,7 +481,11 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
         onBack={() => setScreenMode('library')}
         onCompare={() => setScreenMode('compare')}
         onViewerAction={updateViewer}
-        onAddHighlight={addHighlight}
+        onSelectTool={selectViewerTool}
+        onCanvasAnnotation={addCanvasAnnotation}
+        onUnlockReviewFeatures={unlockReviewFeatures}
+        onSelectSignature={setActiveSignatureId}
+        onSaveSignature={saveSignature}
       />
     );
   }
@@ -267,8 +499,14 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
       <TitleBar
         mode={screenMode}
         selectedDocument={selectedDocument}
-        query={filter.query}
-        onQueryChange={query => setFilter(current => ({...current, query}))}
+        documentCount={libraryState.documents.length}
+        query={screenMode === 'library' ? filter.query : viewerState.searchQuery}
+        onQueryChange={query =>
+          screenMode === 'library'
+            ? setFilter(current => ({...current, query}))
+            : updateViewer({type: 'setSearchQuery', query})
+        }
+        onSearchSubmit={submitSearch}
         onBack={() => setScreenMode('library')}
         onForward={() => openAdjacentDocument(1)}
         onOpenFile={openImportedPdf}
@@ -279,10 +517,13 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
           selectedDocument={selectedDocument}
           stateTags={libraryState.tags}
           collections={libraryState.collections}
+          scopeCounts={scopeCounts}
           documents={visibleDocuments}
           continueReading={continueReading}
+          filterPanelOpen={filterPanelOpen}
           storageUsedGb={libraryState.storageUsedGb}
           storageLimitGb={libraryState.storageLimitGb}
+          canShowStorage={accountState.signedIn}
           onOpenFile={openImportedPdf}
           onFilterChange={patch =>
             setFilter(current => ({...current, ...patch}))
@@ -296,6 +537,8 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
               scope: 'library',
             }))
           }
+          onToggleFilterPanel={() => setFilterPanelOpen(current => !current)}
+          onAddCollection={addCollection}
           onSelectScope={scope =>
             setFilter(current => ({
               ...current,
@@ -308,6 +551,7 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
           }
           onSelectDocument={document => setSelectedDocumentId(document.id)}
           onOpenDocument={openDocument}
+          onAddTag={addTagToSelectedDocument}
           onToggleFavorite={toggleFavorite}
           onShare={document =>
             showLocalAction('Share', `${document.title} is ready for local export or system sharing.`)
@@ -336,19 +580,19 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
           tags={libraryState.tags}
           viewer={viewerState}
           annotations={selectedAnnotations}
+          canUseReviewFeatures={canUseReviewFeatures}
           onBack={() => setScreenMode('library')}
           onCompare={() => setScreenMode('compare')}
           onViewerAction={updateViewer}
-          onAddHighlight={addHighlight}
+          onSelectTool={selectViewerTool}
+          onCanvasAnnotation={addCanvasAnnotation}
           onAddBookmark={addBookmark}
-          onExport={format =>
-            showLocalAction(
-              `Export as ${format.toUpperCase()}`,
-              selectedDocument.path
-                ? `Export will use PDFKit for ${selectedDocument.title}.`
-                : 'Demo documents can be inspected locally; import a PDF to export rendered pages.',
-            )
-          }
+          onUnlockReviewFeatures={unlockReviewFeatures}
+          signatures={signatures}
+          activeSignatureId={activeSignatureId}
+          onSelectSignature={setActiveSignatureId}
+          onSaveSignature={saveSignature}
+          onExport={exportCurrentDocument}
         />
       )}
     </View>
@@ -406,12 +650,17 @@ function MobileExperience({
   selectedDocument,
   rightDocument,
   tags,
+  scopeCounts,
   documents,
   continueReading,
   viewer,
   annotations,
+  canUseReviewFeatures,
   compareSummary,
+  signatures,
+  activeSignatureId,
   onQueryChange,
+  onSearchSubmit,
   onFilterChange,
   onOpenFile,
   onSelectDocument,
@@ -419,19 +668,28 @@ function MobileExperience({
   onBack,
   onCompare,
   onViewerAction,
-  onAddHighlight,
+  onSelectTool,
+  onCanvasAnnotation,
+  onUnlockReviewFeatures,
+  onSelectSignature,
+  onSaveSignature,
 }: {
   screenMode: ScreenMode;
   filter: LibraryFilter;
   selectedDocument: DocumentRecord;
   rightDocument: DocumentRecord;
   tags: Tag[];
+  scopeCounts: ScopeCounts;
   documents: DocumentRecord[];
   continueReading: DocumentRecord[];
   viewer: ViewerState;
   annotations: Annotation[];
+  canUseReviewFeatures: boolean;
   compareSummary: CompareSummary;
+  signatures: SignatureProfile[];
+  activeSignatureId: string;
   onQueryChange: (query: string) => void;
+  onSearchSubmit: (query?: string) => void | Promise<void>;
   onFilterChange: (patch: Partial<LibraryFilter>) => void;
   onOpenFile: () => void;
   onSelectDocument: (document: DocumentRecord) => void;
@@ -439,18 +697,36 @@ function MobileExperience({
   onBack: () => void;
   onCompare: () => void;
   onViewerAction: (action: Parameters<typeof viewerReducer>[1]) => void;
-  onAddHighlight: () => void;
+  onSelectTool: (tool: ViewerTool) => void;
+  onCanvasAnnotation: (request: CanvasAnnotationRequest) => void;
+  onUnlockReviewFeatures: () => void;
+  onSelectSignature: (signatureId: string) => void;
+  onSaveSignature: (value: string) => void;
 }) {
+  const shouldShowContinueReading =
+    filter.scope === 'library' &&
+    filter.query.trim().length === 0 &&
+    filter.tagId === 'all' &&
+    filter.collectionId === 'all';
+  const sectionTitle = librarySectionTitle(filter.scope);
+
   if (screenMode === 'viewer') {
     return (
       <MobileViewer
         document={selectedDocument}
         viewer={viewer}
         annotations={annotations}
+        canUseReviewFeatures={canUseReviewFeatures}
         onBack={onBack}
         onCompare={onCompare}
         onViewerAction={onViewerAction}
-        onAddHighlight={onAddHighlight}
+        onSelectTool={onSelectTool}
+        onCanvasAnnotation={onCanvasAnnotation}
+        onUnlockReviewFeatures={onUnlockReviewFeatures}
+        signatures={signatures}
+        activeSignatureId={activeSignatureId}
+        onSelectSignature={onSelectSignature}
+        onSaveSignature={onSaveSignature}
       />
     );
   }
@@ -479,7 +755,7 @@ function MobileExperience({
             <Text style={mobileStyles.appTitle}>Acacia</Text>
             <Text style={mobileStyles.headerMeta}>PDF workspace</Text>
           </View>
-          <MobileButton label="Open" primary onPress={onOpenFile} />
+          <MobileButton label="Open" icon="+" primary onPress={onOpenFile} />
         </View>
         <View style={mobileStyles.searchBox}>
           <TextInput
@@ -487,6 +763,8 @@ function MobileExperience({
             accessibilityLabel="Search documents"
             value={filter.query}
             onChangeText={onQueryChange}
+            onSubmitEditing={event => onSearchSubmit(event.nativeEvent.text)}
+            returnKeyType="search"
             placeholder="Search documents"
             placeholderTextColor="#7A8393"
             style={mobileStyles.searchInput}
@@ -498,11 +776,35 @@ function MobileExperience({
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            contentContainerStyle={mobileStyles.scopeScroller}>
+            {libraryScopeOptions.map(scope => (
+              <MobileTagButton
+                key={scope}
+                label={mobileScopeLabel(scope)}
+                icon={scopeIcon(scope)}
+                count={scopeCounts[scope]}
+                active={filter.scope === scope}
+                testID={`mobile-scope-${scope}`}
+                onPress={() =>
+                  onFilterChange({
+                    scope,
+                    tagId: 'all',
+                    collectionId: 'all',
+                  })
+                }
+              />
+            ))}
+          </ScrollView>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
             contentContainerStyle={mobileStyles.tagScroller}>
             <MobileTagButton
               label="All"
               active={filter.tagId === 'all'}
-              onPress={() => onFilterChange({tagId: 'all'})}
+              testID="mobile-tag-all"
+              icon="🏷️"
+              onPress={() => onFilterChange({scope: 'library', tagId: 'all'})}
             />
             {tags.map(tag => (
               <MobileTagButton
@@ -510,31 +812,45 @@ function MobileExperience({
                 label={tag.label}
                 active={filter.tagId === tag.id}
                 tone={tag.tone}
-                onPress={() => onFilterChange({tagId: tag.id})}
+                icon={tagEmoji(tag.id)}
+                testID={`mobile-tag-${tag.id}`}
+                onPress={() =>
+                  onFilterChange({scope: 'library', tagId: tag.id})
+                }
               />
             ))}
           </ScrollView>
-          <View style={mobileStyles.sectionHeader}>
-            <Text style={mobileStyles.sectionTitle}>Continue Reading</Text>
-            <MobileButton label="Compare" onPress={onCompare} />
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={mobileStyles.cardScroller}>
-            {continueReading.map(document => (
-              <MobileDocumentCard
-                key={document.id}
-                document={document}
-                selected={selectedDocument.id === document.id}
-                onPress={() => {
-                  onSelectDocument(document);
-                  onOpenDocument(document);
-                }}
-              />
-            ))}
-          </ScrollView>
-          <Text style={mobileStyles.sectionTitle}>Documents</Text>
+          {shouldShowContinueReading ? (
+            <>
+              <View style={mobileStyles.sectionHeader}>
+                <Text style={mobileStyles.sectionTitle}>Continue Reading</Text>
+                <MobileButton label="Compare" icon="↔️" onPress={onCompare} />
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={mobileStyles.cardScroller}>
+                {continueReading.map(document => (
+                  <MobileDocumentCard
+                    key={document.id}
+                    document={document}
+                    selected={selectedDocument.id === document.id}
+                    onPress={() => {
+                      onSelectDocument(document);
+                      onOpenDocument(document);
+                    }}
+                  />
+                ))}
+              </ScrollView>
+            </>
+          ) : null}
+          <Text
+            testID="mobile-results-summary"
+            accessibilityLabel={`${formatDocumentCount(documents.length)} in ${sectionTitle}`}
+            style={mobileStyles.resultsSummary}>
+            {formatDocumentCount(documents.length)} in {sectionTitle}
+          </Text>
+          <Text style={mobileStyles.sectionTitle}>{sectionTitle}</Text>
           <View style={mobileStyles.documentList}>
             {documents.map(document => (
               <MobileDocumentRow
@@ -559,18 +875,32 @@ function MobileViewer({
   document,
   viewer,
   annotations,
+  canUseReviewFeatures,
   onBack,
   onCompare,
   onViewerAction,
-  onAddHighlight,
+  onSelectTool,
+  onCanvasAnnotation,
+  onUnlockReviewFeatures,
+  signatures,
+  activeSignatureId,
+  onSelectSignature,
+  onSaveSignature,
 }: {
   document: DocumentRecord;
   viewer: ViewerState;
   annotations: Annotation[];
+  canUseReviewFeatures: boolean;
   onBack: () => void;
   onCompare: () => void;
   onViewerAction: (action: Parameters<typeof viewerReducer>[1]) => void;
-  onAddHighlight: () => void;
+  onSelectTool: (tool: ViewerTool) => void;
+  onCanvasAnnotation: (request: CanvasAnnotationRequest) => void;
+  onUnlockReviewFeatures: () => void;
+  signatures: SignatureProfile[];
+  activeSignatureId: string;
+  onSelectSignature: (signatureId: string) => void;
+  onSaveSignature: (value: string) => void;
 }) {
   return (
     <MobileSafeArea>
@@ -586,7 +916,7 @@ function MobileViewer({
         />
         <View style={mobileStyles.viewerToolbar}>
           <MobileButton
-            label="-"
+            label="−"
             testID="mobile-zoom-out"
             onPress={() =>
               onViewerAction({type: 'setZoom', zoom: viewer.zoom - 0.1})
@@ -602,13 +932,37 @@ function MobileViewer({
               onViewerAction({type: 'setZoom', zoom: viewer.zoom + 0.1})
             }
           />
-          <View style={mobileStyles.toolbarSpacer} />
-          <MobileButton
-            label="Highlight"
-            primary
-            testID="mobile-highlight"
-            onPress={onAddHighlight}
-          />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={mobileStyles.viewerToolRail}
+            contentContainerStyle={mobileStyles.viewerToolScroller}>
+            <MobileButton
+              label="Highlight"
+              icon="🖍"
+              primary
+              testID="mobile-highlight"
+              onPress={() => onSelectTool('highlight')}
+            />
+            <MobileButton
+              label="Note"
+              icon="💬"
+              testID="mobile-note"
+              onPress={() => onSelectTool('comment')}
+            />
+            <MobileButton
+              label="Draw"
+              icon="✏️"
+              testID="mobile-draw"
+              onPress={() => onSelectTool('pen')}
+            />
+            <MobileButton
+              label="Sign"
+              icon="✍️"
+              testID="mobile-signature"
+              onPress={() => onSelectTool('signature')}
+            />
+          </ScrollView>
         </View>
         <View style={mobileStyles.mobileCanvasFrame}>
           <PdfCanvas
@@ -616,11 +970,16 @@ function MobileViewer({
             viewer={viewer}
             annotations={annotations}
             compact
+            onCreateAnnotation={onCanvasAnnotation}
+            onPageChange={pageIndex =>
+              onViewerAction({type: 'setPage', pageIndex})
+            }
           />
         </View>
         <View style={mobileStyles.pageControls}>
           <MobileButton
             label="Previous"
+            icon="‹"
             testID="mobile-page-previous"
             onPress={() =>
               onViewerAction({type: 'setPage', pageIndex: viewer.pageIndex - 1})
@@ -631,6 +990,7 @@ function MobileViewer({
           </Text>
           <MobileButton
             label="Next"
+            icon="›"
             primary
             testID="mobile-page-next"
             onPress={() =>
@@ -644,11 +1004,27 @@ function MobileViewer({
           contentContainerStyle={mobileStyles.detailPanel}>
           <Text style={mobileStyles.sectionTitle}>Information</Text>
           <InfoGrid document={document} />
+          {viewer.activeTool === 'signature' ? (
+            <SignatureManager
+              signatures={signatures}
+              activeSignatureId={activeSignatureId}
+              onSelectSignature={onSelectSignature}
+              onSaveSignature={onSaveSignature}
+            />
+          ) : null}
           <View style={mobileStyles.mobileCommentsHeader}>
             <Text style={mobileStyles.sectionTitle}>Comments</Text>
             <Text style={mobileStyles.headerMeta}>{annotations.length}</Text>
           </View>
-          <CommentsPanel annotations={annotations} />
+          {canUseReviewFeatures ? (
+            <CommentsPanel annotations={annotations} />
+          ) : (
+            <ReviewFeatureGate
+              annotationsCount={annotations.length}
+              onUnlock={onUnlockReviewFeatures}
+              mobile
+            />
+          )}
         </ScrollView>
       </View>
     </MobileSafeArea>
@@ -779,19 +1155,36 @@ function MobileTopBar({
 }) {
   return (
     <View style={mobileStyles.topBar}>
-      <MobileButton label="Library" onPress={onBack} />
+      <MobileButton label="Library" icon="▣" onPress={onBack} />
       <View style={mobileStyles.topBarTitle}>
-        <Text numberOfLines={1} style={mobileStyles.readerTitle}>
+        <SelectableText
+          numberOfLines={1}
+          testID="mobile-title-document-name"
+          selectable
+          style={mobileStyles.readerTitle}>
           {title}
-        </Text>
+        </SelectableText>
         <Text numberOfLines={1} style={mobileStyles.headerMeta}>
           {subtitle}
         </Text>
       </View>
       {actionLabel && onAction ? (
-        <MobileButton label={actionLabel} primary onPress={onAction} />
+        <MobileButton
+          label={actionLabel}
+          icon={actionLabel === 'Compare' ? '⇄' : undefined}
+          primary
+          onPress={onAction}
+        />
       ) : null}
     </View>
+  );
+}
+
+function SelectableText({children, ...props}: TextProps) {
+  return (
+    <Text {...props} selectable>
+      {children}
+    </Text>
   );
 }
 
@@ -868,21 +1261,31 @@ function MobileDocumentRow({
 function MobileTagButton({
   label,
   active = false,
+  icon,
+  count,
   tone,
+  testID,
   onPress,
 }: {
   label: string;
   active?: boolean;
+  icon?: string;
+  count?: number;
   tone?: TagTone;
+  testID?: string;
   onPress: () => void;
 }) {
   return (
     <Pressable
+      testID={testID}
       accessible
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={
+        count === undefined ? label : `${label}, ${formatDocumentCount(count)}`
+      }
       style={[mobileStyles.tagButton, active && mobileStyles.tagButtonActive]}
       onPress={onPress}>
+      {icon ? <Text style={mobileStyles.tagIcon}>{icon}</Text> : null}
       {tone ? <View style={[styles.tagDot, toneStyle(tone)]} /> : null}
       <Text
         style={[
@@ -891,17 +1294,24 @@ function MobileTagButton({
         ]}>
         {label}
       </Text>
+      {count !== undefined ? (
+        <Text style={[mobileStyles.tagCount, active && mobileStyles.tagCountActive]}>
+          {count}
+        </Text>
+      ) : null}
     </Pressable>
   );
 }
 
 function MobileButton({
   label,
+  icon,
   primary = false,
   testID,
   onPress,
 }: {
   label: string;
+  icon?: string;
   primary?: boolean;
   testID?: string;
   onPress: () => void;
@@ -918,6 +1328,15 @@ function MobileButton({
         pressed && styles.buttonPressed,
       ]}
       onPress={onPress}>
+      {icon ? (
+        <Text
+          style={[
+            mobileStyles.buttonIcon,
+            primary && mobileStyles.buttonTextPrimary,
+          ]}>
+          {icon}
+        </Text>
+      ) : null}
       <Text
         style={[
           mobileStyles.buttonText,
@@ -932,51 +1351,60 @@ function MobileButton({
 function TitleBar({
   mode,
   selectedDocument,
+  documentCount,
   query,
   onQueryChange,
+  onSearchSubmit,
   onBack,
   onForward,
   onOpenFile,
 }: {
   mode: ScreenMode;
   selectedDocument: DocumentRecord;
+  documentCount: number;
   query: string;
   onQueryChange: (query: string) => void;
+  onSearchSubmit: (query?: string) => void | Promise<void>;
   onBack: () => void;
   onForward: () => void;
   onOpenFile: () => void;
 }) {
+  const isLibrary = mode === 'library';
+
   return (
     <View style={styles.titleBar}>
-      <View style={styles.trafficLights} accessibilityLabel="Window controls">
-        <View style={[styles.trafficLight, styles.closeLight]} />
-        <View style={[styles.trafficLight, styles.minimizeLight]} />
-        <View style={[styles.trafficLight, styles.zoomLight]} />
-      </View>
-      <View style={styles.titleDivider} />
-      {mode === 'library' ? (
+      {isLibrary ? (
         <View style={styles.titleBlock}>
           <Text style={styles.titleText}>Library</Text>
-          <Text style={styles.titleMeta}>32 documents</Text>
+          <Text style={styles.titleMeta}>{documentCount} documents</Text>
         </View>
       ) : (
         <View style={styles.readerTitleBlock}>
           <ButtonChrome
-            label="<"
+            label="Back"
+            icon="⬅️"
             onPress={onBack}
             quiet
+            compact
             testID="title-back-button"
             accessibilityLabel="Back to library"
           />
           <ButtonChrome
-            label=">"
+            label="Forward"
+            icon="➡️"
             onPress={onForward}
             quiet
+            compact
             testID="title-forward-button"
             accessibilityLabel="Forward"
           />
           <View>
-            <Text style={styles.titleText}>{selectedDocument.title}</Text>
+            <SelectableText
+              testID="title-document-name"
+              selectable
+              style={styles.titleText}>
+              {selectedDocument.title}
+            </SelectableText>
             {mode === 'compare' ? (
               <Text style={styles.titleMeta}>Compare: v1.0 vs v1.1</Text>
             ) : (
@@ -989,21 +1417,27 @@ function TitleBar({
         style={styles.searchBox}
         testID="search-box"
         accessible
-        accessibilityLabel="Search box">
-        <Text style={styles.searchIcon}>Search</Text>
+        accessibilityLabel={isLibrary ? 'Library search box' : 'Document search box'}>
+        <Text style={styles.searchIcon}>🔎</Text>
         <TextInput
-          testID="library-search-input"
-          accessibilityLabel="Library search"
+          testID={isLibrary ? 'library-search-input' : 'document-search-input'}
+          accessibilityLabel={isLibrary ? 'Library search' : 'Document search'}
           value={query}
           onChangeText={onQueryChange}
-          placeholder="Search"
+          onSubmitEditing={event => onSearchSubmit(event.nativeEvent.text)}
+          placeholder={
+            isLibrary
+              ? 'Search title, author, tag, collection'
+              : 'Search this document'
+          }
           placeholderTextColor="#7A8393"
           style={styles.searchInput}
         />
       </View>
-      {mode === 'library' ? (
+      {isLibrary ? (
         <ButtonChrome
-          label="Open File"
+          label="Open PDF"
+          icon="📂"
           onPress={onOpenFile}
           primary
           testID="open-file-button"
@@ -1018,15 +1452,21 @@ function LibraryScreen({
   selectedDocument,
   stateTags,
   collections,
+  scopeCounts,
   documents,
   continueReading,
+  filterPanelOpen,
   storageUsedGb,
   storageLimitGb,
+  canShowStorage,
   onFilterChange,
   onClearFilters,
+  onToggleFilterPanel,
+  onAddCollection,
   onSelectScope,
   onSelectDocument,
   onOpenDocument,
+  onAddTag,
   onToggleFavorite,
   onShare,
   onOpenFile,
@@ -1036,20 +1476,29 @@ function LibraryScreen({
   selectedDocument: DocumentRecord;
   stateTags: Tag[];
   collections: Collection[];
+  scopeCounts: ScopeCounts;
   documents: DocumentRecord[];
   continueReading: DocumentRecord[];
+  filterPanelOpen: boolean;
   storageUsedGb: number;
   storageLimitGb: number;
+  canShowStorage: boolean;
   onFilterChange: (patch: Partial<LibraryFilter>) => void;
   onClearFilters: () => void;
+  onToggleFilterPanel: () => void;
+  onAddCollection: () => void;
   onSelectScope: (scope: LibraryScope) => void;
   onSelectDocument: (document: DocumentRecord) => void;
   onOpenDocument: (document: DocumentRecord) => void;
+  onAddTag: () => void;
   onToggleFavorite: (document: DocumentRecord) => void;
   onShare: (document: DocumentRecord) => void;
   onOpenFile: () => void;
   onCompare: () => void;
 }) {
+  const filterCount = activeFilterCount(filter);
+  const sectionTitle = librarySectionTitle(filter.scope);
+
   return (
     <View
       style={styles.body}
@@ -1059,24 +1508,27 @@ function LibraryScreen({
       <Sidebar
         tags={stateTags}
         collections={collections}
+        scopeCounts={scopeCounts}
         selectedScope={filter.scope}
         selectedTagId={filter.tagId}
         selectedCollectionId={filter.collectionId}
         storageUsedGb={storageUsedGb}
         storageLimitGb={storageLimitGb}
+        canShowStorage={canShowStorage}
         onSelectScope={onSelectScope}
         onSelectTag={tagId => onFilterChange({scope: 'library', tagId})}
         onSelectCollection={collectionId =>
           onFilterChange({scope: 'library', collectionId})
         }
+        onAddCollection={onAddCollection}
       />
       <ScrollView style={styles.libraryMain}>
         <View style={styles.libraryToolbar}>
           <SegmentedControl
             value={filter.viewMode}
             options={[
-              {label: 'Grid', value: 'grid'},
-              {label: 'List', value: 'list'},
+              {label: '▦ Grid', value: 'grid'},
+              {label: '☰ List', value: 'list'},
             ]}
             onChange={value =>
               onFilterChange({viewMode: value as LibraryFilter['viewMode']})
@@ -1086,22 +1538,49 @@ function LibraryScreen({
           <View style={styles.toolbarRight}>
             <ButtonChrome
               label={`Sort: ${sortLabel(filter.sortBy)}`}
+              icon="🧭"
               onPress={() => onFilterChange({sortBy: nextSort(filter.sortBy)})}
               testID="sort-last-opened-button"
+              tooltip="Cycle library sorting"
             />
             <ButtonChrome
-              label="Filter"
-              onPress={onClearFilters}
+              label={filterCount > 0 ? `Filters (${filterCount})` : 'Filters'}
+              icon="🎛️"
+              onPress={onToggleFilterPanel}
+              active={filterPanelOpen}
               testID="filter-button"
+              accessibilityLabel={
+                filterCount > 0
+                  ? `Filters, ${filterCount} active`
+                  : 'Filters'
+              }
+              tooltip="Show tag and collection filters"
             />
             <ButtonChrome
-              label="Open File"
+              label="Open PDF"
+              icon="📂"
               onPress={onOpenFile}
               primary
               testID="toolbar-open-file-button"
             />
           </View>
         </View>
+        {filterPanelOpen ? (
+          <FilterPanel
+            filter={filter}
+            tags={stateTags}
+            collections={collections}
+            onFilterChange={onFilterChange}
+            onClearFilters={onClearFilters}
+          />
+        ) : null}
+        <LibraryResultsSummary
+          filter={filter}
+          tags={stateTags}
+          collections={collections}
+          resultCount={documents.length}
+          onClearFilters={onClearFilters}
+        />
         <Text style={styles.sectionTitle}>Continue Reading</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.cardRow}>
@@ -1117,16 +1596,25 @@ function LibraryScreen({
           </View>
         </ScrollView>
         <View style={styles.recentHeader}>
-          <Text style={styles.sectionTitle}>
-            {librarySectionTitle(filter.scope)}
+          <Text
+            testID="library-section-title"
+            accessibilityLabel={sectionTitle}
+            style={styles.sectionTitle}>
+            {sectionTitle}
           </Text>
           <ButtonChrome
             label="Compare"
+            icon="↔️"
             onPress={onCompare}
             testID="library-compare-button"
           />
         </View>
-        {filter.viewMode === 'grid' ? (
+        {documents.length === 0 ? (
+          <LibraryEmptyState
+            onClearFilters={onClearFilters}
+            onOpenFile={onOpenFile}
+          />
+        ) : filter.viewMode === 'grid' ? (
           <View style={styles.recentGrid} testID="recent-grid">
             {documents.map(document => (
               <DocumentCard
@@ -1168,10 +1656,108 @@ function LibraryScreen({
         document={selectedDocument}
         tags={stateTags}
         onOpen={() => onOpenDocument(selectedDocument)}
+        onAddTag={onAddTag}
         onShare={() => onShare(selectedDocument)}
         onToggleFavorite={() => onToggleFavorite(selectedDocument)}
         onCompare={onCompare}
       />
+    </View>
+  );
+}
+
+function LibraryResultsSummary({
+  filter,
+  tags,
+  collections,
+  resultCount,
+  onClearFilters,
+}: {
+  filter: LibraryFilter;
+  tags: Tag[];
+  collections: Collection[];
+  resultCount: number;
+  onClearFilters: () => void;
+}) {
+  const title = librarySectionTitle(filter.scope);
+  const chips = getActiveFilterChips(filter, tags, collections);
+  const hasActiveFilters = chips.length > 0;
+
+  return (
+    <View
+      testID="library-results-summary"
+      accessible
+      accessibilityLabel="Library results summary"
+      style={styles.summaryStrip}>
+      <Text style={styles.summaryIcon}>{scopeIcon(filter.scope)}</Text>
+      <View style={styles.summaryBody}>
+        <Text
+          testID="library-results-summary-text"
+          accessible
+          accessibilityLabel={`Showing ${formatDocumentCount(resultCount)} in ${title}`}
+          style={styles.summaryText}>
+          {`Showing ${formatDocumentCount(resultCount)} in ${title}`}
+        </Text>
+        {hasActiveFilters ? (
+          <View style={styles.summaryChips}>
+            {chips.map(chip => (
+              <Text key={chip} style={styles.summaryChip}>
+                {chip}
+              </Text>
+            ))}
+            <Pressable
+              testID="clear-summary-filters"
+              accessible
+              accessibilityLabel="Clear active filters"
+              accessibilityRole="button"
+              {...tooltipProps('Clear active filters')}
+              onPress={onClearFilters}>
+              <Text style={styles.summaryClear}>Clear</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Text style={styles.summaryHint}>
+            Use search, tags, or collections to narrow the workspace.
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function LibraryEmptyState({
+  onClearFilters,
+  onOpenFile,
+}: {
+  onClearFilters: () => void;
+  onOpenFile: () => void;
+}) {
+  return (
+    <View
+      testID="library-empty-state"
+      accessible
+      accessibilityLabel="No documents found"
+      style={styles.emptyState}>
+      <Text style={styles.emptyStateIcon}>🔎</Text>
+      <Text style={styles.emptyStateTitle}>No documents found</Text>
+      <Text style={styles.emptyStateCopy}>
+        Try a broader search, clear the active filters, or import a local PDF.
+      </Text>
+      <View style={styles.emptyStateActions}>
+        <ButtonChrome
+          label="Clear Filters"
+          icon="🧹"
+          onPress={onClearFilters}
+          testID="clear-empty-state-filters"
+          flush
+        />
+        <ButtonChrome
+          label="Open PDF"
+          icon="📂"
+          onPress={onOpenFile}
+          primary
+          testID="empty-state-open-file"
+        />
+      </View>
     </View>
   );
 }
@@ -1182,11 +1768,18 @@ function ViewerScreen({
   tags,
   viewer,
   annotations,
+  canUseReviewFeatures,
+  signatures,
+  activeSignatureId,
   onBack,
   onCompare,
   onViewerAction,
-  onAddHighlight,
+  onSelectTool,
+  onCanvasAnnotation,
   onAddBookmark,
+  onUnlockReviewFeatures,
+  onSelectSignature,
+  onSaveSignature,
   onExport,
 }: {
   document: DocumentRecord;
@@ -1194,12 +1787,19 @@ function ViewerScreen({
   tags: Tag[];
   viewer: ViewerState;
   annotations: Annotation[];
+  canUseReviewFeatures: boolean;
+  signatures: SignatureProfile[];
+  activeSignatureId: string;
   onBack: () => void;
   onCompare: () => void;
   onViewerAction: (action: Parameters<typeof viewerReducer>[1]) => void;
-  onAddHighlight: () => void;
+  onSelectTool: (tool: ViewerTool) => void;
+  onCanvasAnnotation: (request: CanvasAnnotationRequest) => void;
   onAddBookmark: () => void;
-  onExport: (format: 'png' | 'jpg' | 'text') => void;
+  onUnlockReviewFeatures: () => void;
+  onSelectSignature: (id: string) => void;
+  onSaveSignature: (value: string) => void;
+  onExport: (format: 'png' | 'jpg' | 'text' | 'annotated') => void;
 }) {
   return (
     <View
@@ -1212,7 +1812,7 @@ function ViewerScreen({
         onBack={onBack}
         onCompare={onCompare}
         onAction={onViewerAction}
-        onAddHighlight={onAddHighlight}
+        onSelectTool={onSelectTool}
       />
       <View style={styles.readerBody} testID="reader-body">
         {viewer.showThumbnails ? (
@@ -1226,6 +1826,8 @@ function ViewerScreen({
           document={document}
           viewer={viewer}
           annotations={annotations}
+          onCreateAnnotation={onCanvasAnnotation}
+          onPageChange={pageIndex => onViewerAction({type: 'setPage', pageIndex})}
         />
         <ViewerInspector
           document={document}
@@ -1233,9 +1835,15 @@ function ViewerScreen({
           tags={tags}
           viewer={viewer}
           annotations={annotations}
+          canUseReviewFeatures={canUseReviewFeatures}
+          signatures={signatures}
+          activeSignatureId={activeSignatureId}
           onAction={onViewerAction}
-          onAddHighlight={onAddHighlight}
+          onSelectTool={onSelectTool}
           onAddBookmark={onAddBookmark}
+          onUnlockReviewFeatures={onUnlockReviewFeatures}
+          onSelectSignature={onSelectSignature}
+          onSaveSignature={onSaveSignature}
           onExport={onExport}
         />
       </View>
@@ -1277,21 +1885,30 @@ function CompareScreen({
       accessible
       accessibilityLabel={`Compare screen ${leftDocument.title}`}>
       <View style={styles.readerToolbar} testID="compare-toolbar">
-        <ButtonChrome label="Library" onPress={onBack} testID="compare-library-button" />
+        <ButtonChrome
+          label="Library"
+          icon="🗂️"
+          onPress={onBack}
+          testID="compare-library-button"
+        />
         <ButtonChrome
           label="Compare"
+          icon="↔️"
           onPress={() => onViewerAction({type: 'setInspectorTab', tab: 'changes'})}
           primary
           testID="compare-mode-button"
         />
         <ButtonChrome
           label={syncedScroll ? 'Sync On' : 'Sync Off'}
+          icon={syncedScroll ? '🔗' : '○'}
           onPress={onToggleSyncedScroll}
           testID="sync-scroll-button"
         />
         <View style={styles.pageStepper}>
           <ButtonChrome
-            label="<"
+            label="Previous page"
+            icon="◀️"
+            compact
             onPress={() =>
               onViewerAction({type: 'setPage', pageIndex: viewer.pageIndex - 1})
             }
@@ -1301,7 +1918,9 @@ function CompareScreen({
             {viewer.pageIndex + 1} / {leftDocument.pageCount}
           </Text>
           <ButtonChrome
-            label=">"
+            label="Next page"
+            icon="▶️"
+            compact
             onPress={() =>
               onViewerAction({type: 'setPage', pageIndex: viewer.pageIndex + 1})
             }
@@ -1348,48 +1967,66 @@ function CompareScreen({
 function Sidebar({
   tags,
   collections,
+  scopeCounts,
   selectedScope,
   selectedTagId,
   selectedCollectionId,
   storageUsedGb,
   storageLimitGb,
+  canShowStorage,
   onSelectScope,
   onSelectTag,
   onSelectCollection,
+  onAddCollection,
 }: {
   tags: Tag[];
   collections: Collection[];
+  scopeCounts: ScopeCounts;
   selectedScope: LibraryScope;
   selectedTagId: string;
   selectedCollectionId: string;
   storageUsedGb: number;
   storageLimitGb: number;
+  canShowStorage: boolean;
   onSelectScope: (scope: LibraryScope) => void;
   onSelectTag: (tagId: string) => void;
   onSelectCollection: (collectionId: string) => void;
+  onAddCollection: () => void;
 }) {
   return (
     <View style={styles.sidebar}>
       <NavItem
         label="Library"
+        icon="📚"
+        count={scopeCounts.library}
+        accessibilityLabel={`Library, ${formatDocumentCount(scopeCounts.library)}`}
         active={selectedScope === 'library'}
         onPress={() => onSelectScope('library')}
         testID="nav-library"
       />
       <NavItem
         label="Recent"
+        icon="🕘"
+        count={scopeCounts.recent}
+        accessibilityLabel={`Recent, ${formatDocumentCount(scopeCounts.recent)}`}
         active={selectedScope === 'recent'}
         onPress={() => onSelectScope('recent')}
         testID="nav-recent"
       />
       <NavItem
         label="Favorites"
+        icon="⭐"
+        count={scopeCounts.favorites}
+        accessibilityLabel={`Favorites, ${formatDocumentCount(scopeCounts.favorites)}`}
         active={selectedScope === 'favorites'}
         onPress={() => onSelectScope('favorites')}
         testID="nav-favorites"
       />
       <NavItem
         label="Shared"
+        icon="📤"
+        count={scopeCounts.shared}
+        accessibilityLabel={`Shared, ${formatDocumentCount(scopeCounts.shared)}`}
         active={selectedScope === 'shared'}
         onPress={() => onSelectScope('shared')}
         testID="nav-shared"
@@ -1399,9 +2036,13 @@ function Sidebar({
       {tags.map(tag => (
         <Pressable
           key={tag.id}
+          testID={`tag-filter-${tag.id}`}
+          accessible
+          accessibilityLabel={`Filter by ${tag.label}`}
+          accessibilityRole="button"
           style={styles.sidebarTag}
           onPress={() => onSelectTag(tag.id)}>
-          <View style={[styles.tagDot, toneStyle(tag.tone)]} />
+          <Text style={styles.sidebarEmoji}>{tagEmoji(tag.id)}</Text>
           <Text
             style={[
               styles.sidebarText,
@@ -1411,8 +2052,14 @@ function Sidebar({
           </Text>
         </Pressable>
       ))}
-      <Pressable style={styles.sidebarTag} onPress={() => onSelectTag('all')}>
-        <View style={[styles.tagDot, styles.grayDot]} />
+      <Pressable
+        testID="all-tags-filter"
+        accessible
+        accessibilityLabel="Show all tags"
+        accessibilityRole="button"
+        style={styles.sidebarTag}
+        onPress={() => onSelectTag('all')}>
+        <Text style={styles.sidebarEmoji}>🏷️</Text>
         <Text
           style={[
             styles.sidebarText,
@@ -1424,11 +2071,23 @@ function Sidebar({
       <View style={styles.sidebarRule} />
       <View style={styles.collectionHeading}>
         <Text style={styles.sidebarCaption}>Collections</Text>
-        <Text style={styles.addText}>+</Text>
+        <Pressable
+          testID="add-collection-button"
+          accessible
+          accessibilityLabel="Add collection"
+          accessibilityRole="button"
+          {...tooltipProps('Add a local collection')}
+          onPress={onAddCollection}>
+          <Text style={styles.addText}>＋</Text>
+        </Pressable>
       </View>
       {collections.map(collection => (
         <Pressable
           key={collection.id}
+          testID={`collection-${collection.id}`}
+          accessible
+          accessibilityLabel={`Collection ${collection.label} ${collection.count} documents`}
+          accessibilityRole="button"
           style={styles.collectionItem}
           onPress={() => onSelectCollection(collection.id)}>
           <Text
@@ -1437,12 +2096,16 @@ function Sidebar({
               selectedCollectionId === collection.id &&
                 styles.sidebarTextActive,
             ]}>
-            {collection.label}
+            📁 {collection.label}
           </Text>
           <Text style={styles.collectionCount}>{collection.count}</Text>
         </Pressable>
       ))}
       <Pressable
+        testID="all-collections-filter"
+        accessible
+        accessibilityLabel="Show all collections"
+        accessibilityRole="button"
         style={styles.collectionItem}
         onPress={() => onSelectCollection('all')}>
         <Text
@@ -1453,7 +2116,8 @@ function Sidebar({
           All Collections
         </Text>
       </Pressable>
-      <View style={styles.storageBlock}>
+      {canShowStorage ? (
+      <View style={styles.storageBlock} testID="account-storage-usage">
         <View style={styles.storageTrack}>
           <View
             style={[
@@ -1466,17 +2130,97 @@ function Sidebar({
           {storageUsedGb.toFixed(1)} GB of {storageLimitGb} GB used
         </Text>
       </View>
+      ) : null}
+    </View>
+  );
+}
+
+function FilterPanel({
+  filter,
+  tags,
+  collections,
+  onFilterChange,
+  onClearFilters,
+}: {
+  filter: LibraryFilter;
+  tags: Tag[];
+  collections: Collection[];
+  onFilterChange: (patch: Partial<LibraryFilter>) => void;
+  onClearFilters: () => void;
+}) {
+  return (
+    <View
+      testID="filter-panel"
+      style={styles.filterPanel}
+      accessible
+      accessibilityLabel="Library filters">
+      <View style={styles.filterGroup}>
+        <Text style={styles.filterLabel}>Tags</Text>
+        <ButtonChrome
+          label="All"
+          icon="🏷️"
+          compact={false}
+          active={filter.tagId === 'all'}
+          onPress={() => onFilterChange({tagId: 'all'})}
+          testID="filter-tag-all"
+        />
+        {tags.map(tag => (
+          <ButtonChrome
+            key={tag.id}
+            label={tag.label}
+            icon={tagEmoji(tag.id)}
+            active={filter.tagId === tag.id}
+            onPress={() => onFilterChange({scope: 'library', tagId: tag.id})}
+            testID={`filter-tag-${tag.id}`}
+          />
+        ))}
+      </View>
+      <View style={styles.filterGroup}>
+        <Text style={styles.filterLabel}>Collections</Text>
+        <ButtonChrome
+          label="All"
+          icon="🗂️"
+          active={filter.collectionId === 'all'}
+          onPress={() => onFilterChange({collectionId: 'all'})}
+          testID="filter-collection-all"
+        />
+        {collections.slice(0, 4).map(collection => (
+          <ButtonChrome
+            key={collection.id}
+            label={`${collection.label} (${collection.count})`}
+            icon="📁"
+            active={filter.collectionId === collection.id}
+            onPress={() =>
+              onFilterChange({scope: 'library', collectionId: collection.id})
+            }
+            testID={`filter-collection-${collection.id}`}
+          />
+        ))}
+      </View>
+      <ButtonChrome
+        label="Clear"
+        icon="🧹"
+        onPress={onClearFilters}
+        testID="clear-filters-button"
+        tooltip="Clear all library filters"
+      />
     </View>
   );
 }
 
 function NavItem({
   label,
+  icon,
+  count,
+  accessibilityLabel,
   active = false,
   onPress,
   testID,
 }: {
   label: string;
+  icon: string;
+  count?: number;
+  accessibilityLabel?: string;
   active?: boolean;
   onPress: () => void;
   testID: string;
@@ -1485,13 +2229,26 @@ function NavItem({
     <Pressable
       testID={testID}
       accessible
-      accessibilityLabel={label}
+      accessibilityLabel={
+        accessibilityLabel ??
+        (count === undefined ? label : `${label}, ${formatDocumentCount(count)}`)
+      }
       accessibilityRole="button"
       style={[styles.navItem, active && styles.navItemActive]}
       onPress={onPress}>
-      <Text style={[styles.navText, active && styles.navTextActive]}>
-        {label}
+      <Text style={[styles.navIcon, active && styles.navTextActive]}>
+        {icon}
       </Text>
+      <View style={styles.navTextBlock}>
+        <Text style={[styles.navText, active && styles.navTextActive]}>
+          {label}
+        </Text>
+        {count !== undefined ? (
+          <Text style={[styles.navCount, active && styles.navCountActive]}>
+            {count}
+          </Text>
+        ) : null}
+      </View>
     </Pressable>
   );
 }
@@ -1605,6 +2362,7 @@ function LibraryInspector({
   document,
   tags,
   onOpen,
+  onAddTag,
   onShare,
   onToggleFavorite,
   onCompare,
@@ -1612,6 +2370,7 @@ function LibraryInspector({
   document: DocumentRecord;
   tags: Tag[];
   onOpen: () => void;
+  onAddTag: () => void;
   onShare: () => void;
   onToggleFavorite: () => void;
   onCompare: () => void;
@@ -1619,7 +2378,12 @@ function LibraryInspector({
   return (
     <View style={styles.inspector}>
       <PdfCover document={document} large />
-      <Text style={styles.inspectorTitle}>{document.title}</Text>
+      <SelectableText
+        testID="library-inspector-title"
+        selectable
+        style={styles.inspectorTitle}>
+        {document.title}
+      </SelectableText>
       <Text style={styles.inspectorSub}>
         PDF Document - {document.pageCount} pages
       </Text>
@@ -1629,27 +2393,39 @@ function LibraryInspector({
           const tag = tags.find(item => item.id === tagId);
           return tag ? <TagPill key={tag.id} tag={tag} /> : null;
         })}
-        <Text style={styles.addTag}>+</Text>
+        <Pressable
+          testID="add-tag-button"
+          accessible
+          accessibilityLabel="Add tag"
+          accessibilityRole="button"
+          {...tooltipProps('Add the next useful tag')}
+          onPress={onAddTag}>
+          <Text style={styles.addTag}>＋ Tag</Text>
+        </Pressable>
       </View>
       <InfoGrid document={document} />
       <Text style={styles.inspectorCaption}>Quick Actions</Text>
       <ActionRow
         label="Open"
+        icon="↗"
         onPress={onOpen}
         testID="inspector-open-action"
       />
       <ActionRow
         label="Share"
+        icon="⇧"
         onPress={onShare}
         testID="inspector-share-action"
       />
       <ActionRow
         label={document.favorite ? 'Remove Favorite' : 'Add to Favorites'}
+        icon="★"
         onPress={onToggleFavorite}
         testID="inspector-favorite-action"
       />
       <ActionRow
         label="Compare Versions"
+        icon="⇄"
         onPress={onCompare}
         testID="inspector-compare-action"
       />
@@ -1662,33 +2438,39 @@ function ReaderToolbar({
   onBack,
   onCompare,
   onAction,
-  onAddHighlight,
+  onSelectTool,
 }: {
   viewer: ViewerState;
   onBack: () => void;
   onCompare: () => void;
   onAction: (action: Parameters<typeof viewerReducer>[1]) => void;
-  onAddHighlight: () => void;
+  onSelectTool: (tool: ViewerTool) => void;
 }) {
-  const tools: Array<{label: string; value: ViewerTool}> = [
-    {label: 'Select', value: 'select'},
-    {label: 'Hand', value: 'pan'},
-    {label: 'Text', value: 'text'},
-    {label: 'Highlight', value: 'highlight'},
-    {label: 'Comment', value: 'comment'},
-    {label: 'Pen', value: 'pen'},
-    {label: 'Sign', value: 'signature'},
+  const tools: Array<{label: string; icon: string; value: ViewerTool}> = [
+    {label: 'Select', icon: '↖️', value: 'select'},
+    {label: 'Hand', icon: '✋', value: 'pan'},
+    {label: 'Text', icon: 'A', value: 'text'},
+    {label: 'Highlight', icon: '🖍', value: 'highlight'},
+    {label: 'Comment', icon: '💬', value: 'comment'},
+    {label: 'Pen', icon: '✏️', value: 'pen'},
+    {label: 'Sign', icon: '✍️', value: 'signature'},
   ];
 
   return (
     <View style={styles.readerToolbar} testID="reader-toolbar">
       <ButtonChrome
         label="Library"
+        icon="🗂️"
         onPress={onBack}
+        compact
         testID="viewer-library-button"
+        accessibilityLabel="Back to library"
+        tooltip="Back to library"
       />
       <ButtonChrome
-        label="-"
+        label="Zoom out"
+        icon="−"
+        compact
         onPress={() => onAction({type: 'setZoom', zoom: viewer.zoom - 0.1})}
         testID="viewer-zoom-out"
         accessibilityLabel="Zoom out"
@@ -1697,14 +2479,18 @@ function ReaderToolbar({
         {Math.round(viewer.zoom * 100)}%
       </Text>
       <ButtonChrome
-        label="+"
+        label="Zoom in"
+        icon="+"
+        compact
         onPress={() => onAction({type: 'setZoom', zoom: viewer.zoom + 0.1})}
         testID="viewer-zoom-in"
         accessibilityLabel="Zoom in"
       />
       <View style={styles.pageStepper}>
         <ButtonChrome
-          label="<"
+        label="Previous page"
+        icon="◀️"
+        compact
           onPress={() => onAction({type: 'setPage', pageIndex: viewer.pageIndex - 1})}
           testID="viewer-page-previous"
           accessibilityLabel="Previous page"
@@ -1723,7 +2509,9 @@ function ReaderToolbar({
         />
         <Text style={styles.stepperText}>/ {viewer.pageCount}</Text>
         <ButtonChrome
-          label=">"
+        label="Next page"
+        icon="▶️"
+        compact
           onPress={() => onAction({type: 'setPage', pageIndex: viewer.pageIndex + 1})}
           testID="viewer-page-next"
           accessibilityLabel="Next page"
@@ -1734,22 +2522,24 @@ function ReaderToolbar({
           <ButtonChrome
             key={tool.value}
             label={tool.label}
-            onPress={() =>
-              tool.value === 'highlight'
-                ? onAddHighlight()
-                : onAction({type: 'setTool', tool: tool.value})
-            }
+            icon={tool.icon}
+            compact
+            onPress={() => onSelectTool(tool.value)}
             active={viewer.activeTool === tool.value}
             testID={`tool-${tool.value}`}
             accessibilityLabel={`${tool.label} tool`}
+            tooltip={`${tool.label} tool`}
           />
         ))}
       </View>
       <ButtonChrome
         label="Compare"
+        icon="↔️"
         onPress={onCompare}
         primary
+        compact
         testID="viewer-compare-button"
+        accessibilityLabel="Compare versions"
       />
     </View>
   );
@@ -1766,7 +2556,7 @@ function ThumbnailRail({
   onPage: (pageIndex: number) => void;
   compare?: boolean;
 }) {
-  const pages = compare ? [0, 1, 7, 8, 9] : [0, 1, 7, 8, 9, 11, 12];
+  const pages = thumbnailPages(document.pageCount, pageIndex, compare);
 
   return (
     <View
@@ -1797,15 +2587,43 @@ function ThumbnailRail({
   );
 }
 
+function thumbnailPages(
+  pageCount: number,
+  pageIndex: number,
+  compare = false,
+) {
+  const maxCompactPages = compare ? 5 : 7;
+  const safePageCount = Math.max(0, pageCount);
+
+  if (safePageCount <= maxCompactPages) {
+    return Array.from({length: safePageCount}, (_, index) => index);
+  }
+
+  const screenshotAnchors = compare
+    ? [0, 1, 7, 8, 9]
+    : [0, 1, 7, 8, 9, 11, 12];
+  const currentCluster = [pageIndex - 1, pageIndex, pageIndex + 1];
+
+  return Array.from(new Set([...screenshotAnchors, ...currentCluster]))
+    .filter(page => page >= 0 && page < safePageCount)
+    .sort((left, right) => left - right);
+}
+
 function ViewerInspector({
   document,
   documents,
   tags,
   viewer,
   annotations,
+  canUseReviewFeatures,
+  signatures,
+  activeSignatureId,
   onAction,
-  onAddHighlight,
+  onSelectTool,
   onAddBookmark,
+  onUnlockReviewFeatures,
+  onSelectSignature,
+  onSaveSignature,
   onExport,
 }: {
   document: DocumentRecord;
@@ -1813,10 +2631,16 @@ function ViewerInspector({
   tags: Tag[];
   viewer: ViewerState;
   annotations: Annotation[];
+  canUseReviewFeatures: boolean;
+  signatures: SignatureProfile[];
+  activeSignatureId: string;
   onAction: (action: Parameters<typeof viewerReducer>[1]) => void;
-  onAddHighlight: () => void;
+  onSelectTool: (tool: ViewerTool) => void;
   onAddBookmark: () => void;
-  onExport: (format: 'png' | 'jpg' | 'text') => void;
+  onUnlockReviewFeatures: () => void;
+  onSelectSignature: (id: string) => void;
+  onSaveSignature: (value: string) => void;
+  onExport: (format: 'png' | 'jpg' | 'text' | 'annotated') => void;
 }) {
   return (
     <View style={styles.readerInspector}>
@@ -1844,60 +2668,103 @@ function ViewerInspector({
         ))}
       </View>
       {viewer.inspectorTab === 'comments' ? (
-        <CommentsPanel annotations={annotations} />
+        <ScrollView
+          testID="inspector-scroll"
+          style={styles.inspectorScroll}
+          contentContainerStyle={styles.inspectorScrollContent}>
+          {canUseReviewFeatures ? (
+            <CommentsPanel annotations={annotations} />
+          ) : (
+            <ReviewFeatureGate
+              annotationsCount={annotations.length}
+              onUnlock={onUnlockReviewFeatures}
+            />
+          )}
+        </ScrollView>
       ) : (
-        <>
+        <ScrollView
+          testID="inspector-scroll"
+          style={styles.inspectorScroll}
+          contentContainerStyle={styles.inspectorScrollContent}>
           <View style={styles.documentIdentity}>
             <PdfCover document={document} />
             <View style={styles.identityText}>
-              <Text style={styles.inspectorTitle}>{document.title}</Text>
+              <SelectableText
+                testID="viewer-inspector-title"
+                selectable
+                style={styles.inspectorTitle}>
+                {document.title}
+              </SelectableText>
               <Text style={styles.inspectorSub}>
                 PDF Document - {document.pageCount} pages
               </Text>
             </View>
           </View>
           <InfoGrid document={document} />
-          <Text style={styles.inspectorCaption}>Quick Actions</Text>
-          <ActionRow
-            label="Add Note"
-            onPress={() => onAction({type: 'setTool', tool: 'comment'})}
-            testID="quick-action-add-note"
-          />
-          <ActionRow
-            label="Highlight Text"
-            onPress={onAddHighlight}
-            testID="quick-action-highlight"
-          />
-          <ActionRow
-            label="Draw"
-            onPress={() => onAction({type: 'setTool', tool: 'pen'})}
-            testID="quick-action-draw"
-          />
-          <ActionRow
-            label="Add Signature"
-            onPress={() => onAction({type: 'setTool', tool: 'signature'})}
-            testID="quick-action-signature"
-          />
-          <ActionRow
-            label="Add Bookmark"
-            onPress={onAddBookmark}
-            testID="quick-action-bookmark"
-          />
           <Text style={styles.inspectorCaption}>Export</Text>
           <ActionRow
             label="Export as PNG"
+            icon="▧"
             onPress={() => onExport('png')}
             testID="export-png-action"
           />
           <ActionRow
             label="Export as JPG"
+            icon="▧"
             onPress={() => onExport('jpg')}
             testID="export-jpg-action"
           />
           <ActionRow
             label="Export as Text"
+            icon="Aa"
             onPress={() => onExport('text')}
             testID="export-text-action"
+          />
+          <ActionRow
+            label="Export Annotated PDF"
+            icon="🧾"
+            onPress={() => onExport('annotated')}
+            testID="export-annotated-action"
+          />
+          {viewer.activeTool === 'signature' ? (
+            <SignatureManager
+              signatures={signatures}
+              activeSignatureId={activeSignatureId}
+              onSelectSignature={onSelectSignature}
+              onSaveSignature={onSaveSignature}
+            />
+          ) : null}
+          <Text style={styles.inspectorCaption}>Quick Actions</Text>
+          <ActionRow
+            label="Add Note"
+            icon="💬"
+            badge={!canUseReviewFeatures ? 'Pro' : undefined}
+            onPress={() => onSelectTool('comment')}
+            testID="quick-action-add-note"
+          />
+          <ActionRow
+            label="Highlight Text"
+            icon="🖍"
+            onPress={() => onSelectTool('highlight')}
+            testID="quick-action-highlight"
+          />
+          <ActionRow
+            label="Draw"
+            icon="✏️"
+            onPress={() => onSelectTool('pen')}
+            testID="quick-action-draw"
+          />
+          <ActionRow
+            label="Add Signature"
+            icon="✍️"
+            onPress={() => onSelectTool('signature')}
+            testID="quick-action-signature"
+          />
+          <ActionRow
+            label="Add Bookmark"
+            icon="🔖"
+            onPress={onAddBookmark}
+            testID="quick-action-bookmark"
           />
           <Text style={styles.inspectorCaption}>Open Documents</Text>
           {documents.slice(0, 3).map(item => (
@@ -1911,7 +2778,7 @@ function ViewerInspector({
               return tag ? <TagPill key={tag.id} tag={tag} /> : null;
             })}
           </View>
-        </>
+        </ScrollView>
       )}
     </View>
   );
@@ -1978,6 +2845,7 @@ function ChangesPanel({
       ))}
       <ButtonChrome
         label="View Change Report"
+        icon="▤"
         onPress={onViewReport}
         testID="view-change-report-button"
       />
@@ -1985,20 +2853,175 @@ function ChangesPanel({
   );
 }
 
+function ReviewFeatureGate({
+  annotationsCount,
+  onUnlock,
+  mobile = false,
+}: {
+  annotationsCount: number;
+  onUnlock: () => void;
+  mobile?: boolean;
+}) {
+  return (
+    <View
+      testID="comments-paywall"
+      accessible
+      accessibilityLabel="Sign in to unlock comments"
+      style={[styles.paywallCard, mobile && mobileStyles.paywallCard]}>
+      <Text style={styles.paywallIcon}>💬</Text>
+      <Text style={styles.paywallTitle}>Sign in to unlock comments</Text>
+      <Text style={styles.paywallCopy}>
+        Comments, notes, and review threads are included with Acacia Pro.
+        {annotationsCount > 0
+          ? ` ${annotationsCount} local item${annotationsCount === 1 ? '' : 's'} will appear after sign-in.`
+          : ''}
+      </Text>
+      {mobile ? (
+        <MobileButton
+          label="Sign in"
+          icon="↗"
+          primary
+          onPress={onUnlock}
+          testID="unlock-comments-button"
+        />
+      ) : (
+        <ButtonChrome
+          label="Sign in"
+          icon="↗"
+          primary
+          flush
+          onPress={onUnlock}
+          testID="unlock-comments-button"
+        />
+      )}
+    </View>
+  );
+}
+
+function SignatureManager({
+  signatures,
+  activeSignatureId,
+  onSelectSignature,
+  onSaveSignature,
+}: {
+  signatures: SignatureProfile[];
+  activeSignatureId: string;
+  onSelectSignature: (id: string) => void;
+  onSaveSignature: (value: string) => void;
+}) {
+  const activeSignature =
+    signatures.find(signature => signature.id === activeSignatureId) ??
+    signatures[0];
+  const [draft, setDraft] = useState(activeSignature?.value ?? '');
+
+  useEffect(() => {
+    setDraft(activeSignature?.value ?? '');
+  }, [activeSignature?.value]);
+
+  return (
+    <View
+      testID="signature-manager"
+      style={styles.signaturePanel}
+      accessible
+      accessibilityLabel="Signature manager">
+      <Text style={styles.inspectorCaption}>Signature</Text>
+      <TextInput
+        testID="signature-name-input"
+        accessibilityLabel="Signature text"
+        value={draft}
+        onChangeText={setDraft}
+        placeholder="Type your signature"
+        placeholderTextColor="#7A8393"
+        style={styles.signatureInput}
+      />
+      <View style={styles.signaturePreview}>
+        <Text style={styles.signaturePreviewText}>{draft || 'Signature'}</Text>
+      </View>
+      <View style={styles.signatureRows}>
+        {signatures.map(signature => (
+          <Pressable
+            key={signature.id}
+            testID={`signature-option-${signature.id}`}
+            accessible
+            accessibilityLabel={`Use ${signature.label}`}
+            accessibilityRole="button"
+            {...tooltipProps(`Use ${signature.label}`)}
+            style={[
+              styles.signatureChip,
+              signature.id === activeSignatureId && styles.signatureChipActive,
+            ]}
+            onPress={() => onSelectSignature(signature.id)}>
+            <Text
+              style={[
+                styles.signatureChipText,
+                signature.id === activeSignatureId &&
+                  styles.signatureChipTextActive,
+              ]}>
+              {signature.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      <ButtonChrome
+        label="Save Signature"
+        icon="💾"
+        onPress={() => onSaveSignature(draft)}
+        testID="save-signature-button"
+        tooltip="Save this signature for stamping"
+      />
+      <Text style={styles.signatureHint}>
+        Select the signature tool, then click the page to stamp it.
+      </Text>
+    </View>
+  );
+}
+
 function CommentsPanel({annotations}: {annotations: Annotation[]}) {
+  const [filter, setFilter] = useState<CommentAnnotationFilter>('all');
+  const visibleAnnotations = annotations.filter(annotation =>
+    commentFilterMatchesAnnotation(filter, annotation),
+  );
+
   return (
     <ScrollView
       testID="comments-panel"
       contentContainerStyle={styles.commentsPanel}>
       <View style={styles.commentFilterRow}>
-        <TagLike label={`All ${annotations.length}`} active testID="comment-filter-all" />
-        <TagLike label="Highlights" testID="comment-filter-highlights" />
-        <TagLike label="Notes" testID="comment-filter-notes" />
+        <TagLike
+          label={`All ${annotations.length}`}
+          active={filter === 'all'}
+          testID="comment-filter-all"
+          onPress={() => setFilter('all')}
+        />
+        <TagLike
+          label={`Highlights ${countAnnotationsByKind(annotations, 'highlight')}`}
+          active={filter === 'highlight'}
+          testID="comment-filter-highlights"
+          onPress={() => setFilter('highlight')}
+        />
+        <TagLike
+          label={`Notes ${countAnnotationsByKind(annotations, 'note')}`}
+          active={filter === 'note'}
+          testID="comment-filter-notes"
+          onPress={() => setFilter('note')}
+        />
+        <TagLike
+          label={`Drawings ${countAnnotationsByKind(annotations, 'drawing')}`}
+          active={filter === 'drawing'}
+          testID="comment-filter-drawings"
+          onPress={() => setFilter('drawing')}
+        />
+        <TagLike
+          label={`Signatures ${countAnnotationsByKind(annotations, 'signature')}`}
+          active={filter === 'signature'}
+          testID="comment-filter-signatures"
+          onPress={() => setFilter('signature')}
+        />
       </View>
-      {annotations.length === 0 ? (
+      {visibleAnnotations.length === 0 ? (
         <Text style={styles.emptyText}>No comments on this page yet.</Text>
       ) : (
-        annotations.map((annotation, index) => {
+        visibleAnnotations.map((annotation, index) => {
           const testID =
             annotation.text === 'Local non-destructive highlight'
               ? 'comment-item-local-highlight'
@@ -2011,11 +3034,15 @@ function CommentsPanel({annotations}: {annotations: Annotation[]}) {
               testID={testID}
               accessible
               accessibilityLabel={annotation.text ?? 'Review this annotation'}>
-              <View style={[styles.annotationTypeDot, {backgroundColor: annotation.color}]} />
+              <View style={[styles.annotationTypeDot, {backgroundColor: annotation.color}]}>
+                <Text style={styles.annotationTypeIcon}>
+                  {annotationIcon(annotation)}
+                </Text>
+              </View>
               <View style={styles.commentBody}>
                 <View style={styles.commentMetaRow}>
                   <Text style={styles.commentAuthor}>
-                    {index % 2 === 0 ? 'Olivia Harper' : 'Ethan Miller'}
+                    {annotationLabel(annotation)}
                   </Text>
                   <Text style={styles.rowText}>9:{41 + index * 9} AM</Text>
                 </View>
@@ -2032,6 +3059,89 @@ function CommentsPanel({annotations}: {annotations: Annotation[]}) {
   );
 }
 
+function commentFilterMatchesAnnotation(
+  filter: CommentAnnotationFilter,
+  annotation: Annotation,
+) {
+  if (filter === 'all') {
+    return true;
+  }
+
+  return annotation.kind === filter;
+}
+
+function countAnnotationsByKind(
+  annotations: Annotation[],
+  kind: Annotation['kind'],
+) {
+  return annotations.filter(annotation => annotation.kind === kind).length;
+}
+
+function annotationCopyForRequest(
+  request: CanvasAnnotationRequest,
+  signatureValue?: string,
+) {
+  switch (request.kind) {
+    case 'signature':
+      return signatureValue ?? 'Signature';
+    case 'note':
+      return `Local note on page ${request.pageIndex + 1}`;
+    case 'drawing':
+      return `Local drawing on page ${request.pageIndex + 1}`;
+    case 'highlight':
+    default:
+      return 'Local non-destructive highlight';
+  }
+}
+
+function annotationColorForKind(kind: CanvasAnnotationRequest['kind']) {
+  switch (kind) {
+    case 'signature':
+      return '#1F2937';
+    case 'note':
+      return '#A9CBFF';
+    case 'drawing':
+      return '#EF4444';
+    case 'highlight':
+    default:
+      return '#F7D64A';
+  }
+}
+
+function annotationLabel(annotation: Annotation) {
+  switch (annotation.kind) {
+    case 'highlight':
+      return 'Highlight';
+    case 'signature':
+      return 'Signature';
+    case 'bookmark':
+      return 'Bookmark';
+    case 'drawing':
+      return 'Drawing';
+    case 'note':
+      return 'Note';
+    default:
+      return 'Review item';
+  }
+}
+
+function annotationIcon(annotation: Annotation) {
+  switch (annotation.kind) {
+    case 'highlight':
+      return '🖍';
+    case 'signature':
+      return '✍';
+    case 'bookmark':
+      return '🔖';
+    case 'drawing':
+      return '✏';
+    case 'note':
+      return '💬';
+    default:
+      return '•';
+  }
+}
+
 function BottomScrubber({
   viewer,
   onPage,
@@ -2041,7 +3151,7 @@ function BottomScrubber({
   onPage: (pageIndex: number) => void;
   labelLeft?: string;
 }) {
-  const steps = Array.from({length: Math.min(viewer.pageCount, 32)}, (_, index) => index);
+  const steps = scrubberPages(viewer.pageCount, viewer.pageIndex);
   const pageLabel = labelLeft ?? `Page ${viewer.pageIndex + 1} of ${viewer.pageCount}`;
 
   return (
@@ -2078,6 +3188,22 @@ function BottomScrubber({
   );
 }
 
+function scrubberPages(pageCount: number, pageIndex: number) {
+  const safePageCount = Math.max(0, pageCount);
+
+  if (safePageCount <= 32) {
+    return Array.from({length: safePageCount}, (_, index) => index);
+  }
+
+  const leadingPages = Array.from({length: 28}, (_, index) => index);
+  const currentCluster = [pageIndex - 1, pageIndex, pageIndex + 1];
+  const finalPage = safePageCount - 1;
+
+  return Array.from(new Set([...leadingPages, ...currentCluster, finalPage]))
+    .filter(page => page >= 0 && page < safePageCount)
+    .sort((left, right) => left - right);
+}
+
 function InfoGrid({document}: {document: DocumentRecord}) {
   const rows = [
     ['Author', document.author],
@@ -2095,19 +3221,32 @@ function InfoGrid({document}: {document: DocumentRecord}) {
       {rows.map(([label, value]) => (
         <View key={label} style={styles.infoRow}>
           <Text style={styles.infoLabel}>{label}</Text>
-          <Text style={styles.infoValue}>{value}</Text>
+          <SelectableText
+            testID={`info-value-${slugify(label)}`}
+            selectable
+            style={styles.infoValue}>
+            {value}
+          </SelectableText>
         </View>
       ))}
     </View>
   );
 }
 
+function slugify(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
 function ActionRow({
   label,
+  icon,
+  badge,
   onPress,
   testID,
 }: {
   label: string;
+  icon?: string;
+  badge?: string;
   onPress: () => void;
   testID?: string;
 }) {
@@ -2118,8 +3257,14 @@ function ActionRow({
       testID={testID}
       accessible
       accessibilityLabel={label}
+      accessibilityHint={label}
+      {...tooltipProps(label)}
       accessibilityRole="button">
-      <Text style={styles.actionLabel}>{label}</Text>
+      <View style={styles.actionTextGroup}>
+        {icon ? <Text style={styles.actionIcon}>{icon}</Text> : null}
+        <Text style={styles.actionLabel}>{label}</Text>
+      </View>
+      {badge ? <Text style={styles.actionBadge}>{badge}</Text> : null}
       <Text style={styles.actionChevron}>{'>'}</Text>
     </Pressable>
   );
@@ -2127,43 +3272,68 @@ function ActionRow({
 
 function ButtonChrome({
   label,
+  icon,
   onPress,
   primary = false,
   quiet = false,
   active = false,
+  compact = false,
+  flush = false,
   testID,
   accessibilityLabel,
+  tooltip,
 }: {
   label: string;
+  icon?: string;
   onPress: () => void;
   primary?: boolean;
   quiet?: boolean;
   active?: boolean;
+  compact?: boolean;
+  flush?: boolean;
   testID?: string;
   accessibilityLabel?: string;
+  tooltip?: string;
 }) {
   return (
     <Pressable
       testID={testID}
       accessible
       accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityHint={tooltip ?? accessibilityLabel ?? label}
       accessibilityRole="button"
+      {...tooltipProps(tooltip ?? accessibilityLabel ?? label)}
       style={({pressed}) => [
         styles.button,
         primary && styles.buttonPrimary,
         quiet && styles.buttonQuiet,
         active && styles.buttonActive,
+        compact && styles.buttonCompact,
+        flush && styles.buttonFlush,
         pressed && styles.buttonPressed,
       ]}
       onPress={onPress}>
-      <Text
-        style={[
-          styles.buttonText,
-          primary && styles.buttonTextPrimary,
-          active && styles.buttonTextActive,
-        ]}>
-        {label}
-      </Text>
+      {icon ? (
+        <Text
+          style={[
+            styles.buttonIcon,
+            primary && styles.buttonTextPrimary,
+            active && styles.buttonTextActive,
+            compact && styles.buttonIconCompact,
+          ]}>
+          {icon}
+        </Text>
+      ) : null}
+      {compact ? null : (
+        <Text
+          style={[
+            styles.buttonText,
+            primary && styles.buttonTextPrimary,
+            active && styles.buttonTextActive,
+          ]}>
+          {label}
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -2220,19 +3390,25 @@ function TagLike({
   label,
   active = false,
   testID,
+  onPress,
 }: {
   label: string;
   active?: boolean;
   testID?: string;
+  onPress?: () => void;
 }) {
   return (
-    <Text
+    <Pressable
       testID={testID}
       accessible
       accessibilityLabel={label}
+      accessibilityRole="button"
+      onPress={onPress}
       style={[styles.commentFilter, active && styles.commentFilterActive]}>
-      {label}
-    </Text>
+      <Text style={[styles.commentFilterText, active && styles.commentFilterTextActive]}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -2297,11 +3473,167 @@ function librarySectionTitle(scope: LibraryScope) {
   }
 }
 
+function mobileScopeLabel(scope: LibraryScope) {
+  switch (scope) {
+    case 'recent':
+      return 'Recent';
+    case 'favorites':
+      return 'Favorites';
+    case 'shared':
+      return 'Shared';
+    case 'library':
+    default:
+      return 'Library';
+  }
+}
+
+function scopeIcon(scope: LibraryScope) {
+  switch (scope) {
+    case 'recent':
+      return '🕘';
+    case 'favorites':
+      return '⭐';
+    case 'shared':
+      return '📤';
+    case 'library':
+    default:
+      return '📚';
+  }
+}
+
+function getScopeCounts(documents: DocumentRecord[]): ScopeCounts {
+  return {
+    library: documents.length,
+    recent: documents.filter(document => document.lastOpenedAt).length,
+    favorites: documents.filter(document => document.favorite).length,
+    shared: documents.filter(document => document.shared).length,
+  };
+}
+
+function activeFilterCount(filter: LibraryFilter) {
+  return getActiveFilterChips(filter, [], []).length;
+}
+
+function getActiveFilterChips(
+  filter: LibraryFilter,
+  tags: Tag[],
+  collections: Collection[],
+) {
+  const chips: string[] = [];
+  const query = filter.query.trim();
+
+  if (filter.scope !== 'library') {
+    chips.push(librarySectionTitle(filter.scope));
+  }
+
+  if (query.length > 0) {
+    chips.push(`Search: ${query}`);
+  }
+
+  if (filter.tagId !== 'all') {
+    const tag = tags.find(item => item.id === filter.tagId);
+    chips.push(tag ? `${tagEmoji(tag.id)} ${tag.label}` : `Tag: ${filter.tagId}`);
+  }
+
+  if (filter.collectionId !== 'all') {
+    const collection = collections.find(item => item.id === filter.collectionId);
+    chips.push(collection ? `📁 ${collection.label}` : `Collection: ${filter.collectionId}`);
+  }
+
+  return chips;
+}
+
+function formatDocumentCount(count: number) {
+  return `${count} document${count === 1 ? '' : 's'}`;
+}
+
 function nextSort(sortBy: LibrarySort): LibrarySort {
   const order: LibrarySort[] = ['lastOpened', 'modified', 'name', 'size'];
   const index = order.indexOf(sortBy);
 
   return order[(index + 1) % order.length];
+}
+
+function nextCollectionLabel(collections: Collection[]) {
+  const base = 'New Collection';
+  if (!collections.some(collection => collection.label === base)) {
+    return base;
+  }
+
+  let suffix = 2;
+  while (
+    collections.some(collection => collection.label === `${base} ${suffix}`)
+  ) {
+    suffix += 1;
+  }
+
+  return `${base} ${suffix}`;
+}
+
+function searchDemoDocument(document: DocumentRecord, query: string) {
+  const normalizedQuery = query.trim().toLowerCase();
+  const pages = demoSearchPages(document);
+
+  return pages.find(page =>
+    page.text.toLowerCase().includes(normalizedQuery),
+  )?.pageIndex;
+}
+
+function demoSearchPages(document: DocumentRecord) {
+  if (document.id === 'future-work') {
+    return [
+      {
+        pageIndex: 0,
+        text: 'Future of Work trends and insights executive summary',
+      },
+      {
+        pageIndex: 11,
+        text: 'The Hybrid Work Evolution hybrid work productivity culture autonomy',
+      },
+      {
+        pageIndex: 12,
+        text: 'Workforce planning operating model collaboration',
+      },
+    ];
+  }
+
+  return [
+    {
+      pageIndex: 0,
+      text: `${document.title} ${document.author}`,
+    },
+    {
+      pageIndex: 7,
+      text: 'Market Overview global markets growth technology healthcare',
+    },
+    {
+      pageIndex: 8,
+      text: 'Revenue by Region market share investment inflows',
+    },
+  ];
+}
+
+function tagEmoji(tagId: string) {
+  switch (tagId) {
+    case 'work':
+      return '💼';
+    case 'finance':
+      return '💹';
+    case 'research':
+      return '🔬';
+    case 'personal':
+      return '🏠';
+    case 'marketing':
+      return '📣';
+    default:
+      return '🏷️';
+  }
+}
+
+function tooltipProps(label: string) {
+  return Platform.OS === 'macos'
+    ? ({tooltip: label} as Record<string, unknown>)
+    : {};
 }
 
 function capitalize(value: string) {
@@ -2402,7 +3734,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     zIndex: 3,
   },
   trafficLights: {
@@ -2450,13 +3782,13 @@ const styles = StyleSheet.create({
   },
   searchBox: {
     flex: 1,
-    height: 34,
-    borderColor: '#DADDE5',
+    height: 36,
+    borderColor: '#CDD4DF',
     borderWidth: 1,
-    borderRadius: 7,
+    borderRadius: 9,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 13,
     backgroundColor: '#FFFFFF',
     marginRight: 12,
   },
@@ -2485,7 +3817,8 @@ const styles = StyleSheet.create({
   },
   navItem: {
     height: 36,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 14,
     borderRadius: 6,
     marginBottom: 6,
@@ -2496,6 +3829,37 @@ const styles = StyleSheet.create({
   navText: {
     color: '#343B48',
     fontSize: 13,
+  },
+  navIcon: {
+    width: 20,
+    color: '#5D6676',
+    fontSize: 15,
+    fontWeight: '800',
+    marginRight: 8,
+    textAlign: 'center',
+  },
+  navTextBlock: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  navCount: {
+    minWidth: 22,
+    color: '#697386',
+    backgroundColor: '#ECEFF5',
+    borderRadius: 10,
+    overflow: 'hidden',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  navCountActive: {
+    color: '#1769E8',
+    backgroundColor: '#FFFFFF',
   },
   navTextActive: {
     color: '#1769E8',
@@ -2516,6 +3880,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: 32,
+  },
+  sidebarEmoji: {
+    width: 22,
+    color: '#4B5563',
+    fontSize: 14,
+    marginRight: 6,
+    textAlign: 'center',
   },
   sidebarText: {
     color: '#343B48',
@@ -2601,6 +3972,95 @@ const styles = StyleSheet.create({
   toolbarRight: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  filterPanel: {
+    borderColor: '#D9E1EE',
+    borderWidth: 1,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    padding: 10,
+    marginBottom: 16,
+  },
+  summaryStrip: {
+    minHeight: 52,
+    borderColor: '#DCE4F2',
+    borderWidth: 1,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+  },
+  summaryIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    overflow: 'hidden',
+    color: '#1769E8',
+    backgroundColor: '#EAF1FF',
+    fontSize: 17,
+    lineHeight: 34,
+    textAlign: 'center',
+    marginRight: 12,
+  },
+  summaryBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  summaryText: {
+    color: '#273040',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  summaryStrong: {
+    color: '#1769E8',
+    fontWeight: '900',
+  },
+  summaryHint: {
+    color: '#6A7484',
+    fontSize: 11,
+    marginTop: 3,
+  },
+  summaryChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  summaryChip: {
+    color: '#2E3746',
+    backgroundColor: '#F0F4FA',
+    borderColor: '#DEE6F1',
+    borderWidth: 1,
+    borderRadius: 999,
+    overflow: 'hidden',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    fontSize: 11,
+    fontWeight: '800',
+    marginRight: 6,
+    marginBottom: 4,
+  },
+  summaryClear: {
+    color: '#1769E8',
+    fontSize: 11,
+    fontWeight: '900',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  filterGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginBottom: 8,
+  },
+  filterLabel: {
+    color: '#4D5665',
+    fontSize: 11,
+    fontWeight: '800',
+    width: 76,
   },
   sectionTitle: {
     color: '#171B22',
@@ -2707,6 +4167,47 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginBottom: 30,
+  },
+  emptyState: {
+    minHeight: 260,
+    borderColor: '#DDE4EF',
+    borderWidth: 1,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 28,
+    marginBottom: 30,
+  },
+  emptyStateIcon: {
+    width: 44,
+    height: 44,
+    color: '#1769E8',
+    backgroundColor: '#EAF1FF',
+    borderRadius: 10,
+    overflow: 'hidden',
+    textAlign: 'center',
+    lineHeight: 44,
+    fontSize: 22,
+    marginBottom: 14,
+  },
+  emptyStateTitle: {
+    color: '#171B22',
+    fontSize: 17,
+    fontWeight: '900',
+    marginBottom: 6,
+  },
+  emptyStateCopy: {
+    color: '#5E6878',
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+    maxWidth: 420,
+    marginBottom: 16,
+  },
+  emptyStateActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   table: {
     marginBottom: 30,
@@ -2826,6 +4327,72 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 10,
   },
+  signaturePanel: {
+    borderColor: '#DAE2EF',
+    borderWidth: 1,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    padding: 10,
+    marginBottom: 12,
+  },
+  signatureInput: {
+    height: 34,
+    borderColor: '#CDD4DF',
+    borderWidth: 1,
+    borderRadius: 7,
+    color: '#1F2937',
+    fontSize: 13,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  signaturePreview: {
+    minHeight: 50,
+    borderColor: '#E1E6EE',
+    borderWidth: 1,
+    borderRadius: 8,
+    backgroundColor: '#FBFCFE',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  signaturePreviewText: {
+    color: '#111827',
+    fontSize: 22,
+    fontWeight: '700',
+    fontStyle: 'italic',
+  },
+  signatureRows: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 8,
+  },
+  signatureChip: {
+    borderColor: '#D7DEE9',
+    borderWidth: 1,
+    borderRadius: 7,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginRight: 6,
+    marginBottom: 6,
+  },
+  signatureChipActive: {
+    borderColor: '#2E74F5',
+    backgroundColor: '#EAF1FF',
+  },
+  signatureChipText: {
+    color: '#4A5362',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  signatureChipTextActive: {
+    color: '#1769E8',
+  },
+  signatureHint: {
+    color: '#677184',
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 8,
+  },
   addTag: {
     color: '#3E4654',
     backgroundColor: '#F0F2F5',
@@ -2863,9 +4430,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  actionTextGroup: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionIcon: {
+    width: 22,
+    color: '#303746',
+    fontSize: 14,
+    fontWeight: '800',
+    marginRight: 8,
+    textAlign: 'center',
+  },
   actionLabel: {
     color: '#47505F',
     fontSize: 12,
+  },
+  actionBadge: {
+    color: '#1769E8',
+    backgroundColor: '#EAF1FF',
+    borderRadius: 6,
+    overflow: 'hidden',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    fontSize: 10,
+    fontWeight: '800',
+    marginRight: 8,
   },
   actionChevron: {
     color: '#7B8494',
@@ -2881,6 +4473,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     marginLeft: 8,
+    flexDirection: 'row',
   },
   buttonPrimary: {
     backgroundColor: '#2E74F5',
@@ -2891,6 +4484,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     minWidth: 26,
     paddingHorizontal: 6,
+  },
+  buttonCompact: {
+    minWidth: 34,
+    paddingHorizontal: 8,
+  },
+  buttonFlush: {
+    marginLeft: 0,
   },
   buttonActive: {
     borderColor: '#2E74F5',
@@ -2903,6 +4503,16 @@ const styles = StyleSheet.create({
     color: '#303746',
     fontSize: 12,
     fontWeight: '700',
+  },
+  buttonIcon: {
+    color: '#303746',
+    fontSize: 13,
+    fontWeight: '900',
+    marginRight: 5,
+    textAlign: 'center',
+  },
+  buttonIconCompact: {
+    marginRight: 0,
   },
   buttonTextPrimary: {
     color: '#FFFFFF',
@@ -2966,6 +4576,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 14,
     marginRight: 14,
+    flexShrink: 0,
   },
   pageInput: {
     width: 54,
@@ -2986,6 +4597,7 @@ const styles = StyleSheet.create({
   },
   toolGroup: {
     flex: 1,
+    flexShrink: 1,
     flexDirection: 'row',
     justifyContent: 'center',
   },
@@ -3031,6 +4643,12 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
     padding: 16,
   },
+  inspectorScroll: {
+    flex: 1,
+  },
+  inspectorScrollContent: {
+    paddingBottom: 28,
+  },
   inspectorTabs: {
     height: 36,
     flexDirection: 'row',
@@ -3074,22 +4692,64 @@ const styles = StyleSheet.create({
   commentsPanel: {
     paddingBottom: 24,
   },
+  paywallCard: {
+    borderColor: '#D9E2F5',
+    borderWidth: 1,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+  },
+  paywallIcon: {
+    width: 34,
+    height: 34,
+    color: '#1769E8',
+    backgroundColor: '#EAF1FF',
+    borderRadius: 8,
+    overflow: 'hidden',
+    textAlign: 'center',
+    lineHeight: 34,
+    fontSize: 18,
+    marginBottom: 12,
+  },
+  paywallTitle: {
+    color: '#171B22',
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 6,
+  },
+  paywallCopy: {
+    color: '#5C6676',
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 14,
+  },
   commentFilterRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     marginBottom: 14,
   },
   commentFilter: {
-    color: '#4C5564',
-    fontSize: 12,
-    marginRight: 12,
     borderRadius: 6,
     overflow: 'hidden',
     paddingHorizontal: 8,
     paddingVertical: 4,
+    marginRight: 8,
+    marginBottom: 8,
+    borderColor: '#D8DEE8',
+    borderWidth: 1,
+    backgroundColor: '#FFFFFF',
   },
   commentFilterActive: {
-    color: '#1769E8',
+    borderColor: '#AFC8FF',
     backgroundColor: '#EAF1FF',
+  },
+  commentFilterText: {
+    color: '#4C5564',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  commentFilterTextActive: {
+    color: '#1769E8',
   },
   emptyText: {
     color: '#6B7483',
@@ -3100,11 +4760,17 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   annotationTypeDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 3,
-    marginTop: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    marginTop: 1,
     marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  annotationTypeIcon: {
+    color: '#111827',
+    fontSize: 12,
   },
   commentBody: {
     flex: 1,
@@ -3278,6 +4944,9 @@ const mobileStyles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
   },
+  scopeScroller: {
+    paddingBottom: 10,
+  },
   tagScroller: {
     paddingBottom: 14,
   },
@@ -3301,6 +4970,28 @@ const mobileStyles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  tagIcon: {
+    color: '#2E3746',
+    fontSize: 13,
+    marginRight: 6,
+  },
+  tagCount: {
+    minWidth: 21,
+    color: '#647085',
+    backgroundColor: '#EEF1F5',
+    borderRadius: 10,
+    overflow: 'hidden',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    fontSize: 10,
+    fontWeight: '900',
+    textAlign: 'center',
+    marginLeft: 7,
+  },
+  tagCountActive: {
+    color: '#1769E8',
+    backgroundColor: '#FFFFFF',
+  },
   tagTextActive: {
     color: '#1769E8',
   },
@@ -3315,6 +5006,13 @@ const mobileStyles = StyleSheet.create({
     fontSize: 19,
     fontWeight: '900',
     marginBottom: 12,
+  },
+  resultsSummary: {
+    color: '#5F6979',
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 4,
+    marginBottom: 8,
   },
   cardScroller: {
     paddingBottom: 20,
@@ -3417,6 +5115,15 @@ const mobileStyles = StyleSheet.create({
   toolbarSpacer: {
     flex: 1,
   },
+  viewerToolRail: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  viewerToolScroller: {
+    gap: 8,
+    alignItems: 'center',
+    paddingRight: 2,
+  },
   mobileCanvasFrame: {
     height: 430,
     margin: 12,
@@ -3456,6 +5163,10 @@ const mobileStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
+  },
+  paywallCard: {
+    borderRadius: 12,
+    marginBottom: 12,
   },
   compareContent: {
     padding: 12,
@@ -3505,6 +5216,7 @@ const mobileStyles = StyleSheet.create({
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
   },
   buttonPrimary: {
     borderColor: '#2E74F5',
@@ -3514,6 +5226,12 @@ const mobileStyles = StyleSheet.create({
     color: '#303948',
     fontSize: 13,
     fontWeight: '800',
+  },
+  buttonIcon: {
+    color: '#303948',
+    fontSize: 13,
+    fontWeight: '900',
+    marginRight: 6,
   },
   buttonTextPrimary: {
     color: '#FFFFFF',

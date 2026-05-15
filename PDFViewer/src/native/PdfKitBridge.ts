@@ -18,12 +18,23 @@ type NativePdfKitBridge = {
   loadDocumentMetadata?: (path: string) => Promise<ImportedPdf>;
   search?: (
     path: string,
+    bookmark: string,
     query: string,
   ) => Promise<Array<{pageIndex: number; snippet: string}>>;
-  exportPageImage?: (path: string, pageIndex: number) => Promise<string>;
-  exportPageText?: (path: string, pageIndex: number) => Promise<string>;
+  exportPageImage?: (
+    path: string,
+    bookmark: string,
+    pageIndex: number,
+    format: 'png' | 'jpg',
+  ) => Promise<string>;
+  exportPageText?: (
+    path: string,
+    bookmark: string,
+    pageIndex: number,
+  ) => Promise<string>;
   exportAnnotatedCopy?: (
     path: string,
+    bookmark: string,
     annotations: Annotation[],
   ) => Promise<string>;
   compareDocuments?: (
@@ -47,20 +58,29 @@ export const PdfKitBridge = {
     return nativeBridge?.loadDocumentMetadata?.(path);
   },
 
-  async search(path: string, query: string) {
-    return nativeBridge?.search?.(path, query) ?? [];
+  async search(path: string, query: string, bookmark = '') {
+    return nativeBridge?.search?.(path, bookmark, query) ?? [];
   },
 
-  async exportPageImage(path: string, pageIndex: number) {
-    return nativeBridge?.exportPageImage?.(path, pageIndex);
+  async exportPageImage(
+    path: string,
+    pageIndex: number,
+    bookmark = '',
+    format: 'png' | 'jpg' = 'png',
+  ) {
+    return nativeBridge?.exportPageImage?.(path, bookmark, pageIndex, format);
   },
 
-  async exportPageText(path: string, pageIndex: number) {
-    return nativeBridge?.exportPageText?.(path, pageIndex);
+  async exportPageText(path: string, pageIndex: number, bookmark = '') {
+    return nativeBridge?.exportPageText?.(path, bookmark, pageIndex);
   },
 
-  async exportAnnotatedCopy(path: string, annotations: Annotation[]) {
-    return nativeBridge?.exportAnnotatedCopy?.(path, annotations);
+  async exportAnnotatedCopy(
+    path: string,
+    annotations: Annotation[],
+    bookmark = '',
+  ) {
+    return nativeBridge?.exportAnnotatedCopy?.(path, bookmark, annotations);
   },
 
   async compareDocuments(leftPath: string, rightPath: string) {
@@ -94,5 +114,6 @@ export function importedPdfToDocument(imported: ImportedPdf): DocumentRecord {
     shared: false,
     thumbnailTone: 'paper',
     path: imported.path,
+    bookmark: imported.bookmark,
   };
 }

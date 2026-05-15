@@ -1,5 +1,10 @@
 import {demoCollections, demoDocuments, demoTags} from './fixtures';
-import type {DocumentRecord, LibraryFilter, LibraryState} from './types';
+import type {
+  Collection,
+  DocumentRecord,
+  LibraryFilter,
+  LibraryState,
+} from './types';
 
 export type LibraryAction =
   | {type: 'addDocument'; document: DocumentRecord}
@@ -7,13 +12,15 @@ export type LibraryAction =
       type: 'updateDocument';
       documentId: string;
       patch: Partial<DocumentRecord>;
-    };
+    }
+  | {type: 'addCollection'; label: string}
+  | {type: 'addTagToDocument'; documentId: string; tagId: string};
 
 export function createInitialLibraryState(): LibraryState {
   return {
     documents: demoDocuments,
     tags: demoTags,
-    collections: demoCollections,
+    collections: withCollectionCounts(demoCollections, demoDocuments),
     storageUsedGb: 1.2,
     storageLimitGb: 10,
   };
@@ -24,20 +31,56 @@ export function libraryReducer(
   action: LibraryAction,
 ): LibraryState {
   switch (action.type) {
-    case 'addDocument':
+    case 'addDocument': {
+      const documents = [
+        action.document,
+        ...state.documents.filter(document => document.id !== action.document.id),
+      ];
+
       return {
         ...state,
-        documents: [action.document, ...state.documents],
+        documents,
+        collections: withCollectionCounts(state.collections, documents),
       };
-    case 'updateDocument':
+    }
+    case 'updateDocument': {
+      const documents = state.documents.map(document =>
+        document.id === action.documentId
+          ? {...document, ...action.patch}
+          : document,
+      );
+
       return {
         ...state,
-        documents: state.documents.map(document =>
-          document.id === action.documentId
-            ? {...document, ...action.patch}
-            : document,
-        ),
+        documents,
+        collections: withCollectionCounts(state.collections, documents),
       };
+    }
+    case 'addCollection': {
+      const collection = createCollection(action.label, state.collections);
+
+      return {
+        ...state,
+        collections: withCollectionCounts([...state.collections, collection], state.documents),
+      };
+    }
+    case 'addTagToDocument': {
+      const documents = state.documents.map(document =>
+        document.id === action.documentId
+          ? {
+              ...document,
+              tags: document.tags.includes(action.tagId)
+                ? document.tags
+                : [...document.tags, action.tagId],
+            }
+          : document,
+      );
+
+      return {
+        ...state,
+        documents,
+      };
+    }
     default:
       return state;
   }
@@ -55,13 +98,12 @@ export function getFilteredDocuments(
 
   return state.documents
     .filter(document => {
-      const words = `${document.title} ${document.author}`
-        .toLowerCase()
-        .split(/[^a-z0-9#]+/)
-        .filter(Boolean);
+      const words = getSearchableWords(state, document);
       const matchesQuery =
         queryTerms.length === 0 ||
-        queryTerms.every(term => words.includes(term));
+        queryTerms.every(term =>
+          words.some(word => word.includes(term) || term.includes(word)),
+        );
       const matchesTag =
         filter.tagId === 'all' || document.tags.includes(filter.tagId);
       const matchesCollection =
@@ -80,7 +122,7 @@ function matchesLibraryScope(
 ) {
   switch (scope) {
     case 'recent':
-      return document.progress > 0;
+      return Number.isFinite(dateValue(document.lastOpenedAt));
     case 'favorites':
       return document.favorite;
     case 'shared':
@@ -121,4 +163,78 @@ function compareDocuments(
 
 function dateValue(value: string) {
   return new Date(value).getTime();
+}
+
+function getSearchableWords(state: LibraryState, document: DocumentRecord) {
+  const tagLabels = document.tags
+    .map(tagId => state.tags.find(tag => tag.id === tagId)?.label ?? tagId)
+    .join(' ');
+  const collectionLabels = document.collectionIds
+    .map(
+      collectionId =>
+        state.collections.find(collection => collection.id === collectionId)
+          ?.label ?? collectionId,
+    )
+    .join(' ');
+
+  return `${document.title} ${document.author} ${tagLabels} ${collectionLabels}`
+    .toLowerCase()
+    .split(/[^a-z0-9#]+/)
+    .filter(Boolean);
+}
+
+export function getCollectionCounts(
+  documents: DocumentRecord[],
+  collections: Collection[] = demoCollections,
+) {
+  const initialCounts = collections.reduce<Record<string, number>>(
+    (counts, collection) => {
+      counts[collection.id] = 0;
+      return counts;
+    },
+    {},
+  );
+
+  return documents.reduce<Record<string, number>>((counts, document) => {
+    for (const collectionId of document.collectionIds) {
+      counts[collectionId] = (counts[collectionId] ?? 0) + 1;
+    }
+
+    return counts;
+  }, initialCounts);
+}
+
+function withCollectionCounts(
+  collections: Collection[],
+  documents: DocumentRecord[],
+) {
+  const counts = getCollectionCounts(documents, collections);
+
+  return collections.map(collection => ({
+    ...collection,
+    count: counts[collection.id] ?? 0,
+  }));
+}
+
+function createCollection(label: string, collections: Collection[]): Collection {
+  const baseId = slugify(label);
+  let id = baseId;
+  let suffix = 2;
+
+  while (collections.some(collection => collection.id === id)) {
+    id = `${baseId}-${suffix}`;
+    suffix += 1;
+  }
+
+  return {id, label, count: 0};
+}
+
+function slugify(value: string) {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return slug.length > 0 ? slug : `collection-${Date.now()}`;
 }

@@ -43,6 +43,9 @@ describe('macOS offline launch configuration', () => {
     expect(project).toContain('TEST_TARGET_NAME = "Acacia-macOS";');
     expect(project).not.toContain('TEST_TARGET_NAME = "PDFViewer-macOS";');
     expect(e2eScript).toContain('xcrun automationmodetool');
+    expect(e2eScript).toContain('DOES NOT REQUIRE user authentication');
+    expect(e2eScript).toContain('ONLY_TESTING');
+    expect(e2eScript).toContain('PDFVIEWER_REAL_PDF_FIXTURE_PATH');
     expect(e2eScript).toContain('TEST_TARGET_NAME="Acacia-macOS"');
   });
 
@@ -70,6 +73,164 @@ describe('macOS offline launch configuration', () => {
     expect(infoPlist).toContain('<string>x86_64</string>');
   });
 
+  it('keeps native PDF export methods bookmark-aware on macOS and iOS', () => {
+    const macBridge = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfKitBridge.mm'),
+      'utf8',
+    );
+    const iosBridge = readFileSync(
+      path.join(appRoot, 'ios', 'PDFViewer', 'PdfKitBridge.m'),
+      'utf8',
+    );
+    const tsBridge = readFileSync(
+      path.join(appRoot, 'src', 'native', 'PdfKitBridge.ts'),
+      'utf8',
+    );
+
+    for (const source of [macBridge, iosBridge]) {
+      expect(source).toContain('exportPageText:(NSString *)path');
+      expect(source).toContain('bookmark:(NSString *)bookmark');
+      expect(source).toContain('exportPageImage:(NSString *)path');
+      expect(source).toContain('format:(NSString *)format');
+      expect(source).toContain('exportAnnotatedCopy:(NSString *)path');
+      expect(source).toContain('resolvedURLForPath:path');
+      expect(source).toContain('stopAccessingSecurityScopedResource');
+      expect(source).toContain('acacia-page-%@.txt');
+    }
+
+    expect(tsBridge).toContain(
+      "exportPageImage?.(path, bookmark, pageIndex, format)",
+    );
+    expect(tsBridge).toContain("exportPageText?.(path, bookmark, pageIndex)");
+    expect(tsBridge).toContain(
+      "exportAnnotatedCopy?.(path, bookmark, annotations)",
+    );
+  });
+
+  it('keeps macOS native PDF zoom relative to the fitted page size', () => {
+    const macCanvas = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfCanvasViewManager.mm'),
+      'utf8',
+    );
+
+    expect(macCanvas).toContain('- (void)applyZoom');
+    expect(macCanvas).toContain('_pdfView.scaleFactorForSizeToFit');
+    expect(macCanvas).toContain('fitScale * zoomMultiplier');
+    expect(macCanvas).toContain('_pdfView.autoScales = NO');
+    expect(macCanvas).toContain('[self applyZoom];');
+  });
+
+  it('keeps native PDF canvas note and drawing tools interactive on macOS and iOS', () => {
+    const macCanvas = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfCanvasViewManager.mm'),
+      'utf8',
+    );
+    const iosCanvas = readFileSync(
+      path.join(appRoot, 'ios', 'PDFViewer', 'PdfCanvasViewManager.m'),
+      'utf8',
+    );
+
+    for (const source of [macCanvas, iosCanvas]) {
+      expect(source).toContain('AcaciaAnnotationKindForTool');
+      expect(source).toContain('isEqualToString:@"note"');
+      expect(source).toContain('isEqualToString:@"drawing"');
+      expect(source).toContain('AcaciaAnnotationSizeForKind');
+      expect(source).toContain('Local drawing');
+    }
+  });
+
+  it('uses drag-aware native highlight gestures on macOS and iOS', () => {
+    const macCanvas = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfCanvasViewManager.mm'),
+      'utf8',
+    );
+    const iosCanvas = readFileSync(
+      path.join(appRoot, 'ios', 'PDFViewer', 'PdfCanvasViewManager.m'),
+      'utf8',
+    );
+
+    expect(macCanvas).toContain('NSPanGestureRecognizer');
+    expect(macCanvas).toContain('handleHighlightPan:');
+    expect(macCanvas).toContain('AcaciaCanonicalBoundsForDrag');
+    expect(iosCanvas).toContain('UIPanGestureRecognizer');
+    expect(iosCanvas).toContain('handleHighlightPan:');
+    expect(iosCanvas).toContain('AcaciaCanonicalBoundsForDrag');
+  });
+
+  it('centers native minimum-height highlight drags around the pointer path', () => {
+    const macCanvas = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfCanvasViewManager.mm'),
+      'utf8',
+    );
+    const iosCanvas = readFileSync(
+      path.join(appRoot, 'ios', 'PDFViewer', 'PdfCanvasViewManager.m'),
+      'utf8',
+    );
+
+    for (const source of [macCanvas, iosCanvas]) {
+      expect(source).toContain('AcaciaCenteredMinimumRangeStart');
+      expect(source).toContain('((first + second) / 2.0) - minimumLength / 2.0');
+    }
+  });
+
+  it('uses real PDFKit ink paths for imported-PDF pen annotations and exports', () => {
+    const macCanvas = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfCanvasViewManager.mm'),
+      'utf8',
+    );
+    const iosCanvas = readFileSync(
+      path.join(appRoot, 'ios', 'PDFViewer', 'PdfCanvasViewManager.m'),
+      'utf8',
+    );
+    const macBridge = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfKitBridge.mm'),
+      'utf8',
+    );
+    const iosBridge = readFileSync(
+      path.join(appRoot, 'ios', 'PDFViewer', 'PdfKitBridge.m'),
+      'utf8',
+    );
+
+    for (const source of [macCanvas, iosCanvas]) {
+      expect(source).toContain('handleDrawingPan:');
+      expect(source).toContain('AcaciaCanonicalInkPathForViewPoints');
+      expect(source).toContain('@"points"');
+      expect(source).toContain('PDFAnnotationSubtypeInk');
+      expect(source).toContain('addBezierPath');
+    }
+
+    for (const source of [macBridge, iosBridge]) {
+      expect(source).toContain('PDFAnnotationSubtypeInk');
+      expect(source).toContain('AcaciaBezierPathForInkPoints');
+      expect(source).toContain('addBezierPath');
+    }
+  });
+
+  it('guards stored drawing annotations without ink points before rendering or exporting', () => {
+    const macCanvas = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfCanvasViewManager.mm'),
+      'utf8',
+    );
+    const iosCanvas = readFileSync(
+      path.join(appRoot, 'ios', 'PDFViewer', 'PdfCanvasViewManager.m'),
+      'utf8',
+    );
+    const macBridge = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfKitBridge.mm'),
+      'utf8',
+    );
+    const iosBridge = readFileSync(
+      path.join(appRoot, 'ios', 'PDFViewer', 'PdfKitBridge.m'),
+      'utf8',
+    );
+
+    for (const source of [macCanvas, iosCanvas, macBridge, iosBridge]) {
+      expect(source).toContain('id rawPoints = annotationInfo[@"points"];');
+      expect(source).toContain('isKindOfClass:[NSArray class]');
+      expect(source).toContain('AcaciaBezierPathForInkPoints(points, page)');
+    }
+  });
+
   it('brands and signs the iOS target as Acacia for TestFlight', () => {
     const infoPlist = readFileSync(path.join(appRoot, 'ios', 'PDFViewer', 'Info.plist'), 'utf8');
     const project = readFileSync(
@@ -79,6 +240,7 @@ describe('macOS offline launch configuration', () => {
 
     expect(infoPlist).toContain('<string>Acacia</string>');
     expect(infoPlist).toContain('<key>ITSAppUsesNonExemptEncryption</key>');
+    expect(infoPlist).not.toContain('NSLocationWhenInUseUsageDescription');
     expect(project).toContain('PRODUCT_BUNDLE_IDENTIFIER = com.benebsworth.acacia;');
     expect(project).toContain('DEVELOPMENT_TEAM = WFTX6CN23F;');
     expect(project).toContain('PRODUCT_NAME = Acacia;');

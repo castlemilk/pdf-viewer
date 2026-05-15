@@ -29,4 +29,12 @@ describe('iOS native PDF canvas behavior', () => {
     expect(source).toContain('self.accessibilityValue');
     expect(source).toContain('annotations %lu');
   });
+
+  it('supports native ink drawing gestures instead of square stamps', () => {
+    expect(source).toContain('UIPanGestureRecognizer *_drawingPanRecognizer');
+    expect(source).toContain('handleDrawingPan:');
+    expect(source).toContain('AcaciaCanonicalInkPathForViewPoints');
+    expect(source).toContain('PDFAnnotationSubtypeInk');
+    expect(source).toContain('addBezierPath');
+  });
 });
