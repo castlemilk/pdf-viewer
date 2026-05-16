@@ -1542,4 +1542,54 @@ test('mobile highlight creation opens the annotation action sheet', async () => 
   expect(output).toContain('Ask');
   expect(output).toContain('Link');
   expect(output).toContain('Share');
+  expect(output).toContain('mobile-annotation-note');
+  expect(output).toContain('mobile-annotation-ask');
+  expect(output).toContain('mobile-annotation-link');
+  expect(output).toContain('mobile-annotation-share');
+});
+
+test('mobile annotation sheet hides the underlying detail panel until dismissed', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App forceCompactLayout />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findByProps({testID: 'mobile-doc-row-q4-market-analysis'})
+      .props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'mobile-highlight'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props.onResponderRelease({
+      nativeEvent: {locationX: 150, locationY: 220},
+    });
+  });
+
+  expect(
+    renderer!.root.findByProps({testID: 'mobile-detail-panel'}).props
+      .accessibilityElementsHidden,
+  ).toBe(true);
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'mobile-annotation-close'}).props.onPress();
+  });
+
+  expect(
+    renderer!.root.findByProps({testID: 'mobile-detail-panel'}).props
+      .accessibilityElementsHidden,
+  ).toBe(false);
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'unlock-comments-button'}).props.onPress();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain(
+    'comment-item-local-highlight',
+  );
 });

@@ -1348,6 +1348,7 @@ function MobileViewer({
         </View>
         <ScrollView
           testID="mobile-detail-panel"
+          accessibilityElementsHidden={annotationSheetOpen}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={mobileStyles.detailPanel}>
           <Text style={mobileStyles.sectionTitle}>Information</Text>
@@ -1505,8 +1506,9 @@ function MobileAnnotationSheet({
   return (
     <View
       testID="mobile-annotation-sheet"
-      accessible
+      accessible={false}
       accessibilityLabel="Annotation actions"
+      accessibilityViewIsModal
       style={mobileStyles.annotationSheet}>
       <View style={mobileStyles.sheetGrabber} />
       <View style={mobileStyles.sheetQuoteRow}>
@@ -1541,10 +1543,30 @@ function MobileAnnotationSheet({
         ))}
       </View>
       <View style={mobileStyles.sheetActions}>
-        <MobileButton label="Note" icon="comment" onPress={() => {}} />
-        <MobileButton label="Ask" icon="sparkles" onPress={() => {}} />
-        <MobileButton label="Link" icon="link" onPress={() => {}} />
-        <MobileButton label="Share" icon="share" onPress={() => {}} />
+        <MobileButton
+          label="Note"
+          icon="comment"
+          testID="mobile-annotation-note"
+          onPress={() => {}}
+        />
+        <MobileButton
+          label="Ask"
+          icon="sparkles"
+          testID="mobile-annotation-ask"
+          onPress={() => {}}
+        />
+        <MobileButton
+          label="Link"
+          icon="link"
+          testID="mobile-annotation-link"
+          onPress={() => {}}
+        />
+        <MobileButton
+          label="Share"
+          icon="share"
+          testID="mobile-annotation-share"
+          onPress={() => {}}
+        />
       </View>
       <View style={mobileStyles.sheetTags}>
         <Text style={styles.tagPill}>TL;DR</Text>

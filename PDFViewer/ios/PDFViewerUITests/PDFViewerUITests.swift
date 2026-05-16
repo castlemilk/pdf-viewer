@@ -125,6 +125,25 @@ final class PDFViewerUITests: XCTestCase {
     canvas.coordinate(withNormalizedOffset: CGVector(dx: 0.42, dy: 0.36))
       .press(forDuration: 0.1, thenDragTo: canvas.coordinate(withNormalizedOffset: CGVector(dx: 0.58, dy: 0.39)))
 
+    XCTAssertTrue(
+      waitForAnyElement([
+        anyElement(app, "mobile-annotation-sheet"),
+        anyElement(app, "Annotation actions"),
+      ], timeout: 5),
+      "Expected the mobile annotation action sheet to appear"
+    )
+    XCTAssertTrue(anyElement(app, "mobile-annotation-note").waitForExistence(timeout: 2))
+    XCTAssertTrue(anyElement(app, "mobile-annotation-ask").waitForExistence(timeout: 2))
+    XCTAssertTrue(anyElement(app, "mobile-annotation-link").waitForExistence(timeout: 2))
+    XCTAssertTrue(anyElement(app, "mobile-annotation-share").waitForExistence(timeout: 2))
+    tapFirstAvailable(
+      [
+        anyElement(app, "mobile-annotation-close"),
+        anyElement(app, "Close annotation actions"),
+      ],
+      named: "Close annotation actions"
+    )
+
     let detailPanel = anyElement(app, "mobile-detail-panel")
     if detailPanel.exists {
       detailPanel.swipeUp()
