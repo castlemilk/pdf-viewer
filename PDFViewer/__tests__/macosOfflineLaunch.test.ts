@@ -137,6 +137,28 @@ describe('macOS offline launch configuration', () => {
     expect(tsBridge).toContain('addOpenedPdfListener');
   });
 
+  it('keeps the main macOS window alive across close and Dock reopen', () => {
+    const appDelegate = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOS', 'AppDelegate.mm'),
+      'utf8',
+    );
+
+    expect(appDelegate).toContain('@interface AppDelegate () <NSWindowDelegate>');
+    expect(appDelegate).toContain(
+      '- (NSWindow *)mainWindowCreatingIfNeededWithLaunchOptions:',
+    );
+    expect(appDelegate).toContain('window.releasedWhenClosed = NO;');
+    expect(appDelegate).toContain('window.delegate = self;');
+    expect(appDelegate).toContain('- (void)applicationDidBecomeActive:');
+    expect(appDelegate).toContain('!window.isVisible');
+    expect(appDelegate).toContain('- (BOOL)windowShouldClose:(NSWindow *)sender');
+    expect(appDelegate).toContain('[sender orderOut:nil];');
+    expect(appDelegate).toContain(
+      'NSWindow *window = [self mainWindowCreatingIfNeededWithLaunchOptions:',
+    );
+    expect(appDelegate).toContain('[window makeKeyAndOrderFront:nil]');
+  });
+
   it('seeds generated real PDF files for demo documents on macOS and iOS', () => {
     const macBridge = readFileSync(
       path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfKitBridge.mm'),

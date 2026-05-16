@@ -1,4 +1,5 @@
 #import <XCTest/XCTest.h>
+#import <AppKit/AppKit.h>
 
 @interface PDFViewerUITests : XCTestCase
 @property(nonatomic, strong) XCUIApplication *app;
@@ -69,6 +70,22 @@
                 @"Expected an element with identifier prefix %@ to exist",
                 prefix);
   return element;
+}
+
+- (void)waitForLibrarySurface
+{
+  XCUIElement *library = [self elementWithIdentifier:@"library-screen"];
+  if ([library waitForExistenceWithTimeout:5]) {
+    return;
+  }
+
+  XCUIElement *libraryTitle = self.app.staticTexts[@"Library"].firstMatch;
+  if ([libraryTitle waitForExistenceWithTimeout:10]) {
+    return;
+  }
+
+  XCUIElement *libraryNav = [self elementWithIdentifier:@"nav-library"];
+  XCTAssertTrue([libraryNav waitForExistenceWithTimeout:10], @"Expected Library surface to exist");
 }
 
 - (XCUIElement *)waitForFirstIdentifier:(NSArray<NSString *> *)identifiers
@@ -376,6 +393,7 @@
 
 - (void)launchAndWaitForLibrary
 {
+  [self terminateRunningAcaciaApplications];
   [self.app terminate];
   [self.app launch];
   XCTAssertTrue([self.app.windows.firstMatch waitForExistenceWithTimeout:20]);
@@ -387,7 +405,79 @@
       [self clickElement:viewerLibraryButton];
     }
   }
-  [self waitForIdentifier:@"library-screen"];
+  [self waitForLibrarySurface];
+}
+
+- (void)terminateRunningAcaciaApplications
+{
+  NSArray<NSRunningApplication *> *runningApps =
+      [NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.benebsworth.acacia"];
+  for (NSRunningApplication *candidate in runningApps) {
+    if (!candidate.terminated) {
+      [candidate terminate];
+    }
+  }
+
+  NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:5];
+  while ([deadline timeIntervalSinceNow] > 0) {
+    BOOL allTerminated = YES;
+    for (NSRunningApplication *candidate in runningApps) {
+      if (!candidate.terminated) {
+        allTerminated = NO;
+        break;
+      }
+    }
+    if (allTerminated) {
+      return;
+    }
+    [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode
+                             beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+  }
+
+  for (NSRunningApplication *candidate in runningApps) {
+    if (!candidate.terminated) {
+      [candidate forceTerminate];
+    }
+  }
+}
+
+- (void)reopenRunningApplication
+{
+  NSArray<NSRunningApplication *> *runningApps =
+      [NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.benebsworth.acacia"];
+  NSRunningApplication *runningApp = nil;
+  for (NSRunningApplication *candidate in runningApps) {
+    if (!candidate.terminated && candidate.processIdentifier > 0) {
+      runningApp = candidate;
+      break;
+    }
+  }
+  XCTAssertNotNil(runningApp, @"Expected Acacia to still be running after its window closes");
+
+  NSURL *bundleURL = runningApp.bundleURL;
+  XCTAssertNotNil(bundleURL, @"Expected Acacia running application to expose a bundle URL");
+
+  NSWorkspaceOpenConfiguration *configuration = [NSWorkspaceOpenConfiguration configuration];
+  configuration.activates = YES;
+  configuration.createsNewApplicationInstance = NO;
+
+  __block BOOL completed = NO;
+  __block NSError *openError = nil;
+  [[NSWorkspace sharedWorkspace] openApplicationAtURL:bundleURL
+                                       configuration:configuration
+                                   completionHandler:^(NSRunningApplication *application, NSError *error) {
+                                     openError = error;
+                                     completed = YES;
+                                   }];
+
+  NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:10];
+  while (!completed && [deadline timeIntervalSinceNow] > 0) {
+    [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode
+                             beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+  }
+
+  XCTAssertTrue(completed, @"Expected Acacia reopen request to complete");
+  XCTAssertNil(openError, @"Expected Acacia reopen request to succeed: %@", openError);
 }
 
 - (void)openSelectedDocument
@@ -693,7 +783,7 @@
   [self assertIdentifier:@"viewer-screen" labelContains:@"2025 Electronic Pack - Ben Ebsworth"];
 
   [self tapIdentifier:@"viewer-library-button"];
-  [self waitForIdentifier:@"library-screen"];
+  [self waitForLibrarySurface];
   [self chooseOpenRecentMenuItemNamed:sandboxFixturePath.lastPathComponent];
 
   [self waitForIdentifier:@"viewer-screen"];
@@ -741,6 +831,24 @@
                @"doc-row-annual-financial-report",
                @"doc-row-product-roadmap",
              ]];
+}
+
+- (void)testMainWindowReopensAfterClose
+{
+  [self launchAndWaitForLibrary];
+
+  XCUIElement *window = self.app.windows.firstMatch;
+  XCTAssertTrue([window waitForExistenceWithTimeout:20], @"Expected main window before close");
+  [self.app typeKey:@"w" modifierFlags:XCUIKeyModifierCommand];
+
+  NSPredicate *windowGone = [NSPredicate predicateWithFormat:@"exists == false"];
+  [self expectationForPredicate:windowGone evaluatedWithObject:window handler:nil];
+  [self waitForExpectationsWithTimeout:10 handler:nil];
+
+  [self reopenRunningApplication];
+  XCTAssertTrue([self.app.windows.firstMatch waitForExistenceWithTimeout:20],
+                @"Expected main window to reopen after close and app activation");
+  [self waitForLibrarySurface];
 }
 
 - (void)testViewerNavigationAnnotationAndCommentsFlow

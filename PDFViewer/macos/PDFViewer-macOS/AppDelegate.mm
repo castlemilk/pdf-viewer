@@ -10,8 +10,9 @@ static NSString *const AcaciaPDFMenuOpenURLNotification = @"AcaciaPDFMenuOpenURL
 - (void)loadReactNativeWindow:(NSDictionary *)launchOptions;
 @end
 
-@interface AppDelegate ()
+@interface AppDelegate () <NSWindowDelegate>
 - (void)ensureMainWindowVisibleWithLaunchOptions:(NSDictionary *)launchOptions;
+- (NSWindow *)mainWindowCreatingIfNeededWithLaunchOptions:(NSDictionary *)launchOptions;
 - (void)wireFileMenuActions;
 - (BOOL)openPDFURLFromMenu:(NSURL *)url;
 @end
@@ -47,6 +48,25 @@ static NSString *const AcaciaPDFMenuOpenURLNotification = @"AcaciaPDFMenuOpenURL
 {
   [self ensureMainWindowVisibleWithLaunchOptions:@{}];
   return YES;
+}
+
+- (void)applicationDidBecomeActive:(NSNotification *)notification
+{
+  NSWindow *window = self.window;
+  if (window != nil && !window.isVisible) {
+    [self ensureMainWindowVisibleWithLaunchOptions:@{}];
+  }
+}
+
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender
+{
+  return NO;
+}
+
+- (BOOL)windowShouldClose:(NSWindow *)sender
+{
+  [sender orderOut:nil];
+  return NO;
 }
 
 - (IBAction)openDocument:(id)sender
@@ -109,10 +129,27 @@ static NSString *const AcaciaPDFMenuOpenURLNotification = @"AcaciaPDFMenuOpenURL
   return YES;
 }
 
+- (NSWindow *)mainWindowCreatingIfNeededWithLaunchOptions:(NSDictionary *)launchOptions
+{
+  NSWindow *window = self.window;
+  if (window == nil) {
+    [self loadReactNativeWindow:launchOptions ?: @{}];
+    window = self.window;
+  }
+
+  if (window != nil) {
+    window.releasedWhenClosed = NO;
+    window.delegate = self;
+  }
+
+  return window;
+}
+
 - (void)ensureMainWindowVisibleWithLaunchOptions:(NSDictionary *)launchOptions
 {
-  if (self.window == nil) {
-    [self loadReactNativeWindow:launchOptions ?: @{}];
+  NSWindow *window = [self mainWindowCreatingIfNeededWithLaunchOptions:launchOptions];
+  if (window == nil) {
+    return;
   }
 
   NSRect visibleFrame = NSScreen.mainScreen.visibleFrame;
@@ -120,7 +157,7 @@ static NSString *const AcaciaPDFMenuOpenURLNotification = @"AcaciaPDFMenuOpenURL
     visibleFrame = NSMakeRect(0, 0, 1440, 900);
   }
 
-  NSRect frame = self.window.frame;
+  NSRect frame = window.frame;
   BOOL frameTooSmall = NSWidth(frame) < 640 || NSHeight(frame) < 480;
   BOOL frameOffscreen = NSIsEmptyRect(NSIntersectionRect(frame, visibleFrame));
   BOOL isUITesting =
@@ -135,7 +172,7 @@ static NSString *const AcaciaPDFMenuOpenURLNotification = @"AcaciaPDFMenuOpenURL
                                   MAX(NSMinY(visibleFrame) + 24, y),
                                   width,
                                   height);
-    [self.window setFrame:testFrame display:YES];
+    [window setFrame:testFrame display:YES];
   } else if (frameTooSmall || frameOffscreen) {
     CGFloat width = MIN(MAX(NSWidth(visibleFrame) - 96, 960), 1320);
     CGFloat height = MIN(MAX(NSHeight(visibleFrame) - 96, 680), 860);
@@ -143,12 +180,12 @@ static NSString *const AcaciaPDFMenuOpenURLNotification = @"AcaciaPDFMenuOpenURL
                                      NSMidY(visibleFrame) - height / 2,
                                      width,
                                      height);
-    [self.window setFrame:defaultFrame display:YES];
+    [window setFrame:defaultFrame display:YES];
   }
 
-  self.window.title = @"Acacia";
-  [self.window setFrameAutosaveName:@"AcaciaMainWindow"];
-  [self.window makeKeyAndOrderFront:nil];
+  window.title = @"Acacia";
+  [window setFrameAutosaveName:@"AcaciaMainWindow"];
+  [window makeKeyAndOrderFront:nil];
   [NSApp activateIgnoringOtherApps:YES];
 }
 
