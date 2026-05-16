@@ -158,7 +158,7 @@ test('mobile viewer controls page, zoom, and highlight state', async () => {
   expect(JSON.stringify(renderer?.toJSON())).toContain('Page 2 of 32');
   expect(
     renderer!.root.findByProps({testID: 'mobile-page-label'}).props.children,
-  ).toEqual([2, ' / ', 32]);
+  ).toBe('2 / 32');
 
   await ReactTestRenderer.act(() => {
     renderer!.root.findByProps({testID: 'mobile-page-previous'}).props.onPress();
@@ -167,7 +167,7 @@ test('mobile viewer controls page, zoom, and highlight state', async () => {
   expect(JSON.stringify(renderer?.toJSON())).toContain('Page 1 of 32');
   expect(
     renderer!.root.findByProps({testID: 'mobile-page-label'}).props.children,
-  ).toEqual([1, ' / ', 32]);
+  ).toBe('1 / 32');
 
   await ReactTestRenderer.act(() => {
     renderer!.root.findByProps({testID: 'mobile-zoom-in'}).props.onPress();
@@ -273,7 +273,7 @@ test('mobile demo canvas scrolling updates the visible page state', async () => 
 
   expect(
     renderer!.root.findByProps({testID: 'mobile-page-label'}).props.children,
-  ).toEqual([3, ' / ', 32]);
+  ).toBe('3 / 32');
 });
 
 test('mobile signature tool exposes signature manager and stamps the page', async () => {
@@ -513,6 +513,52 @@ test('desktop reader clips the canvas below toolbar and scrubber controls', asyn
       bottom: 0,
       height: 52,
       zIndex: 10,
+    }),
+  );
+});
+
+test('desktop reader thumbnails and page meter avoid nested preview chrome', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findAllByProps({testID: 'doc-card-q4-market-analysis'})[0]
+      .props.onPress();
+  });
+
+  expect(
+    StyleSheet.flatten(
+      renderer!.root.findByProps({testID: 'thumbnail-page-1'}).props.style,
+    ),
+  ).toEqual(
+    expect.objectContaining({
+      borderWidth: 0,
+      alignItems: 'center',
+    }),
+  );
+  expect(
+    StyleSheet.flatten(
+      renderer!.root.findByProps({testID: 'thumbnail-fallback-page-1'}).props
+        .style,
+    ),
+  ).toEqual(
+    expect.objectContaining({
+      width: 84,
+      height: 119,
+    }),
+  );
+  expect(
+    StyleSheet.flatten(
+      renderer!.root.findByProps({testID: 'viewer-page-meter'}).props.style,
+    ),
+  ).toEqual(
+    expect.objectContaining({
+      minWidth: 92,
+      justifyContent: 'center',
     }),
   );
 });
@@ -914,6 +960,21 @@ test('renders real PDF thumbnail rail pages from cached page images', async () =
   );
   expect(JSON.stringify(renderer?.toJSON())).toContain(
     'thumbnail-image-page-1',
+  );
+  expect(
+    renderer!.root.findByProps({testID: 'thumbnail-image-page-1'}).props
+      .resizeMode,
+  ).toBe('contain');
+  expect(
+    StyleSheet.flatten(
+      renderer!.root.findByProps({testID: 'thumbnail-image-page-1'}).props
+        .style,
+    ),
+  ).toEqual(
+    expect.objectContaining({
+      width: 84,
+      height: 119,
+    }),
   );
   expect(JSON.stringify(renderer?.toJSON())).toContain(
     '/tmp/acacia-thumbnails/manual-imported-pdf/page-0.png',

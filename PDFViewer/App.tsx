@@ -1341,26 +1341,38 @@ function MobileViewer({
           />
         </View>
         <View style={mobileStyles.pageControls}>
-          <MobileButton
-            label="Previous"
-            icon="‹"
-            testID="mobile-page-previous"
-            onPress={() =>
-              onViewerAction({type: 'setPage', pageIndex: viewer.pageIndex - 1})
-            }
-          />
-          <Text testID="mobile-page-label" style={mobileStyles.pageLabel}>
-            {viewer.pageIndex + 1} / {viewer.pageCount}
-          </Text>
-          <MobileButton
-            label="Next"
-            icon="›"
-            primary
-            testID="mobile-page-next"
-            onPress={() =>
-              onViewerAction({type: 'setPage', pageIndex: viewer.pageIndex + 1})
-            }
-          />
+          <View style={mobileStyles.pageControlSlot}>
+            <MobileButton
+              label="Previous"
+              icon="‹"
+              testID="mobile-page-previous"
+              onPress={() =>
+                onViewerAction({
+                  type: 'setPage',
+                  pageIndex: viewer.pageIndex - 1,
+                })
+              }
+            />
+          </View>
+          <View testID="mobile-page-meter" style={mobileStyles.pageMeter}>
+            <Text testID="mobile-page-label" style={mobileStyles.pageLabel}>
+              {`${viewer.pageIndex + 1} / ${viewer.pageCount}`}
+            </Text>
+          </View>
+          <View style={[mobileStyles.pageControlSlot, mobileStyles.pageControlSlotEnd]}>
+            <MobileButton
+              label="Next"
+              icon="›"
+              primary
+              testID="mobile-page-next"
+              onPress={() =>
+                onViewerAction({
+                  type: 'setPage',
+                  pageIndex: viewer.pageIndex + 1,
+                })
+              }
+            />
+          </View>
         </View>
         <ScrollView
           testID="mobile-detail-panel"
@@ -2517,9 +2529,11 @@ function CompareScreen({
             }
             testID="compare-page-previous"
           />
-          <Text style={styles.stepperText}>
-            {viewer.pageIndex + 1} / {leftDocument.pageCount}
-          </Text>
+          <View testID="compare-page-meter" style={styles.pageMeter}>
+            <Text style={styles.pageMeterCurrent}>{viewer.pageIndex + 1}</Text>
+            <Text style={styles.pageMeterDivider}>/</Text>
+            <Text style={styles.pageMeterTotal}>{leftDocument.pageCount}</Text>
+          </View>
           <ButtonChrome
             label="Next page"
             icon="▶️"
@@ -3103,31 +3117,38 @@ function ReaderToolbar({
       />
       <View style={styles.pageStepper}>
         <ButtonChrome
-        label="Previous page"
-        icon="◀️"
-        compact
-          onPress={() => onAction({type: 'setPage', pageIndex: viewer.pageIndex - 1})}
+          label="Previous page"
+          icon="◀️"
+          compact
+          onPress={() =>
+            onAction({type: 'setPage', pageIndex: viewer.pageIndex - 1})
+          }
           testID="viewer-page-previous"
           accessibilityLabel="Previous page"
         />
-        <TextInput
-          testID="viewer-page-input"
-          accessibilityLabel="Current page"
-          style={styles.pageInput}
-          value={`${viewer.pageIndex + 1}`}
-          onChangeText={value => {
-            const nextPage = Number.parseInt(value, 10);
-            if (!Number.isNaN(nextPage)) {
-              onAction({type: 'setPage', pageIndex: nextPage - 1});
-            }
-          }}
-        />
-        <Text style={styles.stepperText}>/ {viewer.pageCount}</Text>
+        <View testID="viewer-page-meter" style={styles.pageMeter}>
+          <TextInput
+            testID="viewer-page-input"
+            accessibilityLabel="Current page"
+            style={styles.pageInput}
+            value={`${viewer.pageIndex + 1}`}
+            onChangeText={value => {
+              const nextPage = Number.parseInt(value, 10);
+              if (!Number.isNaN(nextPage)) {
+                onAction({type: 'setPage', pageIndex: nextPage - 1});
+              }
+            }}
+          />
+          <Text style={styles.pageMeterDivider}>/</Text>
+          <Text style={styles.pageMeterTotal}>{viewer.pageCount}</Text>
+        </View>
         <ButtonChrome
-        label="Next page"
-        icon="▶️"
-        compact
-          onPress={() => onAction({type: 'setPage', pageIndex: viewer.pageIndex + 1})}
+          label="Next page"
+          icon="▶️"
+          compact
+          onPress={() =>
+            onAction({type: 'setPage', pageIndex: viewer.pageIndex + 1})
+          }
           testID="viewer-page-next"
           accessibilityLabel="Next page"
         />
@@ -3284,7 +3305,23 @@ function PageThumbnail({
   const thumbnailPath = document.pageThumbnailPaths?.[pageIndex];
 
   if (!thumbnailPath) {
-    return <PdfCover document={document} />;
+    return (
+      <View
+        testID={`thumbnail-fallback-page-${pageIndex + 1}`}
+        style={[styles.thumbnailImage, styles.thumbnailFallback]}>
+        <Text numberOfLines={2} style={styles.thumbnailFallbackTitle}>
+          {document.title}
+        </Text>
+        <View style={styles.thumbnailFallbackRule} />
+        {[0.78, 0.64, 0.72, 0.54, 0.68].map((width, index) => (
+          <View
+            key={`${pageIndex}-${index}`}
+            style={[styles.thumbnailFallbackLine, {width: `${width * 100}%`}]}
+          />
+        ))}
+        <View style={styles.thumbnailFallbackBlock} />
+      </View>
+    );
   }
 
   return (
@@ -3294,7 +3331,7 @@ function PageThumbnail({
       accessibilityLabel={`Rendered page ${pageIndex + 1} thumbnail`}
       source={{uri: fileUriForPath(thumbnailPath)}}
       style={styles.thumbnailImage}
-      resizeMode="cover"
+      resizeMode="contain"
     />
   );
 }
@@ -5555,22 +5592,48 @@ const styles = StyleSheet.create({
     marginRight: 14,
     flexShrink: 0,
   },
-  pageInput: {
-    width: 54,
+  pageMeter: {
+    minWidth: 92,
     height: 32,
-    borderColor: '#DADDE5',
+    borderColor: acacia.color.hairlineStrong,
     borderWidth: 1,
-    borderRadius: 7,
+    borderRadius: acacia.radius.md,
+    backgroundColor: acacia.color.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    marginHorizontal: 8,
+  },
+  pageInput: {
+    width: 28,
+    height: 30,
     color: '#1F2633',
     fontSize: 13,
+    fontWeight: '800',
     textAlign: 'center',
-    marginLeft: 8,
+    padding: 0,
+    margin: 0,
   },
-  stepperText: {
-    color: '#343B48',
+  pageMeterCurrent: {
+    minWidth: 22,
+    color: acacia.color.ink,
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'right',
+  },
+  pageMeterDivider: {
+    color: acacia.color.ink4,
     fontSize: 13,
     fontWeight: '700',
-    marginLeft: 8,
+    marginHorizontal: 5,
+  },
+  pageMeterTotal: {
+    minWidth: 22,
+    color: acacia.color.ink3,
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'left',
   },
   toolGroup: {
     flex: 1,
@@ -5593,31 +5656,58 @@ const styles = StyleSheet.create({
     backgroundColor: acacia.color.surface,
     borderRightColor: acacia.color.hairline,
     borderRightWidth: 1,
-    padding: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
   },
   thumbnail: {
+    width: '100%',
     alignItems: 'center',
     paddingVertical: 8,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    borderWidth: 0,
     marginBottom: 10,
   },
   thumbnailActive: {
-    borderColor: acacia.color.ink,
-    backgroundColor: acacia.color.paper,
+    backgroundColor: acacia.color.sunken,
   },
   thumbnailImage: {
-    width: 112,
-    height: 158,
+    width: 84,
+    height: 119,
     borderRadius: 4,
-    borderColor: '#D8DDE6',
+    borderColor: acacia.color.hairlineStrong,
     borderWidth: 1,
     backgroundColor: '#FFFFFF',
   },
+  thumbnailFallback: {
+    padding: 8,
+  },
+  thumbnailFallbackTitle: {
+    color: acacia.color.ink,
+    fontFamily: acacia.font.display,
+    fontSize: 7,
+    fontWeight: '800',
+    lineHeight: 9,
+  },
+  thumbnailFallbackRule: {
+    height: 8,
+    backgroundColor: acacia.color.hairline,
+    marginTop: 7,
+    marginBottom: 5,
+  },
+  thumbnailFallbackLine: {
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: acacia.color.ink2,
+    marginBottom: 3,
+  },
+  thumbnailFallbackBlock: {
+    height: 18,
+    backgroundColor: acacia.color.hairline,
+    marginTop: 8,
+  },
   thumbnailLabel: {
-    color: '#2F3745',
-    fontSize: 12,
+    color: acacia.color.ink3,
+    fontSize: 11,
     fontWeight: '700',
     marginTop: 6,
   },
@@ -6343,12 +6433,32 @@ const mobileStyles = StyleSheet.create({
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+  },
+  pageControlSlot: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pageControlSlotEnd: {
+    justifyContent: 'flex-end',
+  },
+  pageMeter: {
+    minWidth: 86,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: acacia.color.sunken,
+    borderColor: acacia.color.hairline,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
   },
   pageLabel: {
-    color: '#2E3746',
-    fontSize: 14,
-    fontWeight: '900',
+    color: acacia.color.ink2,
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   detailPanel: {
     padding: 16,
