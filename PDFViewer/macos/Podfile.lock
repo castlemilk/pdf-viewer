@@ -2341,6 +2341,63 @@ PODS:
     - React-perflogger (= 0.81.7)
     - React-utils (= 0.81.7)
     - SocketRocket
+  - RNSVG (15.15.5):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - RNSVG/common (= 15.15.5)
+    - SocketRocket
+    - Yoga
+  - RNSVG/common (15.15.5):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - SocketRocket (0.7.1)
   - Yoga (0.0.0)
 
@@ -2417,6 +2474,7 @@ DEPENDENCIES:
   - ReactAppDependencyProvider (from `build/generated/ios`)
   - ReactCodegen (from `build/generated/ios`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native-macos/ReactCommon`)
+  - RNSVG (from `../node_modules/react-native-svg`)
   - SocketRocket (~> 0.7.1)
   - Yoga (from `../node_modules/react-native-macos/ReactCommon/yoga`)
 
@@ -2568,6 +2626,8 @@ EXTERNAL SOURCES:
     :path: build/generated/ios
   ReactCommon:
     :path: "../node_modules/react-native-macos/ReactCommon"
+  RNSVG:
+    :path: "../node_modules/react-native-svg"
   Yoga:
     :path: "../node_modules/react-native-macos/ReactCommon/yoga"
 
@@ -2643,9 +2703,10 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 31b65aa0bc12516d8747964ab3d8bce8bfa9fda8
   ReactCodegen: 66913c34a5e5356973a453847450ec538174ff36
   ReactCommon: debb7f3a9a42ed60c027e92770600bb1e17b616e
+  RNSVG: f67438edc98d950e8b1f98b55ad8a0d6efe826da
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: 8a0df683a71bee13fe0b9d8b653d1a062ff65b2e
 
-PODFILE CHECKSUM: b85e37078a63d2684c0b932540bd90ad1c6dcf8c
+PODFILE CHECKSUM: bd9f1dc285cfe075ba3e1213dd91bd2927319e7e
 
 COCOAPODS: 1.16.2

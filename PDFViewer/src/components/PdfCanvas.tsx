@@ -392,7 +392,7 @@ function toolHintCopy(kind: InteractiveAnnotationKind) {
       return 'Pen ready - drag on the page to draw';
     case 'highlight':
     default:
-      return 'Highlighter ready - click a page to place it';
+      return 'Highlighter ready - drag a page or select text, then press Highlight';
   }
 }
 
@@ -438,57 +438,101 @@ function DemoPageContent({
   document: DocumentRecord;
   pageIndex: number;
 }) {
+  const isRoadmap = document.id === 'product-roadmap';
+
   return (
     <>
       <View style={styles.pageHeader}>
-        <Text style={styles.pageKicker}>{document.title}</Text>
+        <Text style={styles.pageKicker}>
+          {isRoadmap ? 'PRODUCT ROADMAP 2025 · VISION' : document.title}
+        </Text>
         <Text style={styles.pageNumber}>{pageIndex + 1}</Text>
       </View>
-      <Text style={styles.pageTitle}>
-        {document.id === 'future-work'
-          ? 'The Hybrid Work Evolution'
-          : 'Market Overview'}
+      <Text
+        testID={`pdf-demo-title-${pageIndex + 1}`}
+        selectable
+        style={styles.pageTitle}>
+        {isRoadmap
+          ? 'Why now'
+          : document.id === 'future-work'
+            ? 'The Hybrid Work Evolution'
+            : 'Market Overview'}
       </Text>
-      <Text style={styles.blueLead}>
-        Global markets closed the year with steady growth across key segments.
+      {isRoadmap ? (
+        <>
+          <Text selectable style={styles.readerParagraph}>
+            Three forces are converging that make 2025 the right year to
+            commit. First, the cost of high-quality models has fallen by an
+            order of magnitude in the last twelve months; what once required
+            dedicated infrastructure now runs at the edge.
+          </Text>
+          <Text selectable style={[styles.readerParagraph, styles.highlightedLine]}>
+            Second, customer behavior has shifted: enterprises are no longer
+            evaluating AI in isolation but as a layer threaded through existing
+            workflows.
+          </Text>
+          <Text selectable style={styles.readerParagraph}>
+            Third, the regulatory picture has clarified enough to plan without
+            guessing.
+          </Text>
+          <Text selectable style={styles.readerHeading}>
+            Three commitments
+          </Text>
+          <Text selectable style={styles.readerParagraph}>
+            We are organizing the year around three commitments, deliberately
+            fewer than last year. Each is owned end-to-end by a named lead,
+            with quarterly checkpoints and a single success metric.
+          </Text>
+        </>
+      ) : (
+        <Text selectable style={styles.blueLead}>
+          Global markets closed the year with steady growth across key segments.
+        </Text>
+      )}
+      <Text
+        testID={`pdf-demo-body-${pageIndex + 1}`}
+        selectable
+        style={isRoadmap ? styles.readerParagraph : styles.paragraph}>
+        {isRoadmap
+          ? 'The first commitment, Platform, replaces our patchwork of integrations with a single contract surface.'
+          : 'The document view is powered by PDFKit for local PDFs and this fixture surface for the built-in demo set. Imported documents render in the native PDF canvas.'}
       </Text>
-      <Text style={styles.paragraph}>
-        The document view is powered by PDFKit for local PDFs and this fixture
-        surface for the built-in demo set. Imported documents render in the
-        native PDF canvas.
-      </Text>
-      <View
-        testID={pageIndex === 0 ? 'pdf-canvas-chart' : undefined}
-        style={styles.chartBlock}>
-        {[3.1, 4, 5.2, 6.1, 7.3].map((value, index) => (
-          <View style={styles.barColumn} key={`${pageIndex}-${value}`}>
-            <Text style={styles.barLabel}>{value.toFixed(1)}%</Text>
-            <View
-              style={[
-                styles.bar,
-                {height: 14 + value * 6},
-                index === 4 && styles.barActive,
-              ]}
-            />
-            <Text style={styles.axisLabel}>Q{index + 1}</Text>
+      {isRoadmap ? null : (
+        <>
+          <View
+            testID={pageIndex === 0 ? 'pdf-canvas-chart' : undefined}
+            style={styles.chartBlock}>
+            {[3.1, 4, 5.2, 6.1, 7.3].map((value, index) => (
+              <View style={styles.barColumn} key={`${pageIndex}-${value}`}>
+                <Text style={styles.barLabel}>{value.toFixed(1)}%</Text>
+                <View
+                  style={[
+                    styles.bar,
+                    {height: 14 + value * 6},
+                    index === 4 && styles.barActive,
+                  ]}
+                />
+                <Text style={styles.axisLabel}>Q{index + 1}</Text>
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
-      <View style={styles.divider} />
-      <View style={styles.lowerPage}>
-        <View
-          testID={pageIndex === 0 ? 'pdf-canvas-donut' : undefined}
-          style={styles.donut}>
-          <Text style={styles.donutText}>34%</Text>
-        </View>
-        <View style={styles.legend}>
-          <Text style={styles.legendTitle}>Market Share by Segment</Text>
-          <Text style={styles.legendLine}>Technology 34%</Text>
-          <Text style={styles.legendLine}>Healthcare 28%</Text>
-          <Text style={styles.legendLine}>Consumer Goods 22%</Text>
-          <Text style={styles.legendLine}>Financial Services 16%</Text>
-        </View>
-      </View>
+          <View style={styles.divider} />
+          <View style={styles.lowerPage}>
+            <View
+              testID={pageIndex === 0 ? 'pdf-canvas-donut' : undefined}
+              style={styles.donut}>
+              <Text style={styles.donutText}>34%</Text>
+            </View>
+            <View style={styles.legend}>
+              <Text style={styles.legendTitle}>Market Share by Segment</Text>
+              <Text style={styles.legendLine}>Technology 34%</Text>
+              <Text style={styles.legendLine}>Healthcare 28%</Text>
+              <Text style={styles.legendLine}>Consumer Goods 22%</Text>
+              <Text style={styles.legendLine}>Financial Services 16%</Text>
+            </View>
+          </View>
+        </>
+      )}
     </>
   );
 }
@@ -536,7 +580,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: 0,
     overflow: 'hidden',
-    backgroundColor: '#ECEEF2',
+    backgroundColor: '#F4F3F1',
   },
   toolHint: {
     position: 'absolute',
@@ -596,8 +640,8 @@ const styles = StyleSheet.create({
   demoPageContent: {},
   page: {
     aspectRatio: pageAspectRatio,
-    backgroundColor: '#FBFAF8',
-    borderColor: '#DADDE4',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EBEAE7',
     borderWidth: 1,
     overflow: 'hidden',
     shadowColor: '#1F2937',
@@ -615,7 +659,8 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   pageKicker: {
-    color: '#444B5A',
+    color: '#8A8A83',
+    fontFamily: 'Geist Mono',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -625,10 +670,30 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   pageTitle: {
-    color: '#171B22',
+    color: '#111110',
+    fontFamily: 'Source Serif 4',
     fontSize: 30,
     fontWeight: '800',
     marginBottom: 12,
+  },
+  readerHeading: {
+    color: '#111110',
+    fontFamily: 'Source Serif 4',
+    fontSize: 20,
+    fontWeight: '800',
+    marginTop: 16,
+    marginBottom: 10,
+  },
+  readerParagraph: {
+    color: '#2C2C2A',
+    fontFamily: 'Source Serif 4',
+    fontSize: 16,
+    lineHeight: 23,
+    maxWidth: 490,
+    marginBottom: 12,
+  },
+  highlightedLine: {
+    backgroundColor: '#F7D96D',
   },
   blueLead: {
     color: '#1668E8',

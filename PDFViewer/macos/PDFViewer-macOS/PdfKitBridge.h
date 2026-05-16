@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <React/RCTBridgeModule.h>
+#import <React/RCTEventEmitter.h>
 
-@interface PdfKitBridge : NSObject <RCTBridgeModule>
+@interface PdfKitBridge : RCTEventEmitter <RCTBridgeModule>
 @end

@@ -1,6 +1,7 @@
-import React, {useEffect, useMemo, useReducer, useState} from 'react';
+import React, {useEffect, useMemo, useReducer, useRef, useState} from 'react';
 import {
   Alert,
+  Image,
   type TextProps,
   Platform,
   Pressable,
@@ -13,14 +14,22 @@ import {
   View,
 } from 'react-native';
 import {type CanvasAnnotationRequest, PdfCanvas} from './src/components/PdfCanvas';
+import {ICON_PATHS, Icon, type IconName} from './src/components/Icon';
+import {acacia} from './src/design/acaciaTheme';
 import {
   compareDocumentText,
   createAnnotation,
   createInitialLibraryState,
   createInitialViewerState,
+  createPersistedAppState,
+  defaultLibraryFilter,
   getContinueReadingDocuments,
   getFilteredDocuments,
+  APP_STATE_SIDECAR_ID,
   libraryReducer,
+  mergeSeededDemoPdfsIntoPersistedState,
+  parsePersistedAppState,
+  serializePersistedAppState,
   viewerReducer,
 } from './src/domain';
 import type {
@@ -32,32 +41,37 @@ import type {
   LibraryFilter,
   LibraryScope,
   LibrarySort,
+  PersistedAccountState,
+  PersistedSignatureProfile,
   Tag,
   TagTone,
   ViewerState,
   ViewerTool,
 } from './src/domain';
-import {importedPdfToDocument, PdfKitBridge} from './src/native/PdfKitBridge';
+import {
+  type ImportedPdf,
+  importedPdfToDocument,
+  PdfKitBridge,
+} from './src/native/PdfKitBridge';
 
 type ScreenMode = 'library' | 'viewer' | 'compare';
-type ScreenshotMode = 'library' | 'viewer-info' | 'comments' | 'compare';
+type ScreenshotMode =
+  | 'library'
+  | 'library-command'
+  | 'viewer-info'
+  | 'viewer-outline'
+  | 'viewer-annotations'
+  | 'comments'
+  | 'compare';
 
 type AppProps = {
   screenshotMode?: ScreenshotMode;
   forceCompactLayout?: boolean;
 };
 
-type AccountState = {
-  signedIn: boolean;
-  plan: 'free' | 'pro';
-};
+type AccountState = PersistedAccountState;
 
-type SignatureProfile = {
-  id: string;
-  label: string;
-  value: string;
-  updatedAt: string;
-};
+type SignatureProfile = PersistedSignatureProfile;
 
 type ScopeCounts = Record<LibraryScope, number>;
 type CommentAnnotationFilter =
@@ -67,14 +81,7 @@ type CommentAnnotationFilter =
   | 'drawing'
   | 'signature';
 
-const initialFilter: LibraryFilter = {
-  query: '',
-  tagId: 'all',
-  collectionId: 'all',
-  scope: 'library',
-  sortBy: 'lastOpened',
-  viewMode: 'grid',
-};
+const initialFilter: LibraryFilter = defaultLibraryFilter;
 
 const libraryScopeOptions: LibraryScope[] = [
   'library',
@@ -136,16 +143,49 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
     },
   ]);
   const [activeSignatureId, setActiveSignatureId] = useState('signature-default');
+  const [mobileAnnotationSheetOpen, setMobileAnnotationSheetOpen] =
+    useState(false);
   const [accountState, setAccountState] = useState<AccountState>({
     signedIn: false,
     plan: 'free',
   });
   const [compareSynced, setCompareSynced] = useState(true);
   const windowMetrics = useWindowDimensions();
+  const menuOpenHandlerRef = useRef<(imported: ImportedPdf) => void>(() => {});
+  const persistenceHydratedRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const viewerSearchTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+  const lastViewerSearchKeyRef = useRef('');
+  const initialPersistedSnapshotRef = useRef<
+    ReturnType<typeof createPersistedAppState> | undefined
+  >(undefined);
+
+  if (!initialPersistedSnapshotRef.current) {
+    initialPersistedSnapshotRef.current = createPersistedAppState({
+      libraryState,
+      filter,
+      screenMode,
+      selectedDocumentId,
+      viewerState,
+      annotations,
+      signatures,
+      activeSignatureId,
+      accountState,
+      compareSynced,
+    });
+  }
 
   const visibleDocuments = useMemo(
     () => getFilteredDocuments(libraryState, filter),
     [filter, libraryState],
+  );
+  const commandPaletteDocuments = useMemo(
+    () => getCommandPaletteDocuments(libraryState.documents, filter.query),
+    [filter.query, libraryState.documents],
   );
   const scopeCounts = useMemo(
     () => getScopeCounts(libraryState.documents),
@@ -204,8 +244,23 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
       },
     });
     setSelectedDocumentId(document.id);
-    setViewerState(createInitialViewerState(document.id, document.pageCount));
+    setViewerState(current =>
+      current.documentId === document.id
+        ? {
+            ...current,
+            pageCount: document.pageCount,
+            pageIndex: Math.min(current.pageIndex, document.pageCount - 1),
+            activeTool: 'select',
+          }
+        : createInitialViewerState(document.id, document.pageCount),
+    );
     setScreenMode(mode);
+  }
+
+  function importDocument(imported: ImportedPdf) {
+    const document = importedPdfToDocument(imported);
+    dispatchLibrary({type: 'addDocument', document});
+    openDocument(document);
   }
 
   function openAdjacentDocument(offset: 1 | -1 = 1) {
@@ -227,9 +282,7 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
         return;
       }
 
-      const document = importedPdfToDocument(imported);
-      dispatchLibrary({type: 'addDocument', document});
-      openDocument(document);
+      importDocument(imported);
     } catch (error) {
       Alert.alert(
         'Unable to open PDF',
@@ -237,6 +290,167 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
       );
     }
   }
+
+  function applySeededDemoPdfs(importedPdfs: ImportedPdf[]) {
+    for (const imported of importedPdfs) {
+      dispatchLibrary({
+        type: 'updateDocument',
+        documentId: imported.id,
+        patch: {
+          pageCount: imported.pageCount,
+          sizeMb: imported.sizeMb,
+          createdAt: imported.createdAt,
+          modifiedAt: imported.modifiedAt,
+          path: imported.path,
+          bookmark: imported.bookmark,
+        },
+      });
+    }
+  }
+
+  function applyPersistedState(state: ReturnType<typeof createPersistedAppState>) {
+    dispatchLibrary({type: 'replaceState', state: state.libraryState});
+    setFilter(state.filter);
+    setScreenMode(state.screenMode);
+    setSelectedDocumentId(state.selectedDocumentId);
+    setViewerState(state.viewerState);
+    setAnnotations(state.annotations);
+    setSignatures(state.signatures);
+    setActiveSignatureId(state.activeSignatureId);
+    setAccountState(state.accountState);
+    setCompareSynced(state.compareSynced);
+  }
+
+  function cachePageThumbnail(
+    documentId: string,
+    pageIndex: number,
+    thumbnailPath: string,
+  ) {
+    const document = libraryState.documents.find(item => item.id === documentId);
+
+    dispatchLibrary({
+      type: 'updateDocument',
+      documentId,
+      patch: {
+        pageThumbnailPaths: {
+          ...(document?.pageThumbnailPaths ?? {}),
+          [pageIndex]: thumbnailPath,
+        },
+      },
+    });
+  }
+
+  menuOpenHandlerRef.current = importDocument;
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function hydrateAndSeed() {
+      let activeState =
+        initialPersistedSnapshotRef.current ?? createPersistedAppState();
+
+      try {
+        const rawState = await PdfKitBridge.readSidecar(APP_STATE_SIDECAR_ID);
+        const persisted = parsePersistedAppState(rawState);
+
+        if (!isCancelled && persisted) {
+          activeState = persisted;
+          applyPersistedState(persisted);
+        }
+      } catch {
+        // A corrupt or unavailable app-state sidecar should never block launch.
+      }
+
+      try {
+        const importedPdfs = await PdfKitBridge.seedDemoPdfs();
+        if (!isCancelled && importedPdfs.length > 0) {
+          const merged = mergeSeededDemoPdfsIntoPersistedState(
+            activeState,
+            importedPdfs,
+          );
+          applyPersistedState(merged);
+        }
+      } catch {
+        if (!isCancelled && activeState.libraryState.documents.length === 0) {
+          applySeededDemoPdfs([]);
+        }
+      } finally {
+        if (!isCancelled) {
+          persistenceHydratedRef.current = true;
+        }
+      }
+    }
+
+    hydrateAndSeed().catch(() => {});
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!persistenceHydratedRef.current) {
+      return;
+    }
+
+    const save = () => {
+      PdfKitBridge.writeSidecar(
+        APP_STATE_SIDECAR_ID,
+        serializePersistedAppState(
+          createPersistedAppState({
+            libraryState,
+            filter,
+            screenMode,
+            selectedDocumentId,
+            viewerState,
+            annotations,
+            signatures,
+            activeSignatureId,
+            accountState,
+            compareSynced,
+          }),
+        ),
+      ).catch(() => {});
+    };
+
+    if (isJestRuntime()) {
+      save();
+      return;
+    }
+
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+
+    saveTimerRef.current = setTimeout(save, 250);
+
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+    };
+  }, [
+    accountState,
+    activeSignatureId,
+    annotations,
+    compareSynced,
+    filter,
+    libraryState,
+    screenMode,
+    selectedDocumentId,
+    signatures,
+    viewerState,
+  ]);
+
+  useEffect(() => {
+    const subscription = PdfKitBridge.addOpenedPdfListener(imported => {
+      menuOpenHandlerRef.current(imported);
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
 
   function selectViewerTool(tool: ViewerTool) {
     updateViewer({type: 'setTool', tool});
@@ -265,9 +479,19 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
     });
 
     setAnnotations(current => [...current, annotation]);
-    updateViewer({
-      type: 'setInspectorTab',
-      tab: request.kind === 'signature' ? 'info' : 'comments',
+    if (request.kind === 'highlight') {
+      setMobileAnnotationSheetOpen(true);
+    }
+    setViewerState(current => {
+      if (request.kind === 'signature') {
+        return viewerReducer(current, {type: 'setInspectorTab', tab: 'info'});
+      }
+
+      if (current.activeTool === 'signature') {
+        return current;
+      }
+
+      return viewerReducer(current, {type: 'setInspectorTab', tab: 'comments'});
     });
   }
 
@@ -389,6 +613,74 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
     }
   }
 
+  useEffect(() => {
+    if (screenMode === 'library') {
+      lastViewerSearchKeyRef.current = '';
+      return;
+    }
+
+    const query = viewerState.searchQuery.trim();
+    if (query.length < 2) {
+      lastViewerSearchKeyRef.current = '';
+      return;
+    }
+
+    const searchKey = `${selectedDocument.id}:${selectedDocument.path ?? 'demo'}:${query}`;
+    if (lastViewerSearchKeyRef.current === searchKey) {
+      return;
+    }
+    lastViewerSearchKeyRef.current = searchKey;
+
+    if (viewerSearchTimerRef.current) {
+      clearTimeout(viewerSearchTimerRef.current);
+    }
+
+    let isCancelled = false;
+    viewerSearchTimerRef.current = setTimeout(() => {
+      async function runSearch() {
+        if (selectedDocument.path) {
+          const matches = await PdfKitBridge.search(
+            selectedDocument.path,
+            query,
+            selectedDocument.bookmark,
+          );
+          if (!isCancelled && matches[0]) {
+            setViewerState(current =>
+              viewerReducer(current, {
+                type: 'setPage',
+                pageIndex: matches[0].pageIndex,
+              }),
+            );
+          }
+          return;
+        }
+
+        const demoMatch = searchDemoDocument(selectedDocument, query);
+        if (!isCancelled && demoMatch !== undefined) {
+          setViewerState(current =>
+            viewerReducer(current, {type: 'setPage', pageIndex: demoMatch}),
+          );
+        }
+      }
+
+      runSearch().catch(() => {});
+    }, 250);
+
+    return () => {
+      isCancelled = true;
+      if (viewerSearchTimerRef.current) {
+        clearTimeout(viewerSearchTimerRef.current);
+      }
+    };
+  }, [
+    screenMode,
+    selectedDocument,
+    selectedDocument.bookmark,
+    selectedDocument.id,
+    selectedDocument.path,
+    viewerState.searchQuery,
+  ]);
+
   function showLocalAction(title: string, message: string) {
     Alert.alert(title, message);
   }
@@ -468,6 +760,7 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
         continueReading={continueReading}
         viewer={viewerState}
         annotations={selectedAnnotations}
+        annotationSheetOpen={mobileAnnotationSheetOpen}
         canUseReviewFeatures={canUseReviewFeatures}
         compareSummary={compareSummary}
         signatures={signatures}
@@ -483,6 +776,7 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
         onViewerAction={updateViewer}
         onSelectTool={selectViewerTool}
         onCanvasAnnotation={addCanvasAnnotation}
+        onDismissAnnotationSheet={() => setMobileAnnotationSheetOpen(false)}
         onUnlockReviewFeatures={unlockReviewFeatures}
         onSelectSignature={setActiveSignatureId}
         onSaveSignature={saveSignature}
@@ -511,6 +805,21 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
         onForward={() => openAdjacentDocument(1)}
         onOpenFile={openImportedPdf}
       />
+      {screenMode === 'library' && filter.query.trim().length > 0 ? (
+        <CommandPalette
+          query={filter.query}
+          documents={commandPaletteDocuments}
+          onOpenFile={openImportedPdf}
+          onAddCollection={addCollection}
+          onAsk={() =>
+            showLocalAction(
+              'Ask across library',
+              `Acacia can search titles, OCR, highlights, and notes for “${filter.query.trim()}”.`,
+            )
+          }
+          onOpenDocument={document => openDocument(document)}
+        />
+      ) : null}
       {screenMode === 'library' ? (
         <LibraryScreen
           filter={filter}
@@ -566,6 +875,7 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
           viewer={viewerState}
           annotations={selectedAnnotations}
           syncedScroll={compareSynced}
+          onPageThumbnail={cachePageThumbnail}
           onBack={() => setScreenMode('library')}
           onToggleSyncedScroll={() => setCompareSynced(current => !current)}
           onViewerAction={updateViewer}
@@ -587,6 +897,7 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
           onSelectTool={selectViewerTool}
           onCanvasAnnotation={addCanvasAnnotation}
           onAddBookmark={addBookmark}
+          onPageThumbnail={cachePageThumbnail}
           onUnlockReviewFeatures={unlockReviewFeatures}
           signatures={signatures}
           activeSignatureId={activeSignatureId}
@@ -604,7 +915,12 @@ function getInitialScreenMode(screenshotMode: ScreenshotMode): ScreenMode {
     return 'compare';
   }
 
-  if (screenshotMode === 'viewer-info' || screenshotMode === 'comments') {
+  if (
+    screenshotMode === 'viewer-info' ||
+    screenshotMode === 'viewer-outline' ||
+    screenshotMode === 'viewer-annotations' ||
+    screenshotMode === 'comments'
+  ) {
     return 'viewer';
   }
 
@@ -616,6 +932,13 @@ function getInitialDocumentId(screenshotMode: ScreenshotMode): string {
     return 'future-work';
   }
 
+  if (
+    screenshotMode === 'viewer-outline' ||
+    screenshotMode === 'viewer-annotations'
+  ) {
+    return 'product-roadmap';
+  }
+
   return 'q4-market-analysis';
 }
 
@@ -625,10 +948,25 @@ function createInitialViewerStateForMode(
 ): ViewerState {
   const state = createInitialViewerState(document.id, document.pageCount);
 
-  if (screenshotMode === 'viewer-info' || screenshotMode === 'compare') {
+  if (
+    screenshotMode === 'viewer-info' ||
+    screenshotMode === 'viewer-outline' ||
+    screenshotMode === 'viewer-annotations' ||
+    screenshotMode === 'compare'
+  ) {
+    const inspectorTab =
+      screenshotMode === 'viewer-outline'
+        ? 'outline'
+        : screenshotMode === 'viewer-annotations'
+          ? 'annotations'
+          : state.inspectorTab;
     return {
       ...state,
-      pageIndex: Math.min(7, document.pageCount - 1),
+      pageIndex:
+        screenshotMode === 'viewer-outline'
+          ? Math.min(2, document.pageCount - 1)
+          : Math.min(7, document.pageCount - 1),
+      inspectorTab,
     };
   }
 
@@ -655,6 +993,7 @@ function MobileExperience({
   continueReading,
   viewer,
   annotations,
+  annotationSheetOpen,
   canUseReviewFeatures,
   compareSummary,
   signatures,
@@ -670,6 +1009,7 @@ function MobileExperience({
   onViewerAction,
   onSelectTool,
   onCanvasAnnotation,
+  onDismissAnnotationSheet,
   onUnlockReviewFeatures,
   onSelectSignature,
   onSaveSignature,
@@ -684,6 +1024,7 @@ function MobileExperience({
   continueReading: DocumentRecord[];
   viewer: ViewerState;
   annotations: Annotation[];
+  annotationSheetOpen: boolean;
   canUseReviewFeatures: boolean;
   compareSummary: CompareSummary;
   signatures: SignatureProfile[];
@@ -699,6 +1040,7 @@ function MobileExperience({
   onViewerAction: (action: Parameters<typeof viewerReducer>[1]) => void;
   onSelectTool: (tool: ViewerTool) => void;
   onCanvasAnnotation: (request: CanvasAnnotationRequest) => void;
+  onDismissAnnotationSheet: () => void;
   onUnlockReviewFeatures: () => void;
   onSelectSignature: (signatureId: string) => void;
   onSaveSignature: (value: string) => void;
@@ -716,12 +1058,14 @@ function MobileExperience({
         document={selectedDocument}
         viewer={viewer}
         annotations={annotations}
+        annotationSheetOpen={annotationSheetOpen}
         canUseReviewFeatures={canUseReviewFeatures}
         onBack={onBack}
         onCompare={onCompare}
         onViewerAction={onViewerAction}
         onSelectTool={onSelectTool}
         onCanvasAnnotation={onCanvasAnnotation}
+        onDismissAnnotationSheet={onDismissAnnotationSheet}
         onUnlockReviewFeatures={onUnlockReviewFeatures}
         signatures={signatures}
         activeSignatureId={activeSignatureId}
@@ -875,12 +1219,14 @@ function MobileViewer({
   document,
   viewer,
   annotations,
+  annotationSheetOpen,
   canUseReviewFeatures,
   onBack,
   onCompare,
   onViewerAction,
   onSelectTool,
   onCanvasAnnotation,
+  onDismissAnnotationSheet,
   onUnlockReviewFeatures,
   signatures,
   activeSignatureId,
@@ -890,12 +1236,14 @@ function MobileViewer({
   document: DocumentRecord;
   viewer: ViewerState;
   annotations: Annotation[];
+  annotationSheetOpen: boolean;
   canUseReviewFeatures: boolean;
   onBack: () => void;
   onCompare: () => void;
   onViewerAction: (action: Parameters<typeof viewerReducer>[1]) => void;
   onSelectTool: (tool: ViewerTool) => void;
   onCanvasAnnotation: (request: CanvasAnnotationRequest) => void;
+  onDismissAnnotationSheet: () => void;
   onUnlockReviewFeatures: () => void;
   signatures: SignatureProfile[];
   activeSignatureId: string;
@@ -1026,6 +1374,12 @@ function MobileViewer({
             />
           )}
         </ScrollView>
+        {annotationSheetOpen ? (
+          <MobileAnnotationSheet
+            annotations={annotations}
+            onClose={onDismissAnnotationSheet}
+          />
+        ) : null}
       </View>
     </MobileSafeArea>
   );
@@ -1130,6 +1484,74 @@ function MobileCompare({
         </ScrollView>
       </View>
     </MobileSafeArea>
+  );
+}
+
+function MobileAnnotationSheet({
+  annotations,
+  onClose,
+}: {
+  annotations: Annotation[];
+  onClose: () => void;
+}) {
+  const highlight =
+    annotations.find(annotation => annotation.kind === 'highlight') ??
+    annotations[annotations.length - 1];
+  const excerpt =
+    highlight?.text && highlight.text !== 'Local non-destructive highlight'
+      ? highlight.text
+      : 'Customer behavior has shifted: enterprises are no longer evaluating AI in isolation...';
+
+  return (
+    <View
+      testID="mobile-annotation-sheet"
+      accessible
+      accessibilityLabel="Annotation actions"
+      style={mobileStyles.annotationSheet}>
+      <View style={mobileStyles.sheetGrabber} />
+      <View style={mobileStyles.sheetQuoteRow}>
+        <View style={mobileStyles.sheetAccent} />
+        <Text style={mobileStyles.sheetQuote}>“{excerpt}”</Text>
+        <Pressable
+          testID="mobile-annotation-close"
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Close annotation actions"
+          onPress={onClose}
+          style={mobileStyles.sheetClose}>
+          <Icon name="close" size={15} color={acacia.color.ink2} />
+        </Pressable>
+      </View>
+      <View style={mobileStyles.annotationSwatches}>
+        {[
+          acacia.color.yellow,
+          acacia.color.green,
+          acacia.color.blue,
+          acacia.color.rose,
+          acacia.color.gray,
+        ].map((color, index) => (
+          <View
+            key={color}
+            style={[
+              mobileStyles.annotationSwatch,
+              {backgroundColor: color},
+              index === 0 && mobileStyles.annotationSwatchActive,
+            ]}
+          />
+        ))}
+      </View>
+      <View style={mobileStyles.sheetActions}>
+        <MobileButton label="Note" icon="comment" onPress={() => {}} />
+        <MobileButton label="Ask" icon="sparkles" onPress={() => {}} />
+        <MobileButton label="Link" icon="link" onPress={() => {}} />
+        <MobileButton label="Share" icon="share" onPress={() => {}} />
+      </View>
+      <View style={mobileStyles.sheetTags}>
+        <Text style={styles.tagPill}>TL;DR</Text>
+        <Text style={styles.tagPill}>Tone</Text>
+        <Text style={styles.addTag}>+ Tag</Text>
+      </View>
+    </View>
   );
 }
 
@@ -1316,6 +1738,8 @@ function MobileButton({
   testID?: string;
   onPress: () => void;
 }) {
+  const iconName = iconNameFor(icon);
+
   return (
     <Pressable
       testID={testID}
@@ -1329,6 +1753,14 @@ function MobileButton({
       ]}
       onPress={onPress}>
       {icon ? (
+        iconName ? (
+          <Icon
+            name={iconName}
+            size={15}
+            color={primary ? acacia.color.paper : acacia.color.ink2}
+            style={mobileStyles.buttonIconFrame}
+          />
+        ) : (
         <Text
           style={[
             mobileStyles.buttonIcon,
@@ -1336,6 +1768,7 @@ function MobileButton({
           ]}>
           {icon}
         </Text>
+        )
       ) : null}
       <Text
         style={[
@@ -1418,7 +1851,7 @@ function TitleBar({
         testID="search-box"
         accessible
         accessibilityLabel={isLibrary ? 'Library search box' : 'Document search box'}>
-        <Text style={styles.searchIcon}>🔎</Text>
+        <Icon name="search" size={14} color={acacia.color.ink4} style={styles.searchIconFrame} />
         <TextInput
           testID={isLibrary ? 'library-search-input' : 'document-search-input'}
           accessibilityLabel={isLibrary ? 'Library search' : 'Document search'}
@@ -1681,21 +2114,22 @@ function LibraryResultsSummary({
   const title = librarySectionTitle(filter.scope);
   const chips = getActiveFilterChips(filter, tags, collections);
   const hasActiveFilters = chips.length > 0;
+  const summaryText = `Showing ${formatDocumentCount(resultCount)} in ${title}`;
 
   return (
     <View
       testID="library-results-summary"
       accessible
-      accessibilityLabel="Library results summary"
+      accessibilityLabel={`Library results summary: ${summaryText}`}
       style={styles.summaryStrip}>
       <Text style={styles.summaryIcon}>{scopeIcon(filter.scope)}</Text>
       <View style={styles.summaryBody}>
         <Text
           testID="library-results-summary-text"
           accessible
-          accessibilityLabel={`Showing ${formatDocumentCount(resultCount)} in ${title}`}
+          accessibilityLabel={summaryText}
           style={styles.summaryText}>
-          {`Showing ${formatDocumentCount(resultCount)} in ${title}`}
+          {summaryText}
         </Text>
         {hasActiveFilters ? (
           <View style={styles.summaryChips}>
@@ -1762,6 +2196,124 @@ function LibraryEmptyState({
   );
 }
 
+function CommandPalette({
+  query,
+  documents,
+  onOpenFile,
+  onAddCollection,
+  onAsk,
+  onOpenDocument,
+}: {
+  query: string;
+  documents: DocumentRecord[];
+  onOpenFile: () => void;
+  onAddCollection: () => void;
+  onAsk: () => void;
+  onOpenDocument: (document: DocumentRecord) => void;
+}) {
+  const normalizedQuery = query.trim();
+
+  return (
+    <View
+      testID="command-palette"
+      accessible
+      accessibilityLabel={`Command palette for ${normalizedQuery}`}
+      style={styles.commandOverlay}>
+      <View style={styles.commandPanel}>
+        <View style={styles.commandSearchRow}>
+          <Icon name="search" size={16} color={acacia.color.ink2} />
+          <Text style={styles.commandQuery}>{normalizedQuery}</Text>
+          <View style={styles.commandScope}>
+            <Icon name="filter" size={13} color={acacia.color.ink3} />
+            <Text style={styles.commandScopeText}>Briefs</Text>
+          </View>
+        </View>
+        <Text style={styles.commandSectionLabel}>Suggested Actions</Text>
+        <CommandAction
+          label="Open PDF..."
+          icon="upload"
+          shortcut="⌘O"
+          onPress={onOpenFile}
+        />
+        <CommandAction
+          label="New collection"
+          icon="plus"
+          shortcut="⌘N"
+          onPress={onAddCollection}
+        />
+        <CommandAction
+          label="Ask across library"
+          icon="sparkles"
+          shortcut="⌘↩"
+          onPress={onAsk}
+        />
+        <Text style={styles.commandSectionLabel}>
+          Documents · {documents.length} matches
+        </Text>
+        {documents.slice(0, 4).map((document, index) => (
+          <Pressable
+            key={document.id}
+            testID={`command-result-${document.id}`}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${document.title}`}
+            onPress={() => onOpenDocument(document)}
+            style={[
+              styles.commandResult,
+              index === 0 && styles.commandResultActive,
+            ]}>
+            <Icon name="doc" size={16} color={acacia.color.ink3} />
+            <View style={styles.commandResultBody}>
+              <Text style={styles.commandResultTitle}>{document.title}</Text>
+              <Text style={styles.commandResultText} numberOfLines={1}>
+                “Global markets closed the year with {normalizedQuery} across key segments.”
+              </Text>
+              <Text style={styles.commandResultMeta}>
+                p. {index + 1} · {document.author} · {document.pageCount} pp
+              </Text>
+            </View>
+            {index === 0 ? (
+              <Icon name="return" size={15} color={acacia.color.ink3} />
+            ) : null}
+          </Pressable>
+        ))}
+        <View style={styles.commandFooter}>
+          <Text style={styles.commandFooterText}>↑ ↓ navigate</Text>
+          <Text style={styles.commandFooterText}>↩ open</Text>
+          <Text style={styles.commandFooterText}>
+            Searches title, contents, OCR, highlights, notes
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function CommandAction({
+  label,
+  icon,
+  shortcut,
+  onPress,
+}: {
+  label: string;
+  icon: IconName;
+  shortcut: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={styles.commandAction}>
+      <Icon name={icon} size={16} color={acacia.color.ink2} />
+      <Text style={styles.commandActionLabel}>{label}</Text>
+      <Text style={styles.commandShortcut}>{shortcut}</Text>
+    </Pressable>
+  );
+}
+
 function ViewerScreen({
   document,
   documents,
@@ -1777,6 +2329,7 @@ function ViewerScreen({
   onSelectTool,
   onCanvasAnnotation,
   onAddBookmark,
+  onPageThumbnail,
   onUnlockReviewFeatures,
   onSelectSignature,
   onSaveSignature,
@@ -1796,6 +2349,11 @@ function ViewerScreen({
   onSelectTool: (tool: ViewerTool) => void;
   onCanvasAnnotation: (request: CanvasAnnotationRequest) => void;
   onAddBookmark: () => void;
+  onPageThumbnail: (
+    documentId: string,
+    pageIndex: number,
+    thumbnailPath: string,
+  ) => void;
   onUnlockReviewFeatures: () => void;
   onSelectSignature: (id: string) => void;
   onSaveSignature: (value: string) => void;
@@ -1820,6 +2378,7 @@ function ViewerScreen({
             document={document}
             pageIndex={viewer.pageIndex}
             onPage={pageIndex => onViewerAction({type: 'setPage', pageIndex})}
+            onPageThumbnail={onPageThumbnail}
           />
         ) : null}
         <PdfCanvas
@@ -1862,6 +2421,7 @@ function CompareScreen({
   viewer,
   annotations,
   syncedScroll,
+  onPageThumbnail,
   onBack,
   onToggleSyncedScroll,
   onViewerAction,
@@ -1873,6 +2433,11 @@ function CompareScreen({
   viewer: ViewerState;
   annotations: Annotation[];
   syncedScroll: boolean;
+  onPageThumbnail: (
+    documentId: string,
+    pageIndex: number,
+    thumbnailPath: string,
+  ) => void;
   onBack: () => void;
   onToggleSyncedScroll: () => void;
   onViewerAction: (action: Parameters<typeof viewerReducer>[1]) => void;
@@ -1933,6 +2498,7 @@ function CompareScreen({
           document={leftDocument}
           pageIndex={viewer.pageIndex}
           onPage={pageIndex => onViewerAction({type: 'setPage', pageIndex})}
+          onPageThumbnail={onPageThumbnail}
           compare
         />
         <View style={styles.compareCanvasArea}>
@@ -2225,6 +2791,8 @@ function NavItem({
   onPress: () => void;
   testID: string;
 }) {
+  const iconName = iconNameFor(icon);
+
   return (
     <Pressable
       testID={testID}
@@ -2236,9 +2804,18 @@ function NavItem({
       accessibilityRole="button"
       style={[styles.navItem, active && styles.navItemActive]}
       onPress={onPress}>
-      <Text style={[styles.navIcon, active && styles.navTextActive]}>
-        {icon}
-      </Text>
+      {iconName ? (
+        <Icon
+          name={iconName}
+          size={15}
+          color={active ? acacia.color.ink : acacia.color.ink3}
+          style={styles.navIconFrame}
+        />
+      ) : (
+        <Text style={[styles.navIcon, active && styles.navTextActive]}>
+          {icon}
+        </Text>
+      )}
       <View style={styles.navTextBlock}>
         <Text style={[styles.navText, active && styles.navTextActive]}>
           {label}
@@ -2549,14 +3126,83 @@ function ThumbnailRail({
   document,
   pageIndex,
   onPage,
+  onPageThumbnail,
   compare = false,
 }: {
   document: DocumentRecord;
   pageIndex: number;
   onPage: (pageIndex: number) => void;
+  onPageThumbnail?: (
+    documentId: string,
+    pageIndex: number,
+    thumbnailPath: string,
+  ) => void;
   compare?: boolean;
 }) {
-  const pages = thumbnailPages(document.pageCount, pageIndex, compare);
+  const pages = useMemo(
+    () => thumbnailPages(document.pageCount, pageIndex, compare),
+    [compare, document.pageCount, pageIndex],
+  );
+  const requestedThumbnailsRef = useRef<Set<string>>(new Set());
+  const [localThumbnailPaths, setLocalThumbnailPaths] = useState<
+    Record<number, string>
+  >({});
+  const pageThumbnailPaths = useMemo(
+    () => ({
+      ...(document.pageThumbnailPaths ?? {}),
+      ...localThumbnailPaths,
+    }),
+    [document.pageThumbnailPaths, localThumbnailPaths],
+  );
+
+  useEffect(() => {
+    setLocalThumbnailPaths({});
+    requestedThumbnailsRef.current.clear();
+  }, [document.id]);
+
+  useEffect(() => {
+    if (!document.path || !onPageThumbnail) {
+      return;
+    }
+
+    for (const page of pages) {
+      if (pageThumbnailPaths[page]) {
+        continue;
+      }
+
+      const requestKey = `${document.id}:${page}`;
+      if (requestedThumbnailsRef.current.has(requestKey)) {
+        continue;
+      }
+
+      requestedThumbnailsRef.current.add(requestKey);
+      PdfKitBridge.renderPageThumbnail(
+        document.path,
+        page,
+        document.bookmark,
+        document.id,
+      )
+        .then(thumbnailPath => {
+          if (thumbnailPath) {
+            setLocalThumbnailPaths(current => ({
+              ...current,
+              [page]: thumbnailPath,
+            }));
+            onPageThumbnail(document.id, page, thumbnailPath);
+          }
+        })
+        .catch(() => {
+          requestedThumbnailsRef.current.delete(requestKey);
+        });
+    }
+  }, [
+    document.bookmark,
+    document.id,
+    document.path,
+    onPageThumbnail,
+    pageThumbnailPaths,
+    pages,
+  ]);
 
   return (
     <View
@@ -2578,12 +3224,40 @@ function ThumbnailRail({
               pageIndex === page && styles.thumbnailActive,
             ]}
             onPress={() => onPage(page)}>
-            <PdfCover document={document} />
+            <PageThumbnail
+              document={{...document, pageThumbnailPaths}}
+              pageIndex={page}
+            />
             <Text style={styles.thumbnailLabel}>{page + 1}</Text>
           </Pressable>
         ))}
       </ScrollView>
     </View>
+  );
+}
+
+function PageThumbnail({
+  document,
+  pageIndex,
+}: {
+  document: DocumentRecord;
+  pageIndex: number;
+}) {
+  const thumbnailPath = document.pageThumbnailPaths?.[pageIndex];
+
+  if (!thumbnailPath) {
+    return <PdfCover document={document} />;
+  }
+
+  return (
+    <Image
+      testID={`thumbnail-image-page-${pageIndex + 1}`}
+      accessible
+      accessibilityLabel={`Rendered page ${pageIndex + 1} thumbnail`}
+      source={{uri: fileUriForPath(thumbnailPath)}}
+      style={styles.thumbnailImage}
+      resizeMode="cover"
+    />
   );
 }
 
@@ -2642,10 +3316,18 @@ function ViewerInspector({
   onSaveSignature: (value: string) => void;
   onExport: (format: 'png' | 'jpg' | 'text' | 'annotated') => void;
 }) {
+  const inspectorTabs: Array<{tab: InspectorTab; label: string; icon: IconName}> =
+    [
+      {tab: 'outline', label: 'Outline', icon: 'table_of_contents'},
+      {tab: 'comments', label: 'Notes', icon: 'pencil'},
+      {tab: 'ask', label: 'Ask', icon: 'sparkles'},
+      {tab: 'info', label: 'Info', icon: 'doc'},
+    ];
+
   return (
-    <View style={styles.readerInspector}>
+    <View style={styles.readerInspector} testID="reader-inspector">
       <View style={styles.inspectorTabs}>
-        {(['info', 'comments'] as InspectorTab[]).map(tab => (
+        {inspectorTabs.map(({tab, label, icon}) => (
           <Pressable
             key={tab}
             testID={`inspector-tab-${tab}`}
@@ -2657,17 +3339,36 @@ function ViewerInspector({
               viewer.inspectorTab === tab && styles.inspectorTabActive,
             ]}
             onPress={() => onAction({type: 'setInspectorTab', tab})}>
+            <Icon
+              name={icon}
+              size={13}
+              color={
+                viewer.inspectorTab === tab
+                  ? acacia.color.ink
+                  : acacia.color.ink4
+              }
+            />
             <Text
               style={[
                 styles.inspectorTabText,
                 viewer.inspectorTab === tab && styles.inspectorTabTextActive,
               ]}>
-              {capitalize(tab)}
+              {label}
             </Text>
           </Pressable>
         ))}
       </View>
-      {viewer.inspectorTab === 'comments' ? (
+      {viewer.inspectorTab === 'outline' ? (
+        <OutlinePanel
+          document={document}
+          currentPageIndex={viewer.pageIndex}
+          onPage={pageIndex => onAction({type: 'setPage', pageIndex})}
+        />
+      ) : viewer.inspectorTab === 'ask' ? (
+        <AskPanel document={document} />
+      ) : viewer.inspectorTab === 'comments' ||
+        viewer.inspectorTab === 'notes' ||
+        viewer.inspectorTab === 'annotations' ? (
         <ScrollView
           testID="inspector-scroll"
           style={styles.inspectorScroll}
@@ -2700,7 +3401,38 @@ function ViewerInspector({
               </Text>
             </View>
           </View>
-          <InfoGrid document={document} />
+          <Text style={styles.inspectorCaption}>Quick Actions</Text>
+          <ActionRow
+            label="Add Note"
+            icon="💬"
+            badge={!canUseReviewFeatures ? 'Pro' : undefined}
+            onPress={() => onSelectTool('comment')}
+            testID="quick-action-add-note"
+          />
+          <ActionRow
+            label="Highlight Text"
+            icon="🖍"
+            onPress={() => onSelectTool('highlight')}
+            testID="quick-action-highlight"
+          />
+          <ActionRow
+            label="Draw"
+            icon="✏️"
+            onPress={() => onSelectTool('pen')}
+            testID="quick-action-draw"
+          />
+          <ActionRow
+            label="Add Signature"
+            icon="✍️"
+            onPress={() => onSelectTool('signature')}
+            testID="quick-action-signature"
+          />
+          <ActionRow
+            label="Add Bookmark"
+            icon="🔖"
+            onPress={onAddBookmark}
+            testID="quick-action-bookmark"
+          />
           <Text style={styles.inspectorCaption}>Export</Text>
           <ActionRow
             label="Export as PNG"
@@ -2734,38 +3466,7 @@ function ViewerInspector({
               onSaveSignature={onSaveSignature}
             />
           ) : null}
-          <Text style={styles.inspectorCaption}>Quick Actions</Text>
-          <ActionRow
-            label="Add Note"
-            icon="💬"
-            badge={!canUseReviewFeatures ? 'Pro' : undefined}
-            onPress={() => onSelectTool('comment')}
-            testID="quick-action-add-note"
-          />
-          <ActionRow
-            label="Highlight Text"
-            icon="🖍"
-            onPress={() => onSelectTool('highlight')}
-            testID="quick-action-highlight"
-          />
-          <ActionRow
-            label="Draw"
-            icon="✏️"
-            onPress={() => onSelectTool('pen')}
-            testID="quick-action-draw"
-          />
-          <ActionRow
-            label="Add Signature"
-            icon="✍️"
-            onPress={() => onSelectTool('signature')}
-            testID="quick-action-signature"
-          />
-          <ActionRow
-            label="Add Bookmark"
-            icon="🔖"
-            onPress={onAddBookmark}
-            testID="quick-action-bookmark"
-          />
+          <InfoGrid document={document} />
           <Text style={styles.inspectorCaption}>Open Documents</Text>
           {documents.slice(0, 3).map(item => (
             <Text key={item.id} numberOfLines={1} style={styles.relatedDoc}>
@@ -2780,6 +3481,68 @@ function ViewerInspector({
           </View>
         </ScrollView>
       )}
+    </View>
+  );
+}
+
+function OutlinePanel({
+  document,
+  currentPageIndex,
+  onPage,
+}: {
+  document: DocumentRecord;
+  currentPageIndex: number;
+  onPage: (pageIndex: number) => void;
+}) {
+  const rows = outlineRowsForDocument(document);
+
+  return (
+    <View testID="reader-outline-panel" style={styles.outlinePanel}>
+      <Text style={styles.inspectorCaption}>Contents</Text>
+      {rows.map(row => (
+        <Pressable
+          key={`${row.label}-${row.pageIndex}`}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={`${row.label}, page ${row.pageIndex + 1}`}
+          onPress={() => onPage(row.pageIndex)}
+          style={[
+            styles.outlineRow,
+            currentPageIndex === row.pageIndex && styles.outlineRowActive,
+          ]}>
+          <Text style={styles.outlinePrefix}>{row.prefix}</Text>
+          <Text
+            style={[
+              styles.outlineLabel,
+              currentPageIndex === row.pageIndex && styles.outlineLabelActive,
+            ]}>
+            {row.label}
+          </Text>
+          <Text style={styles.outlinePage}>{row.pageIndex + 1}</Text>
+        </Pressable>
+      ))}
+      <View style={styles.outlineEmptyCard}>
+        <Icon name="sparkles" size={16} color={acacia.color.ink4} />
+        <Text style={styles.outlineEmptyText}>
+          No bookmarks set in this document.
+        </Text>
+        <Text style={styles.outlineAdd}>Add</Text>
+      </View>
+    </View>
+  );
+}
+
+function AskPanel({document}: {document: DocumentRecord}) {
+  return (
+    <View style={styles.askPanel}>
+      <Text style={styles.inspectorCaption}>Ask</Text>
+      <Text style={styles.askCopy}>
+        Ask questions across {document.title}, OCR, highlights, and notes.
+      </Text>
+      <View style={styles.askPrompt}>
+        <Icon name="sparkles" size={16} color={acacia.color.ink2} />
+        <Text style={styles.askPromptText}>Summarize the risks on this page</Text>
+      </View>
     </View>
   );
 }
@@ -2863,10 +3626,12 @@ function ReviewFeatureGate({
   mobile?: boolean;
 }) {
   return (
-    <View
+    <Pressable
       testID="comments-paywall"
       accessible
       accessibilityLabel="Sign in to unlock comments"
+      accessibilityRole="button"
+      onPress={onUnlock}
       style={[styles.paywallCard, mobile && mobileStyles.paywallCard]}>
       <Text style={styles.paywallIcon}>💬</Text>
       <Text style={styles.paywallTitle}>Sign in to unlock comments</Text>
@@ -2894,7 +3659,7 @@ function ReviewFeatureGate({
           testID="unlock-comments-button"
         />
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -3250,6 +4015,8 @@ function ActionRow({
   onPress: () => void;
   testID?: string;
 }) {
+  const iconName = iconNameFor(icon);
+
   return (
     <Pressable
       style={styles.actionRow}
@@ -3261,11 +4028,22 @@ function ActionRow({
       {...tooltipProps(label)}
       accessibilityRole="button">
       <View style={styles.actionTextGroup}>
-        {icon ? <Text style={styles.actionIcon}>{icon}</Text> : null}
+        {icon ? (
+          iconName ? (
+            <Icon
+              name={iconName}
+              size={15}
+              color={acacia.color.ink2}
+              style={styles.actionIconFrame}
+            />
+          ) : (
+            <Text style={styles.actionIcon}>{icon}</Text>
+          )
+        ) : null}
         <Text style={styles.actionLabel}>{label}</Text>
       </View>
       {badge ? <Text style={styles.actionBadge}>{badge}</Text> : null}
-      <Text style={styles.actionChevron}>{'>'}</Text>
+      <Icon name="chevron_right" size={14} color={acacia.color.ink4} />
     </Pressable>
   );
 }
@@ -3295,6 +4073,8 @@ function ButtonChrome({
   accessibilityLabel?: string;
   tooltip?: string;
 }) {
+  const iconName = iconNameFor(icon);
+
   return (
     <Pressable
       testID={testID}
@@ -3314,6 +4094,20 @@ function ButtonChrome({
       ]}
       onPress={onPress}>
       {icon ? (
+        iconName ? (
+          <Icon
+            name={iconName}
+            size={compact ? 15 : 16}
+            color={
+              primary
+                ? acacia.color.paper
+                : active
+                  ? acacia.color.ink
+                  : acacia.color.ink2
+            }
+            style={[styles.buttonIconFrame, compact && styles.buttonIconCompactFrame]}
+          />
+        ) : (
         <Text
           style={[
             styles.buttonIcon,
@@ -3323,6 +4117,7 @@ function ButtonChrome({
           ]}>
           {icon}
         </Text>
+        )
       ) : null}
       {compact ? null : (
         <Text
@@ -3336,6 +4131,67 @@ function ButtonChrome({
       )}
     </Pressable>
   );
+}
+
+function iconNameFor(icon?: string): IconName | undefined {
+  if (!icon) {
+    return undefined;
+  }
+
+  if (icon in ICON_PATHS) {
+    return icon as IconName;
+  }
+
+  const aliases: Record<string, IconName> = {
+    '+': 'plus',
+    '＋': 'plus',
+    '-': 'minus',
+    '−': 'minus',
+    '<': 'chevron_left',
+    '>': 'chevron_right',
+    '‹': 'chevron_left',
+    '›': 'chevron_right',
+    '←': 'arrow_left',
+    '→': 'arrow_right',
+    '⬅️': 'arrow_left',
+    '➡️': 'arrow_right',
+    '↗': 'arrow_up_right',
+    '↔️': 'compare',
+    '⇄': 'compare',
+    '📚': 'library',
+    '🗂️': 'library',
+    '📁': 'folder',
+    '📂': 'upload',
+    '🕘': 'clock',
+    '⭐': 'star',
+    '📤': 'share',
+    '🔎': 'search',
+    '🎛️': 'filter',
+    '🧭': 'sort',
+    '🧹': 'trash',
+    '💬': 'comment',
+    '🖍': 'highlighter',
+    '🖍️': 'highlighter',
+    '✏️': 'pen',
+    '✏': 'pen',
+    '✍️': 'signature',
+    '✍': 'signature',
+    '🔖': 'bookmark',
+    '🧾': 'doc_lines',
+    '▧': 'doc',
+    '▤': 'list',
+    'Aa': 'text',
+    A: 'text',
+    '↖️': 'arrow_up_right',
+    '✋': 'hand',
+    '◀️': 'chevron_left',
+    '▶️': 'chevron_right',
+    '○': 'minus',
+    '🔗': 'link',
+    '💾': 'check',
+  };
+
+  return aliases[icon];
 }
 
 function SegmentedControl({
@@ -3579,6 +4435,30 @@ function searchDemoDocument(document: DocumentRecord, query: string) {
   )?.pageIndex;
 }
 
+function outlineRowsForDocument(document: DocumentRecord) {
+  if (document.id === 'product-roadmap') {
+    return [
+      {prefix: '1', label: 'Vision', pageIndex: 1},
+      {prefix: '1.1', label: 'Why now', pageIndex: 2},
+      {prefix: '1.2', label: 'Where we play', pageIndex: 4},
+      {prefix: '2', label: 'Themes', pageIndex: 7},
+      {prefix: '2.1', label: 'Platform', pageIndex: 8},
+      {prefix: '2.2', label: 'Trust', pageIndex: 13},
+      {prefix: '2.3', label: 'Reach', pageIndex: 16},
+      {prefix: '3', label: 'Bets', pageIndex: 21},
+      {prefix: '4', label: 'Risks', pageIndex: 30},
+      {prefix: '5', label: 'Appendix', pageIndex: 38},
+    ];
+  }
+
+  return [
+    {prefix: '1', label: 'Overview', pageIndex: 0},
+    {prefix: '2', label: 'Market', pageIndex: Math.min(7, document.pageCount - 1)},
+    {prefix: '3', label: 'Risks', pageIndex: Math.min(14, document.pageCount - 1)},
+    {prefix: '4', label: 'Appendix', pageIndex: Math.max(0, document.pageCount - 2)},
+  ];
+}
+
 function demoSearchPages(document: DocumentRecord) {
   if (document.id === 'future-work') {
     return [
@@ -3604,13 +4484,42 @@ function demoSearchPages(document: DocumentRecord) {
     },
     {
       pageIndex: 7,
-      text: 'Market Overview global markets growth technology healthcare',
+      text: 'Market Overview global markets closed the year with steady growth across key segments',
     },
     {
       pageIndex: 8,
       text: 'Revenue by Region market share investment inflows',
     },
   ];
+}
+
+function getCommandPaletteDocuments(
+  documents: DocumentRecord[],
+  query: string,
+) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (normalizedQuery.length === 0) {
+    return [];
+  }
+
+  const matches = documents.filter(document => {
+    const searchable = [
+      document.title,
+      document.author,
+      ...demoSearchPages(document).map(page => page.text),
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    return searchable.includes(normalizedQuery);
+  });
+
+  if (matches.length > 0) {
+    return matches;
+  }
+
+  return documents.slice(0, 4);
 }
 
 function tagEmoji(tagId: string) {
@@ -3634,6 +4543,14 @@ function tooltipProps(label: string) {
   return Platform.OS === 'macos'
     ? ({tooltip: label} as Record<string, unknown>)
     : {};
+}
+
+function fileUriForPath(path: string) {
+  if (path.startsWith('file://')) {
+    return path;
+  }
+
+  return `file://${path}`;
 }
 
 function capitalize(value: string) {
@@ -3724,13 +4641,13 @@ function isJestRuntime() {
 const styles = StyleSheet.create({
   window: {
     flex: 1,
-    backgroundColor: '#F7F8FA',
+    backgroundColor: acacia.color.surface,
   },
   titleBar: {
     position: 'relative',
     height: 64,
-    backgroundColor: '#FBFBFD',
-    borderBottomColor: '#DADDE4',
+    backgroundColor: acacia.color.paper,
+    borderBottomColor: acacia.color.hairline,
     borderBottomWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -3771,25 +4688,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   titleText: {
-    color: '#1B1F27',
+    color: acacia.color.ink,
+    fontFamily: acacia.font.ui,
     fontSize: 14,
     fontWeight: '700',
   },
   titleMeta: {
-    color: '#737B8B',
+    color: acacia.color.ink4,
+    fontFamily: acacia.font.ui,
     fontSize: 12,
     marginTop: 3,
   },
   searchBox: {
     flex: 1,
     height: 36,
-    borderColor: '#CDD4DF',
+    borderColor: acacia.color.hairlineStrong,
     borderWidth: 1,
     borderRadius: 9,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 13,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: acacia.color.paper,
     marginRight: 12,
   },
   searchIcon: {
@@ -3797,9 +4716,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginRight: 8,
   },
+  searchIconFrame: {
+    marginRight: 8,
+  },
   searchInput: {
     flex: 1,
-    color: '#1D2430',
+    color: acacia.color.ink,
+    fontFamily: acacia.font.ui,
     padding: 0,
     fontSize: 13,
   },
@@ -3809,8 +4732,8 @@ const styles = StyleSheet.create({
   },
   sidebar: {
     width: 224,
-    backgroundColor: '#F6F7FA',
-    borderRightColor: '#DADDE4',
+    backgroundColor: acacia.color.surface,
+    borderRightColor: acacia.color.hairline,
     borderRightWidth: 1,
     paddingHorizontal: 14,
     paddingTop: 14,
@@ -3824,10 +4747,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   navItemActive: {
-    backgroundColor: '#E6EEFF',
+    backgroundColor: acacia.color.hairline,
   },
   navText: {
-    color: '#343B48',
+    color: acacia.color.ink2,
+    fontFamily: acacia.font.ui,
     fontSize: 13,
   },
   navIcon: {
@@ -3837,6 +4761,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginRight: 8,
     textAlign: 'center',
+  },
+  navIconFrame: {
+    width: 20,
+    marginRight: 8,
   },
   navTextBlock: {
     flex: 1,
@@ -3858,11 +4786,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   navCountActive: {
-    color: '#1769E8',
+    color: acacia.color.ink,
     backgroundColor: '#FFFFFF',
   },
   navTextActive: {
-    color: '#1769E8',
+    color: acacia.color.ink,
     fontWeight: '700',
   },
   sidebarRule: {
@@ -3893,7 +4821,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   sidebarTextActive: {
-    color: '#1769E8',
+    color: acacia.color.ink,
     fontWeight: '700',
   },
   tagDot: {
@@ -4444,6 +5372,10 @@ const styles = StyleSheet.create({
     marginRight: 8,
     textAlign: 'center',
   },
+  actionIconFrame: {
+    width: 22,
+    marginRight: 8,
+  },
   actionLabel: {
     color: '#47505F',
     fontSize: 12,
@@ -4465,19 +5397,19 @@ const styles = StyleSheet.create({
   },
   button: {
     minHeight: 32,
-    borderColor: '#DADDE5',
+    borderColor: acacia.color.hairlineStrong,
     borderWidth: 1,
     borderRadius: 7,
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: acacia.color.paper,
     marginLeft: 8,
     flexDirection: 'row',
   },
   buttonPrimary: {
-    backgroundColor: '#2E74F5',
-    borderColor: '#2E74F5',
+    backgroundColor: acacia.color.ink,
+    borderColor: acacia.color.ink,
   },
   buttonQuiet: {
     borderColor: 'transparent',
@@ -4493,19 +5425,20 @@ const styles = StyleSheet.create({
     marginLeft: 0,
   },
   buttonActive: {
-    borderColor: '#2E74F5',
-    backgroundColor: '#EAF1FF',
+    borderColor: acacia.color.ink,
+    backgroundColor: acacia.color.hairline,
   },
   buttonPressed: {
     opacity: 0.74,
   },
   buttonText: {
-    color: '#303746',
+    color: acacia.color.ink2,
+    fontFamily: acacia.font.ui,
     fontSize: 12,
     fontWeight: '700',
   },
   buttonIcon: {
-    color: '#303746',
+    color: acacia.color.ink2,
     fontSize: 13,
     fontWeight: '900',
     marginRight: 5,
@@ -4514,11 +5447,17 @@ const styles = StyleSheet.create({
   buttonIconCompact: {
     marginRight: 0,
   },
+  buttonIconFrame: {
+    marginRight: 7,
+  },
+  buttonIconCompactFrame: {
+    marginRight: 0,
+  },
   buttonTextPrimary: {
-    color: '#FFFFFF',
+    color: acacia.color.paper,
   },
   buttonTextActive: {
-    color: '#1769E8',
+    color: acacia.color.ink,
   },
   segmentedControl: {
     flexDirection: 'row',
@@ -4557,8 +5496,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 54,
-    backgroundColor: '#FAFBFD',
-    borderBottomColor: '#DADDE4',
+    backgroundColor: acacia.color.paper,
+    borderBottomColor: acacia.color.hairline,
     borderBottomWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -4612,9 +5551,9 @@ const styles = StyleSheet.create({
     zIndex: 0,
   },
   thumbnailRail: {
-    width: 214,
-    backgroundColor: '#F7F8FA',
-    borderRightColor: '#DADDE4',
+    width: 136,
+    backgroundColor: acacia.color.surface,
+    borderRightColor: acacia.color.hairline,
     borderRightWidth: 1,
     padding: 14,
   },
@@ -4627,8 +5566,16 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   thumbnailActive: {
-    borderColor: '#2E74F5',
-    backgroundColor: '#EEF4FF',
+    borderColor: acacia.color.ink,
+    backgroundColor: acacia.color.paper,
+  },
+  thumbnailImage: {
+    width: 112,
+    height: 158,
+    borderRadius: 4,
+    borderColor: '#D8DDE6',
+    borderWidth: 1,
+    backgroundColor: '#FFFFFF',
   },
   thumbnailLabel: {
     color: '#2F3745',
@@ -4637,11 +5584,91 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   readerInspector: {
-    width: 286,
-    backgroundColor: '#F8F9FB',
-    borderLeftColor: '#DADDE4',
+    width: 318,
+    backgroundColor: acacia.color.paper,
+    borderLeftColor: acacia.color.hairline,
     borderLeftWidth: 1,
     padding: 16,
+  },
+  outlinePanel: {
+    flex: 1,
+  },
+  outlineRow: {
+    minHeight: 34,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 3,
+  },
+  outlineRowActive: {
+    backgroundColor: acacia.color.hairline,
+  },
+  outlinePrefix: {
+    width: 28,
+    color: acacia.color.ink4,
+    fontFamily: acacia.font.mono,
+    fontSize: 11,
+  },
+  outlineLabel: {
+    flex: 1,
+    color: acacia.color.ink2,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  outlineLabelActive: {
+    color: acacia.color.ink,
+    fontWeight: '800',
+  },
+  outlinePage: {
+    color: acacia.color.ink4,
+    fontFamily: acacia.font.mono,
+    fontSize: 11,
+  },
+  outlineEmptyCard: {
+    minHeight: 52,
+    borderRadius: 8,
+    backgroundColor: acacia.color.sunken,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    marginTop: 18,
+  },
+  outlineEmptyText: {
+    flex: 1,
+    color: acacia.color.ink3,
+    fontSize: 12,
+    lineHeight: 16,
+    marginLeft: 10,
+  },
+  outlineAdd: {
+    color: acacia.color.ink,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  askPanel: {
+    flex: 1,
+  },
+  askCopy: {
+    color: acacia.color.ink3,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  askPrompt: {
+    minHeight: 42,
+    borderColor: acacia.color.hairline,
+    borderWidth: 1,
+    borderRadius: 8,
+    backgroundColor: acacia.color.paper,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    marginTop: 14,
+  },
+  askPromptText: {
+    color: acacia.color.ink2,
+    fontSize: 12,
+    marginLeft: 9,
   },
   inspectorScroll: {
     flex: 1,
@@ -4666,7 +5693,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   inspectorTabActive: {
-    borderBottomColor: '#2E74F5',
+    borderBottomColor: acacia.color.ink,
   },
   inspectorTabText: {
     color: '#495261',
@@ -4674,7 +5701,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   inspectorTabTextActive: {
-    color: '#1769E8',
+    color: acacia.color.ink,
   },
   documentIdentity: {
     flexDirection: 'row',
@@ -4801,8 +5828,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     height: 52,
-    backgroundColor: '#FAFBFD',
-    borderTopColor: '#DADDE4',
+    backgroundColor: acacia.color.paper,
+    borderTopColor: acacia.color.hairline,
     borderTopWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -4826,7 +5853,7 @@ const styles = StyleSheet.create({
     marginRight: 2,
   },
   scrubberTickActive: {
-    backgroundColor: '#2E74F5',
+    backgroundColor: acacia.color.ink,
   },
   compareCanvasArea: {
     flex: 1,
@@ -4892,35 +5919,163 @@ const styles = StyleSheet.create({
   blueText: {
     color: '#1769E8',
   },
+  commandOverlay: {
+    position: 'absolute',
+    top: 72,
+    right: 0,
+    left: 0,
+    bottom: 0,
+    zIndex: 30,
+    alignItems: 'center',
+    paddingTop: 24,
+    backgroundColor: 'rgba(17,17,16,0.22)',
+  },
+  commandPanel: {
+    width: 640,
+    maxWidth: '86%',
+    borderColor: acacia.color.hairlineStrong,
+    borderWidth: 1,
+    borderRadius: 12,
+    backgroundColor: acacia.color.paper,
+    shadowColor: acacia.color.ink,
+    shadowOpacity: 0.2,
+    shadowRadius: 34,
+    shadowOffset: {width: 0, height: 18},
+    overflow: 'hidden',
+  },
+  commandSearchRow: {
+    height: 58,
+    borderBottomColor: acacia.color.hairline,
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+  },
+  commandQuery: {
+    flex: 1,
+    color: acacia.color.ink,
+    fontSize: 17,
+    marginLeft: 12,
+  },
+  commandScope: {
+    height: 28,
+    borderColor: acacia.color.hairline,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  commandScopeText: {
+    color: acacia.color.ink2,
+    fontSize: 12,
+    marginLeft: 5,
+  },
+  commandSectionLabel: {
+    color: acacia.color.ink4,
+    fontFamily: acacia.font.mono,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+    marginTop: 13,
+    marginBottom: 6,
+    paddingHorizontal: 18,
+  },
+  commandAction: {
+    height: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+  },
+  commandActionLabel: {
+    flex: 1,
+    color: acacia.color.ink,
+    fontSize: 14,
+    marginLeft: 13,
+  },
+  commandShortcut: {
+    color: acacia.color.ink4,
+    fontFamily: acacia.font.mono,
+    fontSize: 11,
+  },
+  commandResult: {
+    minHeight: 74,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  commandResultActive: {
+    borderLeftColor: acacia.color.ink,
+    borderLeftWidth: 2,
+    backgroundColor: acacia.color.hairline,
+  },
+  commandResultBody: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 10,
+  },
+  commandResultTitle: {
+    color: acacia.color.ink,
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 3,
+  },
+  commandResultText: {
+    color: acacia.color.ink3,
+    fontFamily: acacia.font.display,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  commandResultMeta: {
+    color: acacia.color.ink4,
+    fontSize: 11,
+    marginTop: 3,
+  },
+  commandFooter: {
+    minHeight: 44,
+    borderTopColor: acacia.color.hairline,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+  },
+  commandFooterText: {
+    color: acacia.color.ink4,
+    fontSize: 11,
+    marginRight: 18,
+  },
 });
 
 const mobileStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F7F8FA',
+    backgroundColor: acacia.color.paper,
   },
   shell: {
     flex: 1,
-    backgroundColor: '#F7F8FA',
+    backgroundColor: acacia.color.paper,
   },
   header: {
     minHeight: 68,
     paddingHorizontal: 18,
     paddingVertical: 12,
-    borderBottomColor: '#DADDE4',
+    borderBottomColor: acacia.color.hairline,
     borderBottomWidth: 1,
-    backgroundColor: '#FBFBFD',
+    backgroundColor: acacia.color.paper,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   appTitle: {
-    color: '#121721',
+    color: acacia.color.ink,
+    fontFamily: acacia.font.ui,
     fontSize: 28,
     fontWeight: '900',
   },
   headerMeta: {
-    color: '#687282',
+    color: acacia.color.ink4,
+    fontFamily: acacia.font.ui,
     fontSize: 12,
     marginTop: 3,
   },
@@ -4928,15 +6083,16 @@ const mobileStyles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 14,
     height: 42,
-    borderColor: '#D7DCE5',
+    borderColor: acacia.color.hairline,
     borderWidth: 1,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: acacia.color.sunken,
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
   searchInput: {
-    color: '#18202D',
+    color: acacia.color.ink,
+    fontFamily: acacia.font.ui,
     fontSize: 15,
     padding: 0,
   },
@@ -4952,18 +6108,18 @@ const mobileStyles = StyleSheet.create({
   },
   tagButton: {
     height: 34,
-    borderColor: '#D7DCE5',
+    borderColor: acacia.color.hairline,
     borderWidth: 1,
     borderRadius: 17,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: acacia.color.sunken,
     paddingHorizontal: 12,
     marginRight: 8,
     flexDirection: 'row',
     alignItems: 'center',
   },
   tagButtonActive: {
-    borderColor: '#2E74F5',
-    backgroundColor: '#EAF1FF',
+    borderColor: acacia.color.ink,
+    backgroundColor: acacia.color.ink,
   },
   tagText: {
     color: '#3D4655',
@@ -4989,7 +6145,7 @@ const mobileStyles = StyleSheet.create({
     marginLeft: 7,
   },
   tagCountActive: {
-    color: '#1769E8',
+    color: acacia.color.paper,
     backgroundColor: '#FFFFFF',
   },
   tagTextActive: {
@@ -5002,7 +6158,8 @@ const mobileStyles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionTitle: {
-    color: '#151B25',
+    color: acacia.color.ink,
+    fontFamily: acacia.font.ui,
     fontSize: 19,
     fontWeight: '900',
     marginBottom: 12,
@@ -5079,9 +6236,9 @@ const mobileStyles = StyleSheet.create({
   },
   topBar: {
     minHeight: 68,
-    borderBottomColor: '#DADDE4',
+    borderBottomColor: acacia.color.hairline,
     borderBottomWidth: 1,
-    backgroundColor: '#FBFBFD',
+    backgroundColor: acacia.color.paper,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -5091,7 +6248,8 @@ const mobileStyles = StyleSheet.create({
     marginHorizontal: 12,
   },
   readerTitle: {
-    color: '#151B25',
+    color: acacia.color.ink,
+    fontFamily: acacia.font.ui,
     fontSize: 16,
     fontWeight: '900',
   },
@@ -5100,9 +6258,9 @@ const mobileStyles = StyleSheet.create({
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomColor: '#E0E4EB',
+    borderBottomColor: acacia.color.hairline,
     borderBottomWidth: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: acacia.color.paper,
   },
   zoomLabel: {
     color: '#202938',
@@ -5131,7 +6289,7 @@ const mobileStyles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#ECEEF2',
+    backgroundColor: acacia.color.sunken,
   },
   mobileCanvasFrameSmall: {
     height: 320,
@@ -5167,6 +6325,80 @@ const mobileStyles = StyleSheet.create({
   paywallCard: {
     borderRadius: 12,
     marginBottom: 12,
+  },
+  annotationSheet: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    left: 0,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    backgroundColor: acacia.color.paper,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 26,
+    shadowColor: acacia.color.ink,
+    shadowOpacity: 0.16,
+    shadowRadius: 20,
+    shadowOffset: {width: 0, height: -8},
+  },
+  sheetGrabber: {
+    alignSelf: 'center',
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: acacia.color.ink4,
+    opacity: 0.5,
+    marginBottom: 18,
+  },
+  sheetQuoteRow: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  sheetAccent: {
+    width: 2,
+    alignSelf: 'stretch',
+    backgroundColor: acacia.color.yellow,
+    marginRight: 10,
+  },
+  sheetQuote: {
+    flex: 1,
+    color: acacia.color.ink2,
+    fontFamily: acacia.font.display,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  sheetClose: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  annotationSwatches: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  annotationSwatch: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+  },
+  annotationSwatchActive: {
+    borderColor: acacia.color.ink,
+    borderWidth: 2,
+  },
+  sheetActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  sheetTags: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   compareContent: {
     padding: 12,
@@ -5219,8 +6451,8 @@ const mobileStyles = StyleSheet.create({
     flexDirection: 'row',
   },
   buttonPrimary: {
-    borderColor: '#2E74F5',
-    backgroundColor: '#2E74F5',
+    borderColor: acacia.color.ink,
+    backgroundColor: acacia.color.ink,
   },
   buttonText: {
     color: '#303948',
@@ -5233,8 +6465,11 @@ const mobileStyles = StyleSheet.create({
     fontWeight: '900',
     marginRight: 6,
   },
+  buttonIconFrame: {
+    marginRight: 6,
+  },
   buttonTextPrimary: {
-    color: '#FFFFFF',
+    color: acacia.color.paper,
   },
 });
 

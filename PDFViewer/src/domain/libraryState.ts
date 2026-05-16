@@ -7,6 +7,7 @@ import type {
 } from './types';
 
 export type LibraryAction =
+  | {type: 'replaceState'; state: LibraryState}
   | {type: 'addDocument'; document: DocumentRecord}
   | {
       type: 'updateDocument';
@@ -31,6 +32,14 @@ export function libraryReducer(
   action: LibraryAction,
 ): LibraryState {
   switch (action.type) {
+    case 'replaceState':
+      return {
+        ...action.state,
+        collections: withCollectionCounts(
+          action.state.collections,
+          action.state.documents,
+        ),
+      };
     case 'addDocument': {
       const documents = [
         action.document,

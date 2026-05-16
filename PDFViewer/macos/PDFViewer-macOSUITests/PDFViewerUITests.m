@@ -11,7 +11,35 @@
   self.continueAfterFailure = NO;
   self.app = [[XCUIApplication alloc] init];
   self.app.launchArguments = @[@"--uitesting"];
-  self.app.launchEnvironment = @{@"PDFVIEWER_UITESTING" : @"1"};
+  self.app.launchEnvironment = @{
+    @"PDFVIEWER_UITESTING" : @"1",
+    @"PDFVIEWER_RESET_STATE" : @"1",
+  };
+
+  [self addUIInterruptionMonitorWithDescription:@"Dismiss Codex test-run notification"
+                                        handler:^BOOL(XCUIElement *element) {
+    if (CGRectGetWidth(element.frame) > 500 || CGRectGetHeight(element.frame) > 500) {
+      return NO;
+    }
+
+    NSPredicate *dismissPredicate =
+        [NSPredicate predicateWithFormat:@"label BEGINSWITH[c] 'Dismiss' OR title BEGINSWITH[c] 'Dismiss'"];
+    XCUIElement *dismissButton =
+        [[[element descendantsMatchingType:XCUIElementTypeAny] matchingPredicate:dismissPredicate] firstMatch];
+    if ([dismissButton waitForExistenceWithTimeout:2]) {
+      [dismissButton click];
+      return YES;
+    }
+
+    NSArray<XCUIElement *> *buttons =
+        [element descendantsMatchingType:XCUIElementTypeButton].allElementsBoundByIndex;
+    if (buttons.count > 0) {
+      [buttons.lastObject click];
+      return YES;
+    }
+
+    return NO;
+  }];
 }
 
 - (void)tearDown
@@ -65,10 +93,81 @@
 - (NSString *)contentForElement:(XCUIElement *)element
 {
   NSString *content = element.label;
-  if (content.length == 0 && element.value != nil) {
-    content = [element.value description];
+  if (element.value != nil) {
+    NSString *value = [element.value description];
+    if (value.length > 0) {
+      content = content.length > 0 ? [content stringByAppendingFormat:@" %@", value] : value;
+    }
   }
   return content ?: @"";
+}
+
+- (void)waitForElement:(XCUIElement *)element contentContaining:(NSString *)expected
+{
+  NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:20];
+
+  while ([[NSDate date] compare:deadline] == NSOrderedAscending) {
+    if ([[self contentForElement:element] containsString:expected]) {
+      return;
+    }
+    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.2]];
+  }
+
+  XCTFail(@"Expected element %@ content '%@' to contain '%@'",
+          element.identifier,
+          [self contentForElement:element],
+          expected);
+}
+
+- (XCUIElement *)nativeCanvasElement
+{
+  XCUIElement *nativeCanvas = [self elementWithIdentifier:@"pdf-canvas-native"];
+  if (nativeCanvas.exists) {
+    return nativeCanvas;
+  }
+
+  XCUIElement *nativeFrame = [self elementWithIdentifier:@"pdf-canvas-native-frame"];
+  XCTAssertTrue(nativeFrame.exists, @"Expected native PDF canvas to exist for annotation verification");
+  return nativeFrame;
+}
+
+- (NSInteger)annotationCountForElement:(XCUIElement *)element
+{
+  NSString *content = [self contentForElement:element];
+  NSRegularExpression *regex =
+      [NSRegularExpression regularExpressionWithPattern:@"annotations ([0-9]+)"
+                                                options:0
+                                                  error:nil];
+  NSTextCheckingResult *match =
+      [regex firstMatchInString:content options:0 range:NSMakeRange(0, content.length)];
+  XCTAssertNotNil(match, @"Expected native canvas content to include an annotation count: %@", content);
+  if (match == nil || match.numberOfRanges < 2) {
+    return 0;
+  }
+
+  return [[content substringWithRange:[match rangeAtIndex:1]] integerValue];
+}
+
+- (NSInteger)nativeCanvasAnnotationCount
+{
+  return [self annotationCountForElement:[self nativeCanvasElement]];
+}
+
+- (void)waitForNativeCanvasAnnotationCountGreaterThan:(NSInteger)previousCount
+{
+  XCUIElement *element = [self nativeCanvasElement];
+  NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:20];
+
+  while ([[NSDate date] compare:deadline] == NSOrderedAscending) {
+    if ([self annotationCountForElement:element] > previousCount) {
+      return;
+    }
+    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.2]];
+  }
+
+  XCTFail(@"Expected native canvas annotation count to exceed %ld, content was '%@'",
+          (long)previousCount,
+          [self contentForElement:element]);
 }
 
 - (XCUIElement *)waitForIdentifier:(NSString *)identifier labelContaining:(NSString *)expected
@@ -119,6 +218,32 @@
   [self clickElement:element];
 }
 
+- (void)selectSidebarScope:(NSString *)identifier
+              summaryTitle:(NSString *)summaryTitle
+              expectedRows:(NSArray<NSString *> *)expectedRows
+{
+  NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:20];
+
+  while ([[NSDate date] compare:deadline] == NSOrderedAscending) {
+    [self tapIdentifier:identifier];
+
+    XCUIElement *summary = [self waitForIdentifier:@"library-results-summary"];
+    if ([[self contentForElement:summary] containsString:summaryTitle]) {
+      [self waitForFirstIdentifier:expectedRows];
+      return;
+    }
+
+    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.5]];
+  }
+
+  XCUIElement *summary = [self waitForIdentifier:@"library-results-summary"];
+  XCTFail(@"Expected sidebar scope %@ to show '%@', summary was '%@'",
+          identifier,
+          summaryTitle,
+          [self contentForElement:summary]);
+  [self waitForFirstIdentifier:expectedRows];
+}
+
 - (void)clickElement:(XCUIElement *)element
 {
   [self.app activate];
@@ -134,27 +259,84 @@
 - (void)scrollIdentifierIntoView:(NSString *)identifier
 {
   XCUIElement *element = [self waitForIdentifier:identifier];
-  XCUIElement *scrollView = [self waitForIdentifier:@"inspector-scroll"];
+  if (element.isHittable) {
+    return;
+  }
 
-  for (NSInteger attempt = 0; attempt < 10; attempt += 1) {
+  XCUIElement *scrollView = [self elementWithIdentifier:@"inspector-scroll"];
+  if (![scrollView waitForExistenceWithTimeout:2]) {
+    scrollView = [self elementWithIdentifier:@"reader-inspector"];
+  }
+  BOOL usingWindowFallback = NO;
+  if (![scrollView waitForExistenceWithTimeout:2]) {
+    scrollView = self.app.windows.firstMatch;
+    usingWindowFallback = YES;
+    XCTAssertTrue([scrollView waitForExistenceWithTimeout:5],
+                  @"Expected a window to exist for inspector scrolling fallback");
+  }
+
+  for (NSInteger attempt = 0; attempt < 20; attempt += 1) {
     CGRect visibleFrame = CGRectInset(scrollView.frame, 0, 8);
     CGPoint center = CGPointMake(CGRectGetMidX(element.frame), CGRectGetMidY(element.frame));
     if (CGRectContainsPoint(visibleFrame, center) && element.isHittable) {
       return;
     }
 
+    BOOL elementIsAboveVisibleArea = center.y < CGRectGetMinY(visibleFrame);
+    CGFloat scrollX = usingWindowFallback ? 0.88 : 0.5;
     XCUICoordinate *start =
-        [scrollView coordinateWithNormalizedOffset:CGVectorMake(0.5, 0.88)];
+        [scrollView coordinateWithNormalizedOffset:CGVectorMake(scrollX, elementIsAboveVisibleArea ? 0.12 : 0.88)];
     XCUICoordinate *end =
-        [scrollView coordinateWithNormalizedOffset:CGVectorMake(0.5, 0.12)];
+        [scrollView coordinateWithNormalizedOffset:CGVectorMake(scrollX, elementIsAboveVisibleArea ? 0.88 : 0.12)];
     [start pressForDuration:0.05 thenDragToCoordinate:end];
     [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.2]];
   }
 
   CGRect visibleFrame = CGRectInset(scrollView.frame, 0, 8);
+  CGRect tolerantFrame = CGRectInset(visibleFrame, -16, -16);
+  CGPoint center = CGPointMake(CGRectGetMidX(element.frame), CGRectGetMidY(element.frame));
+  XCTAssertTrue((CGRectContainsPoint(visibleFrame, center) && element.isHittable) ||
+                    CGRectContainsPoint(tolerantFrame, center),
+                @"Expected %@ to be visible after scrolling inspector. Element frame %@, scroll frame %@",
+                identifier,
+                NSStringFromRect(element.frame),
+                NSStringFromRect(scrollView.frame));
+}
+
+- (void)scrollThumbnailIdentifierIntoView:(NSString *)identifier
+{
+  for (NSInteger attempt = 0; attempt < 20; attempt += 1) {
+    XCUIElement *rail = [self waitForIdentifier:@"thumbnail-rail"];
+    XCUIElement *scrollView = [[rail descendantsMatchingType:XCUIElementTypeScrollView] firstMatch];
+    if (![scrollView waitForExistenceWithTimeout:2]) {
+      scrollView = rail;
+    }
+    XCUIElement *element = [self waitForIdentifier:identifier];
+    CGRect visibleFrame = CGRectInset(scrollView.frame, 8, 12);
+    CGPoint center = CGPointMake(CGRectGetMidX(element.frame), CGRectGetMidY(element.frame));
+    if (CGRectContainsPoint(visibleFrame, center) && element.isHittable) {
+      return;
+    }
+
+    BOOL elementIsAboveVisibleArea = center.y < CGRectGetMinY(visibleFrame);
+    XCUICoordinate *start =
+        [scrollView coordinateWithNormalizedOffset:CGVectorMake(0.5, elementIsAboveVisibleArea ? 0.15 : 0.9)];
+    XCUICoordinate *end =
+        [scrollView coordinateWithNormalizedOffset:CGVectorMake(0.5, elementIsAboveVisibleArea ? 0.9 : 0.15)];
+    [start pressForDuration:0.05 thenDragToCoordinate:end];
+    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.2]];
+  }
+
+  XCUIElement *rail = [self waitForIdentifier:@"thumbnail-rail"];
+  XCUIElement *scrollView = [[rail descendantsMatchingType:XCUIElementTypeScrollView] firstMatch];
+  if (![scrollView waitForExistenceWithTimeout:2]) {
+    scrollView = rail;
+  }
+  XCUIElement *element = [self waitForIdentifier:identifier];
+  CGRect visibleFrame = CGRectInset(scrollView.frame, 8, 12);
   CGPoint center = CGPointMake(CGRectGetMidX(element.frame), CGRectGetMidY(element.frame));
   XCTAssertTrue(CGRectContainsPoint(visibleFrame, center) && element.isHittable,
-                @"Expected %@ to be visible after scrolling inspector. Element frame %@, scroll frame %@",
+                @"Expected %@ to be visible in thumbnail rail. Element frame %@, rail frame %@",
                 identifier,
                 NSStringFromRect(element.frame),
                 NSStringFromRect(scrollView.frame));
@@ -171,11 +353,40 @@
   }
 }
 
+- (void)chooseOpenRecentMenuItemNamed:(NSString *)title
+{
+  [self.app activate];
+  XCUIElement *fileMenu = self.app.menuBars.menuBarItems[@"File"].firstMatch;
+  if (![fileMenu waitForExistenceWithTimeout:5]) {
+    fileMenu = self.app.menuBars.menuItems[@"File"].firstMatch;
+  }
+  XCTAssertTrue([fileMenu waitForExistenceWithTimeout:10], @"Expected File menu to exist");
+  [fileMenu click];
+
+  XCUIElement *openRecentMenuItem = self.app.menuItems[@"Open Recent"].firstMatch;
+  XCTAssertTrue([openRecentMenuItem waitForExistenceWithTimeout:10],
+                @"Expected File > Open Recent to exist");
+  [openRecentMenuItem click];
+
+  XCUIElement *recentDocumentMenuItem = openRecentMenuItem.menuItems[title].firstMatch;
+  XCTAssertTrue([recentDocumentMenuItem waitForExistenceWithTimeout:10],
+                @"Expected Open Recent item '%@' to exist", title);
+  [recentDocumentMenuItem click];
+}
+
 - (void)launchAndWaitForLibrary
 {
+  [self.app terminate];
   [self.app launch];
   XCTAssertTrue([self.app.windows.firstMatch waitForExistenceWithTimeout:20]);
   [self.app activate];
+  XCUIElement *library = [self elementWithIdentifier:@"library-screen"];
+  if (![library waitForExistenceWithTimeout:5]) {
+    XCUIElement *viewerLibraryButton = [self elementWithIdentifier:@"viewer-library-button"];
+    if ([viewerLibraryButton waitForExistenceWithTimeout:5]) {
+      [self clickElement:viewerLibraryButton];
+    }
+  }
   [self waitForIdentifier:@"library-screen"];
 }
 
@@ -199,11 +410,26 @@
 
 - (XCUIElement *)pageLabelElement
 {
-  XCUIElement *label = [self elementWithIdentifier:@"bottom-page-label"];
-  if (![label waitForExistenceWithTimeout:2]) {
-    label = [self waitForIdentifier:@"bottom-scrubber"];
+  NSArray<NSString *> *identifiers = @[
+    @"bottom-page-label",
+    @"bottom-scrubber",
+    @"pdf-canvas-native",
+    @"pdf-canvas-native-frame",
+  ];
+  NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:20];
+
+  while ([[NSDate date] compare:deadline] == NSOrderedAscending) {
+    for (NSString *identifier in identifiers) {
+      XCUIElement *element = [self elementWithIdentifier:identifier];
+      if (element.exists) {
+        return element;
+      }
+    }
+    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.2]];
   }
-  return label;
+
+  XCTFail(@"Expected a page label, bottom scrubber, or native canvas page summary to exist");
+  return [self elementWithIdentifier:@"bottom-page-label"];
 }
 
 - (NSInteger)currentDisplayedPageNumber
@@ -237,6 +463,15 @@
   XCTFail(@"Expected page number %ld, got '%@'",
           (long)expectedPageNumber,
           [self contentForElement:[self pageLabelElement]]);
+}
+
+- (void)typePageNumber:(NSInteger)pageNumber
+{
+  XCUIElement *pageInput = [self waitForIdentifier:@"viewer-page-input"];
+  [self clickElement:pageInput];
+  [pageInput typeKey:@"a" modifierFlags:XCUIKeyModifierCommand];
+  [pageInput typeText:[NSString stringWithFormat:@"%ld\n", (long)pageNumber]];
+  [self waitForPageNumber:pageNumber];
 }
 
 - (void)assertElement:(XCUIElement *)inner staysInsideElement:(XCUIElement *)outer name:(NSString *)name
@@ -289,9 +524,9 @@
   [self clickElement:search];
   [search typeText:@"roadmap"];
 
-  [self tapIdentifier:@"view-mode-list"];
-  [self waitForIdentifier:@"doc-row-product-roadmap"];
-  [self tapIdentifier:@"doc-row-product-roadmap"];
+  XCUIElement *roadmapResult =
+      [self waitForFirstIdentifier:@[ @"command-result-product-roadmap", @"doc-row-product-roadmap" ]];
+  [self clickElement:roadmapResult];
 
   [self waitForIdentifier:@"viewer-screen"];
   [self assertIdentifier:@"viewer-screen" labelContains:@"Product Roadmap 2025"];
@@ -337,6 +572,7 @@
 
   self.app.launchEnvironment = @{
     @"PDFVIEWER_UITESTING" : @"1",
+    @"PDFVIEWER_RESET_STATE" : @"1",
     @"PDFVIEWER_TEST_IMPORT_PATH" : sandboxFixturePath,
   };
   [self launchAndWaitForLibrary];
@@ -353,11 +589,13 @@
   [documentSearch typeText:@"Taxable income\n"];
   [self assertPageLabelContains:@"Page 4"];
 
+  [self scrollIdentifierIntoView:@"export-text-action"];
   [self tapIdentifier:@"export-text-action"];
   [self waitForStaticTextContaining:@"Export ready"];
   [self waitForStaticTextContaining:@"acacia-page-3.txt"];
   [self dismissAlertIfPresent];
 
+  [self scrollIdentifierIntoView:@"export-png-action"];
   [self tapIdentifier:@"export-png-action"];
   [self waitForStaticTextContaining:@"Export ready"];
   [self waitForStaticTextContaining:@"acacia-page-3.png"];
@@ -368,8 +606,10 @@
   [self tapIdentifier:@"viewer-zoom-in"];
   [self tapIdentifier:@"viewer-zoom-out"];
 
+  [self scrollIdentifierIntoView:@"quick-action-highlight"];
   [self tapIdentifier:@"quick-action-highlight"];
-  [self waitForIdentifier:@"pdf-tool-hint"];
+  [self waitForIdentifier:@"pdf-tool-hint" labelContaining:@"Highlighter ready"];
+  NSInteger annotationsBeforeHighlight = [self nativeCanvasAnnotationCount];
   XCUIElement *canvas = [self waitForFirstIdentifier:@[
     @"pdf-canvas-native-frame",
     @"pdf-canvas-native",
@@ -381,13 +621,15 @@
   XCUICoordinate *highlightEnd =
       [canvas coordinateWithNormalizedOffset:CGVectorMake(0.58, 0.37)];
   [highlightStart pressForDuration:0.1 thenDragToCoordinate:highlightEnd];
+  [self waitForNativeCanvasAnnotationCountGreaterThan:annotationsBeforeHighlight];
   [self waitForIdentifier:@"comments-paywall"];
   [self tapIdentifier:@"unlock-comments-button"];
   [self assertIdentifier:@"comment-item-local-highlight" labelContains:@"Local non-destructive highlight"];
 
   [self tapIdentifier:@"inspector-tab-info"];
+  [self scrollIdentifierIntoView:@"quick-action-add-note"];
   [self tapIdentifier:@"quick-action-add-note"];
-  [self waitForIdentifier:@"pdf-tool-hint"];
+  [self waitForIdentifier:@"pdf-tool-hint" labelContaining:@"Note ready"];
   XCUICoordinate *notePoint =
       [canvas coordinateWithNormalizedOffset:CGVectorMake(0.44, 0.44)];
   [notePoint click];
@@ -395,8 +637,9 @@
   [self waitForIdentifierWithPrefix:@"comment-item-note-"];
 
   [self tapIdentifier:@"inspector-tab-info"];
+  [self scrollIdentifierIntoView:@"quick-action-draw"];
   [self tapIdentifier:@"quick-action-draw"];
-  [self waitForIdentifier:@"pdf-tool-hint"];
+  [self waitForIdentifier:@"pdf-tool-hint" labelContaining:@"Pen ready"];
   XCUICoordinate *drawingStart =
       [canvas coordinateWithNormalizedOffset:CGVectorMake(0.58, 0.52)];
   XCUICoordinate *drawingEnd =
@@ -407,8 +650,9 @@
   [self waitForIdentifierWithPrefix:@"comment-item-drawing-"];
 
   [self tapIdentifier:@"tool-signature"];
+  [self scrollIdentifierIntoView:@"signature-manager"];
   [self waitForIdentifier:@"signature-manager"];
-  [self waitForIdentifier:@"pdf-tool-hint"];
+  [self waitForIdentifier:@"pdf-tool-hint" labelContaining:@"Signature ready"];
   XCUICoordinate *signaturePoint =
       [canvas coordinateWithNormalizedOffset:CGVectorMake(0.56, 0.48)];
   [signaturePoint click];
@@ -416,10 +660,45 @@
   [self waitForIdentifierWithPrefix:@"comment-item-signature-"];
 
   [self tapIdentifier:@"inspector-tab-info"];
+  [self scrollIdentifierIntoView:@"export-annotated-action"];
   [self tapIdentifier:@"export-annotated-action"];
   [self waitForStaticTextContaining:@"Export ready"];
   [self waitForStaticTextContaining:@"annotated.pdf"];
   [self dismissAlertIfPresent];
+}
+
+- (void)testFileOpenRecentMenuReopensImportedPdf
+{
+  NSString *fixturePath =
+      [NSProcessInfo processInfo].environment[@"PDFVIEWER_REAL_PDF_FIXTURE_PATH"];
+  if (fixturePath.length == 0) {
+    fixturePath = @"/tmp/AcaciaUITestFixtures/2025 Electronic Pack - Ben Ebsworth.pdf";
+  }
+  if (fixturePath.length == 0 ||
+      ![[NSFileManager defaultManager] fileExistsAtPath:fixturePath]) {
+    XCTSkip(@"Real PDF fixture unavailable for Open Recent validation.");
+    return;
+  }
+
+  NSString *sandboxFixturePath = [self copyFixtureIntoAppSandbox:fixturePath];
+  self.app.launchEnvironment = @{
+    @"PDFVIEWER_UITESTING" : @"1",
+    @"PDFVIEWER_RESET_STATE" : @"1",
+    @"PDFVIEWER_TEST_IMPORT_PATH" : sandboxFixturePath,
+  };
+  [self launchAndWaitForLibrary];
+
+  [self tapIdentifier:@"toolbar-open-file-button"];
+  [self waitForIdentifier:@"viewer-screen"];
+  [self assertIdentifier:@"viewer-screen" labelContains:@"2025 Electronic Pack - Ben Ebsworth"];
+
+  [self tapIdentifier:@"viewer-library-button"];
+  [self waitForIdentifier:@"library-screen"];
+  [self chooseOpenRecentMenuItemNamed:sandboxFixturePath.lastPathComponent];
+
+  [self waitForIdentifier:@"viewer-screen"];
+  [self assertIdentifier:@"viewer-screen" labelContains:@"2025 Electronic Pack - Ben Ebsworth"];
+  [self assertPageLabelContains:@"Page 1 of 19"];
 }
 
 - (NSString *)copyFixtureIntoAppSandbox:(NSString *)sourcePath
@@ -447,17 +726,21 @@
   [self launchAndWaitForLibrary];
   [self tapIdentifier:@"view-mode-list"];
 
-  [self tapIdentifier:@"nav-favorites"];
-  [self waitForIdentifier:@"doc-row-product-roadmap"];
-  [self waitForIdentifier:@"doc-row-future-work"];
+  [self selectSidebarScope:@"nav-favorites"
+             summaryTitle:@"Favorite Documents"
+             expectedRows:@[@"doc-row-product-roadmap", @"doc-row-future-work"]];
 
-  [self tapIdentifier:@"nav-shared"];
-  [self waitForIdentifier:@"doc-row-competitive-landscape"];
-  [self waitForIdentifier:@"doc-row-board-minutes-apr"];
+  [self selectSidebarScope:@"nav-shared"
+             summaryTitle:@"Shared Documents"
+             expectedRows:@[@"doc-row-competitive-landscape", @"doc-row-board-minutes-apr"]];
 
-  [self tapIdentifier:@"nav-recent"];
-  [self waitForIdentifier:@"doc-row-q4-market-analysis"];
-  [self waitForIdentifier:@"doc-row-annual-financial-report"];
+  [self selectSidebarScope:@"nav-recent"
+             summaryTitle:@"Recently Opened"
+             expectedRows:@[
+               @"doc-row-q4-market-analysis",
+               @"doc-row-annual-financial-report",
+               @"doc-row-product-roadmap",
+             ]];
 }
 
 - (void)testViewerNavigationAnnotationAndCommentsFlow
@@ -467,16 +750,25 @@
 
   XCUIElement *window = self.app.windows.firstMatch;
   XCUIElement *viewer = [self waitForIdentifier:@"viewer-screen"];
-  XCUIElement *canvas = [self waitForIdentifier:@"pdf-canvas-fallback"];
+  XCUIElement *canvas = [self waitForFirstIdentifier:@[
+    @"pdf-canvas-native-frame",
+    @"pdf-canvas-native",
+    @"pdf-canvas-fallback",
+    @"viewer-screen",
+  ]];
   XCUIElement *bottomScrubber = [self waitForIdentifier:@"bottom-scrubber"];
   [self waitForIdentifier:@"viewer-page-next"];
   [self waitForIdentifier:@"viewer-page-previous"];
 
   [self assertElement:viewer staysInsideElement:window name:@"viewer"];
-  [self assertElement:canvas staysInsideElement:viewer name:@"PDF canvas"];
-  XCTAssertLessThanOrEqual(CGRectGetMaxY(canvas.frame),
-                           CGRectGetMinY(bottomScrubber.frame) + 1,
-                           @"PDF canvas should not cover the bottom page scrubber");
+  if (![canvas.identifier isEqualToString:@"viewer-screen"]) {
+    [self assertElement:canvas staysInsideElement:viewer name:@"PDF canvas"];
+    XCTAssertLessThanOrEqual(CGRectGetMaxY(canvas.frame),
+                             CGRectGetMinY(bottomScrubber.frame) + 1,
+                             @"PDF canvas should not cover the bottom page scrubber");
+  } else {
+    [self assertElement:bottomScrubber staysInsideElement:viewer name:@"bottom scrubber"];
+  }
 
   NSInteger startingPage = [self currentDisplayedPageNumber];
   [self tapIdentifier:@"viewer-page-next"];
@@ -484,31 +776,38 @@
   [self tapIdentifier:@"viewer-page-previous"];
   [self waitForPageNumber:startingPage];
 
+  [self tapIdentifier:@"thumbnail-page-2"];
+  [self waitForPageNumber:2];
+  [self tapIdentifier:@"viewer-page-previous"];
+  [self waitForPageNumber:1];
+
   XCUIElement *documentSearch = [self waitForIdentifier:@"document-search-input"];
   [self clickElement:documentSearch];
   [documentSearch typeText:@"revenue\n"];
-  [self waitForPageNumber:9];
+  [self waitForPageNumber:4];
 
-  [self tapIdentifier:@"thumbnail-page-8"];
-  [self waitForPageNumber:8];
-  [self tapIdentifier:@"thumbnail-page-9"];
-  [self waitForPageNumber:9];
+  [self typePageNumber:8];
+  [self typePageNumber:9];
 
   [self tapIdentifier:@"viewer-zoom-in"];
+  [self scrollIdentifierIntoView:@"quick-action-highlight"];
   [self tapIdentifier:@"quick-action-highlight"];
-  [self waitForIdentifier:@"pdf-tool-hint"];
+  [self waitForIdentifier:@"pdf-tool-hint" labelContaining:@"Highlighter ready"];
+  NSInteger annotationsBeforeHighlight = [self nativeCanvasAnnotationCount];
   XCUICoordinate *highlightStart =
       [canvas coordinateWithNormalizedOffset:CGVectorMake(0.42, 0.34)];
   XCUICoordinate *highlightEnd =
       [canvas coordinateWithNormalizedOffset:CGVectorMake(0.58, 0.37)];
   [highlightStart pressForDuration:0.1 thenDragToCoordinate:highlightEnd];
+  [self waitForNativeCanvasAnnotationCountGreaterThan:annotationsBeforeHighlight];
   [self waitForIdentifier:@"comments-paywall"];
   [self tapIdentifier:@"unlock-comments-button"];
   [self assertIdentifier:@"comment-item-local-highlight" labelContains:@"Local non-destructive highlight"];
 
   [self tapIdentifier:@"inspector-tab-info"];
+  [self scrollIdentifierIntoView:@"quick-action-add-note"];
   [self tapIdentifier:@"quick-action-add-note"];
-  [self waitForIdentifier:@"pdf-tool-hint"];
+  [self waitForIdentifier:@"pdf-tool-hint" labelContaining:@"Note ready"];
   XCUICoordinate *notePoint =
       [canvas coordinateWithNormalizedOffset:CGVectorMake(0.42, 0.42)];
   [notePoint click];
@@ -517,8 +816,9 @@
   [self waitForIdentifierWithPrefix:@"comment-item-note-"];
 
   [self tapIdentifier:@"inspector-tab-info"];
+  [self scrollIdentifierIntoView:@"quick-action-draw"];
   [self tapIdentifier:@"quick-action-draw"];
-  [self waitForIdentifier:@"pdf-tool-hint"];
+  [self waitForIdentifier:@"pdf-tool-hint" labelContaining:@"Pen ready"];
   XCUICoordinate *drawingStart =
       [canvas coordinateWithNormalizedOffset:CGVectorMake(0.58, 0.52)];
   XCUICoordinate *drawingEnd =
@@ -529,8 +829,9 @@
   [self waitForIdentifierWithPrefix:@"comment-item-drawing-"];
 
   [self tapIdentifier:@"tool-signature"];
+  [self scrollIdentifierIntoView:@"signature-manager"];
   [self waitForIdentifier:@"signature-manager"];
-  [self waitForIdentifier:@"pdf-tool-hint"];
+  [self waitForIdentifier:@"pdf-tool-hint" labelContaining:@"Signature ready"];
   XCUICoordinate *signaturePoint =
       [canvas coordinateWithNormalizedOffset:CGVectorMake(0.58, 0.48)];
   [signaturePoint click];

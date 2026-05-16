@@ -1,4 +1,8 @@
-import {NativeModules} from 'react-native';
+import {
+  type EmitterSubscription,
+  NativeEventEmitter,
+  NativeModules,
+} from 'react-native';
 import type {Annotation, CompareSummary, DocumentRecord} from '../domain/types';
 
 export type ImportedPdf = {
@@ -15,6 +19,7 @@ export type ImportedPdf = {
 
 type NativePdfKitBridge = {
   openPdf?: () => Promise<ImportedPdf | undefined>;
+  seedDemoPdfs?: () => Promise<ImportedPdf[]>;
   loadDocumentMetadata?: (path: string) => Promise<ImportedPdf>;
   search?: (
     path: string,
@@ -26,6 +31,12 @@ type NativePdfKitBridge = {
     bookmark: string,
     pageIndex: number,
     format: 'png' | 'jpg',
+  ) => Promise<string>;
+  renderPageThumbnail?: (
+    path: string,
+    bookmark: string,
+    pageIndex: number,
+    documentId: string,
   ) => Promise<string>;
   exportPageText?: (
     path: string,
@@ -43,6 +54,8 @@ type NativePdfKitBridge = {
   ) => Promise<CompareSummary>;
   readSidecar?: (documentId: string) => Promise<string | undefined>;
   writeSidecar?: (documentId: string, value: string) => Promise<boolean>;
+  addListener?: (eventName: string) => void;
+  removeListeners?: (count: number) => void;
 };
 
 const nativeBridge = NativeModules.PdfKitBridge as
@@ -52,6 +65,21 @@ const nativeBridge = NativeModules.PdfKitBridge as
 export const PdfKitBridge = {
   async openPdf() {
     return nativeBridge?.openPdf?.();
+  },
+
+  async seedDemoPdfs() {
+    return nativeBridge?.seedDemoPdfs?.() ?? [];
+  },
+
+  addOpenedPdfListener(
+    listener: (imported: ImportedPdf) => void,
+  ): EmitterSubscription | undefined {
+    if (!nativeBridge) {
+      return undefined;
+    }
+
+    const emitter = new NativeEventEmitter(nativeBridge as any);
+    return emitter.addListener('AcaciaPdfOpenedFromMenu', listener);
   },
 
   async loadDocumentMetadata(path: string) {
@@ -69,6 +97,20 @@ export const PdfKitBridge = {
     format: 'png' | 'jpg' = 'png',
   ) {
     return nativeBridge?.exportPageImage?.(path, bookmark, pageIndex, format);
+  },
+
+  async renderPageThumbnail(
+    path: string,
+    pageIndex: number,
+    bookmark = '',
+    documentId = 'document',
+  ) {
+    return nativeBridge?.renderPageThumbnail?.(
+      path,
+      bookmark,
+      pageIndex,
+      documentId,
+    );
   },
 
   async exportPageText(path: string, pageIndex: number, bookmark = '') {

@@ -60,6 +60,10 @@ function localHighlightCommentItems(renderer: ReactTestRenderer.ReactTestRendere
   );
 }
 
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 test('renders the PDF library shell with core document workflows', async () => {
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 
@@ -704,6 +708,264 @@ test('opening a local PDF adds it to recent documents and opens the viewer', asy
   );
 });
 
+test('restores persisted imported PDFs and preferences before seeding demos', async () => {
+  const persistedAt = '2026-05-13T08:30:00.000Z';
+  const persistedState = {
+    schemaVersion: 1,
+    libraryState: {
+      documents: [
+        importedPdfToDocument({
+          id: 'persisted-imported-pdf',
+          title: 'Persisted Imported PDF',
+          author: 'Local Author',
+          pageCount: 7,
+          sizeMb: 3.4,
+          createdAt: persistedAt,
+          modifiedAt: persistedAt,
+          path: '/tmp/persisted-imported.pdf',
+          bookmark: 'persisted-bookmark',
+        }),
+      ],
+      tags: [{id: 'work', label: 'Work', tone: 'blue'}],
+      collections: [{id: 'archive', label: 'Archive', count: 1}],
+      storageUsedGb: 0,
+      storageLimitGb: 0,
+    },
+    filter: {
+      query: '',
+      tagId: 'all',
+      collectionId: 'all',
+      scope: 'recent',
+      sortBy: 'lastOpened',
+      viewMode: 'list',
+    },
+    screenMode: 'library',
+    selectedDocumentId: 'persisted-imported-pdf',
+    viewerState: {
+      documentId: 'persisted-imported-pdf',
+      pageCount: 7,
+      pageIndex: 3,
+      zoom: 1.25,
+      activeTool: 'select',
+      inspectorTab: 'info',
+      showThumbnails: true,
+      searchQuery: '',
+    },
+    annotations: [],
+    signatures: [
+      {
+        id: 'signature-persisted',
+        label: 'Ben',
+        value: 'Ben Ebsworth',
+        updatedAt: persistedAt,
+      },
+    ],
+    activeSignatureId: 'signature-persisted',
+    accountState: {signedIn: false, plan: 'free'},
+    compareSynced: true,
+    updatedAt: persistedAt,
+  };
+  jest
+    .spyOn(PdfKitBridge, 'readSidecar')
+    .mockResolvedValueOnce(JSON.stringify(persistedState));
+  const writeSpy = jest
+    .spyOn(PdfKitBridge, 'writeSidecar')
+    .mockResolvedValue(true);
+  jest.spyOn(PdfKitBridge, 'seedDemoPdfs').mockResolvedValueOnce([
+    {
+      id: 'q4-market-analysis',
+      title: 'Q4 Market Analysis Report',
+      author: 'Analytics Team',
+      pageCount: 32,
+      sizeMb: 0.25,
+      createdAt: persistedAt,
+      modifiedAt: persistedAt,
+      path: '/tmp/acacia-demo/q4-market-analysis.pdf',
+      bookmark: '',
+    },
+  ]);
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(async () => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+  await ReactTestRenderer.act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain('Persisted Imported PDF');
+  expect(JSON.stringify(renderer?.toJSON())).toContain('recent-table');
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'inspector-open-action'}).props.onPress();
+  });
+
+  const output = JSON.stringify(renderer?.toJSON());
+  expect(output).toContain('Viewer screen Persisted Imported PDF');
+  expect(output).toContain('Page 4 of 7');
+  expect(writeSpy).toHaveBeenCalledWith(
+    '__acacia_app_state__',
+    expect.stringContaining('persisted-imported-pdf'),
+  );
+});
+
+test('renders real PDF thumbnail rail pages from cached page images', async () => {
+  const importedAt = '2026-05-12T12:00:00.000Z';
+  const renderPageThumbnail = jest.spyOn(PdfKitBridge, 'renderPageThumbnail').mockImplementation(
+    async (
+      _path: string,
+      pageIndex: number,
+      _bookmark = '',
+      documentId = 'document',
+    ) => `/tmp/acacia-thumbnails/${documentId}/page-${pageIndex}.png`,
+  );
+  jest.spyOn(PdfKitBridge, 'openPdf').mockResolvedValueOnce({
+    id: 'manual-imported-pdf',
+    title: 'Manual Imported PDF',
+    author: 'Local Author',
+    pageCount: 5,
+    sizeMb: 2.5,
+    createdAt: importedAt,
+    modifiedAt: importedAt,
+    path: '/tmp/manual-imported.pdf',
+    bookmark: 'bookmark-data',
+  });
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(async () => {
+    await renderer!.root.findByProps({testID: 'open-file-button'}).props.onPress();
+  });
+  await ReactTestRenderer.act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+  });
+
+  expect(renderPageThumbnail).toHaveBeenCalledWith(
+    '/tmp/manual-imported.pdf',
+    0,
+    'bookmark-data',
+    'manual-imported-pdf',
+  );
+  expect(renderPageThumbnail).toHaveBeenCalledWith(
+    '/tmp/manual-imported.pdf',
+    4,
+    'bookmark-data',
+    'manual-imported-pdf',
+  );
+  expect(JSON.stringify(renderer?.toJSON())).toContain(
+    'thumbnail-image-page-1',
+  );
+  expect(JSON.stringify(renderer?.toJSON())).toContain(
+    '/tmp/acacia-thumbnails/manual-imported-pdf/page-0.png',
+  );
+});
+
+test('opening a PDF from the macOS File menu imports it and promotes it to recent', async () => {
+  const importedAt = '2026-05-12T12:00:00.000Z';
+  let menuOpenListener:
+    | Parameters<typeof PdfKitBridge.addOpenedPdfListener>[0]
+    | undefined;
+  const removeListener = jest.fn();
+  jest
+    .spyOn(PdfKitBridge, 'addOpenedPdfListener')
+    .mockImplementation(listener => {
+      menuOpenListener = listener;
+      return {remove: removeListener} as any;
+    });
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    menuOpenListener?.({
+      id: 'menu-imported-pdf',
+      title: 'Menu Imported PDF',
+      author: 'Local Author',
+      pageCount: 9,
+      sizeMb: 3.1,
+      createdAt: importedAt,
+      modifiedAt: importedAt,
+      path: '/tmp/menu-imported.pdf',
+      bookmark: 'menu-bookmark',
+    });
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain(
+    'Viewer screen Menu Imported PDF',
+  );
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'viewer-library-button'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'nav-recent'}).props.onPress();
+  });
+
+  expect(visibleGridDocumentIds(renderer!)[0]).toBe(
+    'doc-card-menu-imported-pdf',
+  );
+});
+
+test('seeded demo PDFs attach real local paths for PDFKit-backed demo validation', async () => {
+  const seededAt = '2026-05-12T12:00:00.000Z';
+  const exportImageSpy = jest
+    .spyOn(PdfKitBridge, 'exportPageImage')
+    .mockResolvedValueOnce('/tmp/acacia-seeded-page.png');
+  const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation();
+  jest.spyOn(PdfKitBridge, 'seedDemoPdfs').mockResolvedValueOnce([
+    {
+      id: 'q4-market-analysis',
+      title: 'Q4 Market Analysis Report',
+      author: 'Analytics Team',
+      pageCount: 32,
+      sizeMb: 0.25,
+      createdAt: seededAt,
+      modifiedAt: seededAt,
+      path: '/tmp/acacia-demo/q4-market-analysis.pdf',
+      bookmark: '',
+    },
+  ]);
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(async () => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(async () => {
+    await Promise.resolve();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findAllByProps({testID: 'doc-card-q4-market-analysis'})[0]
+      .props.onPress();
+  });
+
+  await ReactTestRenderer.act(async () => {
+    await renderer!.root.findByProps({testID: 'export-png-action'}).props.onPress();
+  });
+
+  expect(exportImageSpy).toHaveBeenCalledWith(
+    '/tmp/acacia-demo/q4-market-analysis.pdf',
+    0,
+    '',
+    'png',
+  );
+  expect(alertSpy).toHaveBeenLastCalledWith(
+    'Export ready',
+    expect.stringContaining('/tmp/acacia-seeded-page.png'),
+  );
+});
+
 test('opening an existing document promotes it to the top of recent documents', async () => {
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 
@@ -893,26 +1155,35 @@ test('library supports adding collections and tags from the visible controls', a
 });
 
 test('viewer search navigates within demo documents', async () => {
+  jest.useFakeTimers();
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 
-  await ReactTestRenderer.act(() => {
-    renderer = ReactTestRenderer.create(<App />);
-  });
+  try {
+    await ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(<App />);
+    });
 
-  await ReactTestRenderer.act(() => {
-    renderer!.root.findAllByProps({testID: 'doc-card-future-work'})[0].props.onPress();
-  });
+    await ReactTestRenderer.act(() => {
+      renderer!.root.findAllByProps({testID: 'doc-card-future-work'})[0].props.onPress();
+    });
 
-  const searchInput = renderer!.root.findByProps({
-    testID: 'document-search-input',
-  });
+    const searchInput = renderer!.root.findByProps({
+      testID: 'document-search-input',
+    });
 
-  await ReactTestRenderer.act(async () => {
-    searchInput.props.onChangeText('hybrid');
-    await searchInput.props.onSubmitEditing({nativeEvent: {text: 'hybrid'}});
-  });
+    await ReactTestRenderer.act(() => {
+      searchInput.props.onChangeText('hybrid');
+    });
 
-  expect(JSON.stringify(renderer?.toJSON())).toContain('Page 12 of 32');
+    await ReactTestRenderer.act(async () => {
+      jest.advanceTimersByTime(300);
+      await Promise.resolve();
+    });
+
+    expect(JSON.stringify(renderer?.toJSON())).toContain('Page 12 of 32');
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 test('signature manager saves a custom signature and stamps it on the clicked page', async () => {
@@ -1201,4 +1472,74 @@ test('opens directly into the compare screenshot state', async () => {
   expect(output).toContain('Changes panel');
   expect(output).toContain('Added');
   expect(output).toContain('Page 8 of 32');
+});
+
+test('desktop library search opens a command palette with matched documents and actions', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findByProps({testID: 'library-search-input'})
+      .props.onChangeText('steady growth');
+  });
+
+  const output = JSON.stringify(renderer?.toJSON());
+
+  expect(output).toContain('command-palette');
+  expect(output).toContain('Ask across library');
+  expect(output).toContain('Q4 Market Analysis Report');
+  expect(output).toContain('steady growth');
+});
+
+test('desktop viewer outline screenshot state renders the editorial reader shell', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(
+      <App screenshotMode={'viewer-outline' as never} />,
+    );
+  });
+
+  const output = JSON.stringify(renderer?.toJSON());
+
+  expect(output).toContain('reader-outline-panel');
+  expect(output).toContain('Product Roadmap 2025');
+  expect(output).toContain('Why now');
+  expect(output).toContain('Vision');
+});
+
+test('mobile highlight creation opens the annotation action sheet', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App forceCompactLayout />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findByProps({testID: 'mobile-doc-row-q4-market-analysis'})
+      .props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'mobile-highlight'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props.onResponderRelease({
+      nativeEvent: {locationX: 150, locationY: 220},
+    });
+  });
+
+  const output = JSON.stringify(renderer?.toJSON());
+
+  expect(output).toContain('mobile-annotation-sheet');
+  expect(output).toContain('Note');
+  expect(output).toContain('Ask');
+  expect(output).toContain('Link');
+  expect(output).toContain('Share');
 });

@@ -107,6 +107,66 @@ describe('macOS offline launch configuration', () => {
     );
   });
 
+  it('bridges macOS File > Open and Open Recent into the React import flow', () => {
+    const appDelegate = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOS', 'AppDelegate.mm'),
+      'utf8',
+    );
+    const macBridge = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfKitBridge.mm'),
+      'utf8',
+    );
+    const macBridgeHeader = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfKitBridge.h'),
+      'utf8',
+    );
+    const tsBridge = readFileSync(
+      path.join(appRoot, 'src', 'native', 'PdfKitBridge.ts'),
+      'utf8',
+    );
+
+    expect(appDelegate).toContain('openDocument:');
+    expect(appDelegate).toContain('application:(NSApplication *)application openFiles:');
+    expect(appDelegate).toContain('AcaciaPDFMenuOpenURLNotification');
+    expect(appDelegate).toContain('noteNewRecentDocumentURL:url');
+    expect(macBridgeHeader).toContain('RCTEventEmitter');
+    expect(macBridge).toContain('AcaciaPdfOpenedFromMenu');
+    expect(macBridge).toContain('sendEventWithName:@"AcaciaPdfOpenedFromMenu"');
+    expect(macBridge).toContain('noteNewRecentDocumentURL:url');
+    expect(tsBridge).toContain('NativeEventEmitter');
+    expect(tsBridge).toContain('addOpenedPdfListener');
+  });
+
+  it('seeds generated real PDF files for demo documents on macOS and iOS', () => {
+    const macBridge = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfKitBridge.mm'),
+      'utf8',
+    );
+    const iosBridge = readFileSync(
+      path.join(appRoot, 'ios', 'PDFViewer', 'PdfKitBridge.m'),
+      'utf8',
+    );
+    const app = readFileSync(path.join(appRoot, 'App.tsx'), 'utf8');
+    const tsBridge = readFileSync(
+      path.join(appRoot, 'src', 'native', 'PdfKitBridge.ts'),
+      'utf8',
+    );
+
+    for (const source of [macBridge, iosBridge]) {
+      expect(source).toContain('seedDemoPdfs');
+      expect(source).toContain('AcaciaDemoPDFSpecs');
+      expect(source).toContain('Acacia/DemoPDFs');
+      expect(source).toContain('q4-market-analysis');
+      expect(source).toContain('future-work');
+      expect(source).toContain('@"%@.pdf"');
+      expect(source).toContain('metadataForURL');
+    }
+
+    expect(app).toContain('seedDemoPdfs');
+    expect(app).toContain('applySeededDemoPdfs');
+    expect(tsBridge).toContain('seedDemoPdfs?: () => Promise<ImportedPdf[]>');
+  });
+
   it('keeps macOS native PDF zoom relative to the fitted page size', () => {
     const macCanvas = readFileSync(
       path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfCanvasViewManager.mm'),
@@ -155,6 +215,21 @@ describe('macOS offline launch configuration', () => {
     expect(iosCanvas).toContain('UIPanGestureRecognizer');
     expect(iosCanvas).toContain('handleHighlightPan:');
     expect(iosCanvas).toContain('AcaciaCanonicalBoundsForDrag');
+  });
+
+  it('exposes native PDF annotation state for macOS editor e2e checks', () => {
+    const macCanvas = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfCanvasViewManager.mm'),
+      'utf8',
+    );
+
+    expect(macCanvas).toContain('- (void)refreshAccessibilityValue');
+    expect(macCanvas).toContain('[self setAccessibilityElement:YES]');
+    expect(macCanvas).toContain('[_pdfView setAccessibilityElement:YES]');
+    expect(macCanvas).toContain('annotations %lu');
+    expect(macCanvas).toContain('PDF canvas, %@');
+    expect(macCanvas).toContain('[self refreshAccessibilityValue];');
+    expect(macCanvas).toContain('[_pdfView setAccessibilityValue:summary]');
   });
 
   it('centers native minimum-height highlight drags around the pointer path', () => {

@@ -95,6 +95,36 @@ static NSRect AcaciaCanonicalBoundsForDrag(NSPoint startPagePoint, NSPoint endPa
   return AcaciaClampCanonicalBounds(NSMakeRect(x, y, width, height));
 }
 
+static NSRect AcaciaCanonicalBoundsForPDFBounds(NSRect pdfBounds, NSRect pageBounds)
+{
+  CGFloat x = ((NSMinX(pdfBounds) - NSMinX(pageBounds)) / NSWidth(pageBounds)) * AcaciaCanonicalPageWidth;
+  CGFloat y = ((NSMaxY(pageBounds) - NSMaxY(pdfBounds)) / NSHeight(pageBounds)) * AcaciaCanonicalPageHeight;
+  CGFloat width = (NSWidth(pdfBounds) / NSWidth(pageBounds)) * AcaciaCanonicalPageWidth;
+  CGFloat height = (NSHeight(pdfBounds) / NSHeight(pageBounds)) * AcaciaCanonicalPageHeight;
+  return AcaciaClampCanonicalBounds(NSMakeRect(x, y, width, height));
+}
+
+static NSRect AcaciaExpandedPDFRectForDrag(NSPoint startPagePoint,
+                                           NSPoint endPagePoint,
+                                           NSRect pageBounds)
+{
+  CGFloat minX = MIN(startPagePoint.x, endPagePoint.x);
+  CGFloat minY = MIN(startPagePoint.y, endPagePoint.y);
+  CGFloat width = fabs(endPagePoint.x - startPagePoint.x);
+  CGFloat height = fabs(endPagePoint.y - startPagePoint.y);
+  CGFloat minimumHeight = MAX(12.0, NSHeight(pageBounds) * 0.012);
+
+  if (height < minimumHeight) {
+    CGFloat midY = (startPagePoint.y + endPagePoint.y) / 2.0;
+    minY = midY - minimumHeight / 2.0;
+    height = minimumHeight;
+  }
+
+  NSRect expanded = NSInsetRect(NSMakeRect(minX, minY, MAX(width, 4.0), height), -4.0, -6.0);
+  NSRect clamped = NSIntersectionRect(expanded, pageBounds);
+  return NSIsEmptyRect(clamped) ? expanded : clamped;
+}
+
 static NSArray<NSDictionary *> *AcaciaCanonicalInkPathForViewPoints(NSArray<NSValue *> *viewPoints,
                                                                     PDFView *pdfView,
                                                                     PDFPage *page,
@@ -195,6 +225,16 @@ static NSRect AcaciaPDFBoundsForAnnotation(NSDictionary *boundsInfo, PDFPage *pa
   return NSMakeRect(x, y, width, height);
 }
 
+static NSArray<NSValue *> *AcaciaHighlightQuadPointsForBounds(NSRect bounds)
+{
+  return @[
+    [NSValue valueWithPoint:NSMakePoint(NSMinX(bounds), NSMaxY(bounds))],
+    [NSValue valueWithPoint:NSMakePoint(NSMaxX(bounds), NSMaxY(bounds))],
+    [NSValue valueWithPoint:NSMakePoint(NSMinX(bounds), NSMinY(bounds))],
+    [NSValue valueWithPoint:NSMakePoint(NSMaxX(bounds), NSMinY(bounds))],
+  ];
+}
+
 static NSPoint AcaciaPDFPointForCanonicalPoint(NSDictionary *pointInfo, NSRect pageBounds)
 {
   CGFloat canonicalX = [RCTConvert CGFloat:pointInfo[@"x"]];
@@ -236,7 +276,52 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   return path;
 }
 
-@interface PdfCanvasView : NSView <NSGestureRecognizerDelegate>
+@protocol AcaciaPDFAnnotationEventHandling <NSObject>
+- (BOOL)shouldHandlePDFAnnotationMouseEvents;
+- (void)beginPDFAnnotationGestureAtPoint:(NSPoint)viewPoint;
+- (void)continuePDFAnnotationGestureAtPoint:(NSPoint)viewPoint;
+- (void)endPDFAnnotationGestureAtPoint:(NSPoint)viewPoint;
+@end
+
+@interface AcaciaPDFView : PDFView
+@property (nonatomic, weak) id<AcaciaPDFAnnotationEventHandling> annotationHost;
+@end
+
+@implementation AcaciaPDFView
+
+- (void)mouseDown:(NSEvent *)event
+{
+  if ([self.annotationHost shouldHandlePDFAnnotationMouseEvents]) {
+    [self.annotationHost beginPDFAnnotationGestureAtPoint:[self convertPoint:event.locationInWindow fromView:nil]];
+    return;
+  }
+
+  [super mouseDown:event];
+}
+
+- (void)mouseDragged:(NSEvent *)event
+{
+  if ([self.annotationHost shouldHandlePDFAnnotationMouseEvents]) {
+    [self.annotationHost continuePDFAnnotationGestureAtPoint:[self convertPoint:event.locationInWindow fromView:nil]];
+    return;
+  }
+
+  [super mouseDragged:event];
+}
+
+- (void)mouseUp:(NSEvent *)event
+{
+  if ([self.annotationHost shouldHandlePDFAnnotationMouseEvents]) {
+    [self.annotationHost endPDFAnnotationGestureAtPoint:[self convertPoint:event.locationInWindow fromView:nil]];
+    return;
+  }
+
+  [super mouseUp:event];
+}
+
+@end
+
+@interface PdfCanvasView : NSView <NSGestureRecognizerDelegate, AcaciaPDFAnnotationEventHandling>
 @property (nonatomic, copy) NSString *testID;
 @property (nonatomic, copy) NSString *documentPath;
 @property (nonatomic, copy) NSString *documentBookmark;
@@ -245,6 +330,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 @property (nonatomic, copy) NSString *activeTool;
 @property (nonatomic, copy) NSArray *annotations;
 @property (nonatomic, copy) RCTBubblingEventBlock onCanvasPress;
+- (void)refreshAccessibilityValue;
 @end
 
 @implementation PdfCanvasView {
@@ -256,6 +342,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   NSPoint _highlightPanStartPoint;
   BOOL _hasHighlightPanStartPoint;
   NSMutableArray<NSValue *> *_drawingViewPoints;
+  NSClickGestureRecognizer *_annotationClickRecognizer;
   NSPanGestureRecognizer *_highlightPanRecognizer;
   NSPanGestureRecognizer *_drawingPanRecognizer;
 }
@@ -264,30 +351,49 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 {
   self = [super initWithFrame:frame];
   if (self) {
-    _pdfView = [[PDFView alloc] initWithFrame:self.bounds];
+    _pdfView = [[AcaciaPDFView alloc] initWithFrame:self.bounds];
+    ((AcaciaPDFView *)_pdfView).annotationHost = self;
     _pdfView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     _pdfView.autoScales = YES;
     _pdfView.displayMode = kPDFDisplaySinglePageContinuous;
     _pdfView.displaysPageBreaks = YES;
     _pdfView.backgroundColor = [NSColor colorWithCalibratedWhite:0.92 alpha:1.0];
     [self addSubview:_pdfView];
-    NSClickGestureRecognizer *clickRecognizer =
+    _annotationClickRecognizer =
       [[NSClickGestureRecognizer alloc] initWithTarget:self action:@selector(handleClick:)];
-    [_pdfView addGestureRecognizer:clickRecognizer];
+    _annotationClickRecognizer.delegate = self;
+    _annotationClickRecognizer.numberOfClicksRequired = 1;
+    _annotationClickRecognizer.enabled = NO;
+    [_pdfView addGestureRecognizer:_annotationClickRecognizer];
     _highlightPanRecognizer =
       [[NSPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleHighlightPan:)];
     _highlightPanRecognizer.delegate = self;
+    _highlightPanRecognizer.enabled = NO;
     [_pdfView addGestureRecognizer:_highlightPanRecognizer];
     _drawingPanRecognizer =
       [[NSPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleDrawingPan:)];
     _drawingPanRecognizer.delegate = self;
+    _drawingPanRecognizer.enabled = NO;
     [_pdfView addGestureRecognizer:_drawingPanRecognizer];
   }
   return self;
 }
 
+- (void)updateAnnotationGestureRecognizerState
+{
+  NSString *kind = AcaciaAnnotationKindForTool(_activeTool);
+  _annotationClickRecognizer.enabled =
+    kind != nil && ![kind isEqualToString:@"highlight"] && ![kind isEqualToString:@"drawing"];
+  _highlightPanRecognizer.enabled = [kind isEqualToString:@"highlight"];
+  _drawingPanRecognizer.enabled = [kind isEqualToString:@"drawing"];
+}
+
 - (BOOL)gestureRecognizerShouldBegin:(NSGestureRecognizer *)gestureRecognizer
 {
+  if (gestureRecognizer == _annotationClickRecognizer) {
+    NSString *kind = AcaciaAnnotationKindForTool(_activeTool);
+    return kind != nil && ![kind isEqualToString:@"highlight"] && ![kind isEqualToString:@"drawing"];
+  }
   if (gestureRecognizer == _highlightPanRecognizer) {
     return [AcaciaAnnotationKindForTool(_activeTool) isEqualToString:@"highlight"];
   }
@@ -295,6 +401,128 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     return [AcaciaAnnotationKindForTool(_activeTool) isEqualToString:@"drawing"];
   }
   return YES;
+}
+
+- (BOOL)gestureRecognizer:(NSGestureRecognizer *)gestureRecognizer
+  shouldRecognizeSimultaneouslyWithGestureRecognizer:(NSGestureRecognizer *)otherGestureRecognizer
+{
+  return gestureRecognizer == _annotationClickRecognizer ||
+    gestureRecognizer == _highlightPanRecognizer ||
+    gestureRecognizer == _drawingPanRecognizer ||
+    otherGestureRecognizer == _annotationClickRecognizer ||
+    otherGestureRecognizer == _highlightPanRecognizer ||
+    otherGestureRecognizer == _drawingPanRecognizer;
+}
+
+- (NSPoint)pdfViewPointForEvent:(NSEvent *)event
+{
+  return [_pdfView convertPoint:event.locationInWindow fromView:nil];
+}
+
+- (void)mouseDown:(NSEvent *)event
+{
+  if ([self shouldHandlePDFAnnotationMouseEvents]) {
+    [self beginPDFAnnotationGestureAtPoint:[self pdfViewPointForEvent:event]];
+    return;
+  }
+
+  [super mouseDown:event];
+}
+
+- (void)mouseDragged:(NSEvent *)event
+{
+  if ([self shouldHandlePDFAnnotationMouseEvents]) {
+    [self continuePDFAnnotationGestureAtPoint:[self pdfViewPointForEvent:event]];
+    return;
+  }
+
+  [super mouseDragged:event];
+}
+
+- (void)mouseUp:(NSEvent *)event
+{
+  if ([self shouldHandlePDFAnnotationMouseEvents]) {
+    [self endPDFAnnotationGestureAtPoint:[self pdfViewPointForEvent:event]];
+    return;
+  }
+
+  [super mouseUp:event];
+}
+
+- (BOOL)shouldHandlePDFAnnotationMouseEvents
+{
+  return NO;
+}
+
+- (PDFPage *)pageForViewPoint:(NSPoint)viewPoint
+{
+  PDFPage *page = [_pdfView pageForPoint:viewPoint nearest:NO];
+  return page ?: [_pdfView pageForPoint:viewPoint nearest:YES];
+}
+
+- (void)beginPDFAnnotationGestureAtPoint:(NSPoint)viewPoint
+{
+  NSString *kind = AcaciaAnnotationKindForTool(_activeTool);
+  if (kind == nil) {
+    return;
+  }
+
+  if ([kind isEqualToString:@"drawing"]) {
+    _drawingViewPoints = [NSMutableArray arrayWithObject:[NSValue valueWithPoint:viewPoint]];
+    return;
+  }
+
+  _highlightPanStartPoint = viewPoint;
+  _hasHighlightPanStartPoint = YES;
+}
+
+- (void)continuePDFAnnotationGestureAtPoint:(NSPoint)viewPoint
+{
+  NSString *kind = AcaciaAnnotationKindForTool(_activeTool);
+  if (![kind isEqualToString:@"drawing"]) {
+    return;
+  }
+
+  if (_drawingViewPoints == nil) {
+    _drawingViewPoints = [NSMutableArray array];
+  }
+  [_drawingViewPoints addObject:[NSValue valueWithPoint:viewPoint]];
+}
+
+- (void)endPDFAnnotationGestureAtPoint:(NSPoint)viewPoint
+{
+  NSString *kind = AcaciaAnnotationKindForTool(_activeTool);
+  if (kind == nil || self.onCanvasPress == nil || _pdfView.document == nil) {
+    _hasHighlightPanStartPoint = NO;
+    [_drawingViewPoints removeAllObjects];
+    return;
+  }
+
+  if ([kind isEqualToString:@"drawing"]) {
+    if (_drawingViewPoints == nil) {
+      _drawingViewPoints = [NSMutableArray array];
+    }
+    [_drawingViewPoints addObject:[NSValue valueWithPoint:viewPoint]];
+    PDFPage *page = [self pageForViewPoint:_drawingViewPoints.firstObject.pointValue];
+    if (page != nil) {
+      [self emitDrawingAnnotationForPage:page viewPoints:_drawingViewPoints.copy];
+    }
+    [_drawingViewPoints removeAllObjects];
+    return;
+  }
+
+  NSPoint startPoint = _hasHighlightPanStartPoint ? _highlightPanStartPoint : viewPoint;
+  PDFPage *page = [self pageForViewPoint:startPoint];
+  _hasHighlightPanStartPoint = NO;
+  if (page == nil) {
+    return;
+  }
+
+  [self emitAnnotationForKind:kind
+                         page:page
+               startViewPoint:startPoint
+                 endViewPoint:viewPoint
+                    preferDrag:[kind isEqualToString:@"highlight"]];
 }
 
 - (void)layout
@@ -306,8 +534,13 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 - (void)setTestID:(NSString *)testID
 {
   _testID = [testID copy];
+  [self setAccessibilityElement:YES];
+  [_pdfView setAccessibilityElement:YES];
   self.accessibilityIdentifier = _testID;
   _pdfView.accessibilityIdentifier = _testID;
+  [self setAccessibilityLabel:@"PDF canvas"];
+  [_pdfView setAccessibilityLabel:@"PDF canvas"];
+  [self refreshAccessibilityValue];
 }
 
 - (void)setDocumentPath:(NSString *)documentPath
@@ -334,12 +567,23 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   if (page != nil) {
     [_pdfView goToPage:page];
   }
+  [self refreshAccessibilityValue];
 }
 
 - (void)setZoom:(NSNumber *)zoom
 {
   _zoom = zoom;
   [self applyZoom];
+}
+
+- (void)setActiveTool:(NSString *)activeTool
+{
+  _activeTool = [activeTool copy];
+  [self updateAnnotationGestureRecognizerState];
+
+  if ([_activeTool isEqualToString:@"highlight"]) {
+    [self highlightCurrentSelectionIfPossible];
+  }
 }
 
 - (void)applyZoom
@@ -365,6 +609,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   _pdfView.minScaleFactor = minScale;
   _pdfView.maxScaleFactor = maxScale;
   _pdfView.scaleFactor = targetScale;
+  [self refreshAccessibilityValue];
 }
 
 - (void)setAnnotations:(NSArray *)annotations
@@ -373,15 +618,121 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   [self applyAnnotations];
 }
 
+- (BOOL)highlightCurrentSelectionIfPossible
+{
+  PDFSelection *selection = _pdfView.currentSelection;
+  if (selection == nil || selection.string.length == 0 || self.onCanvasPress == nil || _pdfView.document == nil) {
+    return NO;
+  }
+
+  NSArray<PDFSelection *> *lineSelections = selection.selectionsByLine;
+  if (lineSelections.count == 0) {
+    lineSelections = @[selection];
+  }
+
+  BOOL emittedHighlight = NO;
+  for (PDFSelection *lineSelection in lineSelections) {
+    PDFPage *page = lineSelection.pages.firstObject;
+    if (page == nil) {
+      continue;
+    }
+
+    NSRect lineBounds = [lineSelection boundsForPage:page];
+    if (NSIsEmptyRect(lineBounds)) {
+      continue;
+    }
+
+    NSRect pageBounds = [page boundsForBox:kPDFDisplayBoxCropBox];
+    if (NSIsEmptyRect(pageBounds)) {
+      pageBounds = [page boundsForBox:kPDFDisplayBoxMediaBox];
+    }
+    if (NSIsEmptyRect(pageBounds)) {
+      continue;
+    }
+
+    NSRect canonicalBounds = AcaciaCanonicalBoundsForPDFBounds(lineBounds, pageBounds);
+    NSUInteger pageIndex = [_pdfView.document indexForPage:page];
+    self.onCanvasPress(@{
+      @"kind": @"highlight",
+      @"pageIndex": @(pageIndex),
+      @"bounds": @{
+        @"x": @(NSMinX(canonicalBounds)),
+        @"y": @(NSMinY(canonicalBounds)),
+        @"width": @(NSWidth(canonicalBounds)),
+        @"height": @(NSHeight(canonicalBounds)),
+      },
+    });
+    emittedHighlight = YES;
+  }
+
+  if (emittedHighlight) {
+    [_pdfView clearSelection];
+  }
+
+  return emittedHighlight;
+}
+
+- (BOOL)emitTextHighlightAnnotationsForPage:(PDFPage *)page dragBounds:(NSRect)dragBounds
+{
+  if (self.onCanvasPress == nil || _pdfView.document == nil || NSIsEmptyRect(dragBounds)) {
+    return NO;
+  }
+
+  PDFSelection *selection = [page selectionForRect:dragBounds];
+  if (selection == nil || selection.string.length == 0) {
+    return NO;
+  }
+
+  NSRect pageBounds = [page boundsForBox:kPDFDisplayBoxCropBox];
+  if (NSIsEmptyRect(pageBounds)) {
+    pageBounds = [page boundsForBox:kPDFDisplayBoxMediaBox];
+  }
+  if (NSIsEmptyRect(pageBounds)) {
+    return NO;
+  }
+
+  NSArray<PDFSelection *> *lineSelections = selection.selectionsByLine;
+  if (lineSelections.count == 0) {
+    lineSelections = @[selection];
+  }
+
+  BOOL emittedHighlight = NO;
+  NSUInteger pageIndex = [_pdfView.document indexForPage:page];
+  for (PDFSelection *lineSelection in lineSelections) {
+    NSRect lineBounds = [lineSelection boundsForPage:page];
+    if (NSIsEmptyRect(lineBounds)) {
+      continue;
+    }
+
+    NSRect canonicalBounds = AcaciaCanonicalBoundsForPDFBounds(lineBounds, pageBounds);
+    self.onCanvasPress(@{
+      @"kind": @"highlight",
+      @"pageIndex": @(pageIndex),
+      @"bounds": @{
+        @"x": @(NSMinX(canonicalBounds)),
+        @"y": @(NSMinY(canonicalBounds)),
+        @"width": @(NSWidth(canonicalBounds)),
+        @"height": @(NSHeight(canonicalBounds)),
+      },
+    });
+    emittedHighlight = YES;
+  }
+
+  return emittedHighlight;
+}
+
 - (void)handleClick:(NSClickGestureRecognizer *)recognizer
 {
   NSString *kind = AcaciaAnnotationKindForTool(_activeTool);
-  if (self.onCanvasPress == nil || kind == nil) {
+  if (self.onCanvasPress == nil ||
+      kind == nil ||
+      [kind isEqualToString:@"highlight"] ||
+      [kind isEqualToString:@"drawing"]) {
     return;
   }
 
   NSPoint viewPoint = [recognizer locationInView:_pdfView];
-  PDFPage *page = [_pdfView pageForPoint:viewPoint nearest:NO];
+  PDFPage *page = [self pageForViewPoint:viewPoint];
   if (page == nil || _pdfView.document == nil) {
     return;
   }
@@ -519,6 +870,13 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 
   BOOL meaningfulDrag = preferDrag &&
     (fabs(endViewPoint.x - startViewPoint.x) >= 6.0 || fabs(endViewPoint.y - startViewPoint.y) >= 6.0);
+  if ([kind isEqualToString:@"highlight"] && meaningfulDrag) {
+    NSRect dragBounds = AcaciaExpandedPDFRectForDrag(startPagePoint, endPagePoint, pageBounds);
+    if ([self emitTextHighlightAnnotationsForPage:page dragBounds:dragBounds]) {
+      return;
+    }
+  }
+
   NSRect canonicalBounds = meaningfulDrag
     ? AcaciaCanonicalBoundsForDrag(startPagePoint, endPagePoint, pageBounds)
     : AcaciaCanonicalBoundsForPoint(kind, startPagePoint, pageBounds);
@@ -657,15 +1015,32 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
       annotation.contents = [RCTConvert NSString:annotationInfo[@"text"]] ?: @"Local drawing";
     } else {
       annotation.color = [NSColor colorWithCalibratedRed:1 green:0.82 blue:0.12 alpha:0.42];
-      annotation.quadrilateralPoints = @[
-        [NSValue valueWithPoint:NSMakePoint(NSMinX(bounds), NSMaxY(bounds))],
-        [NSValue valueWithPoint:NSMakePoint(NSMaxX(bounds), NSMaxY(bounds))],
-        [NSValue valueWithPoint:NSMakePoint(NSMinX(bounds), NSMinY(bounds))],
-        [NSValue valueWithPoint:NSMakePoint(NSMaxX(bounds), NSMinY(bounds))],
-      ];
+      annotation.quadrilateralPoints = AcaciaHighlightQuadPointsForBounds(bounds);
     }
     [page addAnnotation:annotation];
   }
+
+  [self refreshAccessibilityValue];
+}
+
+- (void)refreshAccessibilityValue
+{
+  NSUInteger pageCount = _pdfView.document.pageCount;
+  NSUInteger currentPage = 0;
+  if (_pdfView.document != nil && _pdfView.currentPage != nil) {
+    currentPage = [_pdfView.document indexForPage:_pdfView.currentPage] + 1;
+  }
+
+  NSString *summary = [NSString stringWithFormat:@"Page %lu of %lu, zoom %.0f%%, annotations %lu",
+    (unsigned long)currentPage,
+    (unsigned long)pageCount,
+    _pdfView.scaleFactor * 100.0,
+    (unsigned long)_annotations.count];
+  NSString *label = [NSString stringWithFormat:@"PDF canvas, %@", summary];
+  [self setAccessibilityLabel:label];
+  [_pdfView setAccessibilityLabel:label];
+  [self setAccessibilityValue:summary];
+  [_pdfView setAccessibilityValue:summary];
 }
 
 @end

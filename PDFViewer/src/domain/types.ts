@@ -28,6 +28,7 @@ export type DocumentRecord = {
   favorite: boolean;
   shared: boolean;
   thumbnailTone: 'pastel' | 'navy' | 'ice' | 'paper' | 'red' | 'teal';
+  pageThumbnailPaths?: Record<number, string>;
   path?: string;
   bookmark?: string;
   versionLabel?: string;
@@ -122,7 +123,14 @@ export type ViewerTool =
   | 'pen'
   | 'signature';
 
-export type InspectorTab = 'info' | 'comments' | 'changes';
+export type InspectorTab =
+  | 'outline'
+  | 'comments'
+  | 'notes'
+  | 'ask'
+  | 'info'
+  | 'annotations'
+  | 'changes';
 
 export type ViewerState = {
   documentId: string;

@@ -12,13 +12,13 @@
 		514201522437B4B40078DB4F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 514201512437B4B40078DB4F /* Assets.xcassets */; };
 		514201552437B4B40078DB4F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 514201532437B4B40078DB4F /* Main.storyboard */; };
 		514201582437B4B40078DB4F /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 514201572437B4B40078DB4F /* main.m */; };
+		54B6647AC34F1E5CCB747F5A /* libPods-Acacia-macOS.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FDF97E0D884ED3588EFDAA13 /* libPods-Acacia-macOS.a */; };
 		8E173C95003F8603F5A895DC /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2185E252EF00F8121E8B571B /* PrivacyInfo.xcprivacy */; };
 		A10000000000000000000001 /* PDFKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* PDFKit.framework */; };
 		A10000000000000000000002 /* PdfKitBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* PdfKitBridge.mm */; };
 		A10000000000000000000003 /* PdfCanvasViewManager.mm in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* PdfCanvasViewManager.mm */; };
 		A20000000000000000000001 /* PdfKitSmokeTests.m in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* PdfKitSmokeTests.m */; };
 		A30000000000000000000001 /* PDFViewerUITests.m in Sources */ = {isa = PBXBuildFile; fileRef = A30000000000000000000002 /* PDFViewerUITests.m */; };
-		D4E97CE911AEF4E35DBE16D3 /* libPods-PDFViewer-macOS.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EE67DC42AB8302F952727393 /* libPods-PDFViewer-macOS.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,6 +32,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0E9D1560E313BD1812357D71 /* Pods-Acacia-macOS.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Acacia-macOS.release.xcconfig"; path = "Target Support Files/Pods-Acacia-macOS/Pods-Acacia-macOS.release.xcconfig"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* Acacia.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Acacia.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2185E252EF00F8121E8B571B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		514201492437B4B30078DB4F /* Acacia.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Acacia.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -51,10 +52,11 @@
 		A20000000000000000000003 /* Acacia-macOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Acacia-macOSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A30000000000000000000002 /* PDFViewerUITests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PDFViewerUITests.m; sourceTree = "<group>"; };
 		A30000000000000000000003 /* Acacia-macOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Acacia-macOSUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		AF64789DE074C74F3D925D89 /* Pods-Acacia-macOS.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Acacia-macOS.debug.xcconfig"; path = "Target Support Files/Pods-Acacia-macOS/Pods-Acacia-macOS.debug.xcconfig"; sourceTree = "<group>"; };
 		C3FA98074FC4EA524C3584CD /* Pods-PDFViewer-macOS.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PDFViewer-macOS.debug.xcconfig"; path = "Target Support Files/Pods-PDFViewer-macOS/Pods-PDFViewer-macOS.debug.xcconfig"; sourceTree = "<group>"; };
 		C576218D4E89CA42B385CB2E /* Pods-PDFViewer-macOS.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PDFViewer-macOS.release.xcconfig"; path = "Target Support Files/Pods-PDFViewer-macOS/Pods-PDFViewer-macOS.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		EE67DC42AB8302F952727393 /* libPods-PDFViewer-macOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-PDFViewer-macOS.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDF97E0D884ED3588EFDAA13 /* libPods-Acacia-macOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Acacia-macOS.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -70,7 +72,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000001 /* PDFKit.framework in Frameworks */,
-				D4E97CE911AEF4E35DBE16D3 /* libPods-PDFViewer-macOS.a in Frameworks */,
+				54B6647AC34F1E5CCB747F5A /* libPods-Acacia-macOS.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -96,7 +98,7 @@
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				A10000000000000000000008 /* PDFKit.framework */,
-				EE67DC42AB8302F952727393 /* libPods-PDFViewer-macOS.a */,
+				FDF97E0D884ED3588EFDAA13 /* libPods-Acacia-macOS.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -106,6 +108,8 @@
 			children = (
 				C3FA98074FC4EA524C3584CD /* Pods-PDFViewer-macOS.debug.xcconfig */,
 				C576218D4E89CA42B385CB2E /* Pods-PDFViewer-macOS.release.xcconfig */,
+				AF64789DE074C74F3D925D89 /* Pods-Acacia-macOS.debug.xcconfig */,
+				0E9D1560E313BD1812357D71 /* Pods-Acacia-macOS.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -359,8 +363,9 @@
 			files = (
 			);
 			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-PDFViewer-macOS/Pods-PDFViewer-macOS-resources.sh",
+				"${PODS_ROOT}/Target Support Files/Pods-Acacia-macOS/Pods-Acacia-macOS-resources.sh",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RCT-Folly/RCT-Folly_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RNSVG/RNSVGFilters.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/boost/boost_privacy.bundle",
@@ -369,6 +374,7 @@
 			name = "[CP] Copy Pods Resources";
 			outputPaths = (
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RCT-Folly_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNSVGFilters.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/boost_privacy.bundle",
@@ -376,7 +382,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-PDFViewer-macOS/Pods-PDFViewer-macOS-resources.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Acacia-macOS/Pods-Acacia-macOS-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		1A938104A937498D81B3BD3B /* [CP] Check Pods Manifest.lock */ = {
@@ -394,7 +400,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-PDFViewer-macOS-checkManifestLockResult.txt",
+				"$(DERIVED_FILE_DIR)/Pods-Acacia-macOS-checkManifestLockResult.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -425,7 +431,7 @@
 			files = (
 			);
 			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-PDFViewer-macOS/Pods-PDFViewer-macOS-frameworks.sh",
+				"${PODS_ROOT}/Target Support Files/Pods-Acacia-macOS/Pods-Acacia-macOS-frameworks.sh",
 				"${PODS_ROOT}/hermes-engine/destroot/Library/Frameworks/macosx/hermes.framework",
 			);
 			name = "[CP] Embed Pods Frameworks";
@@ -434,7 +440,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-PDFViewer-macOS/Pods-PDFViewer-macOS-frameworks.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Acacia-macOS/Pods-Acacia-macOS-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -548,7 +554,7 @@
 		};
 		5142015B2437B4B40078DB4F /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C3FA98074FC4EA524C3584CD /* Pods-PDFViewer-macOS.debug.xcconfig */;
+			baseConfigurationReference = AF64789DE074C74F3D925D89 /* Pods-Acacia-macOS.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -583,7 +589,7 @@
 		};
 		5142015C2437B4B40078DB4F /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C576218D4E89CA42B385CB2E /* Pods-PDFViewer-macOS.release.xcconfig */;
+			baseConfigurationReference = 0E9D1560E313BD1812357D71 /* Pods-Acacia-macOS.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;

@@ -95,6 +95,36 @@ static CGRect AcaciaCanonicalBoundsForDrag(CGPoint startPagePoint, CGPoint endPa
   return AcaciaClampCanonicalBounds(CGRectMake(x, y, width, height));
 }
 
+static CGRect AcaciaCanonicalBoundsForPDFBounds(CGRect pdfBounds, CGRect pageBounds)
+{
+  CGFloat x = ((CGRectGetMinX(pdfBounds) - CGRectGetMinX(pageBounds)) / CGRectGetWidth(pageBounds)) * AcaciaCanonicalPageWidth;
+  CGFloat y = ((CGRectGetMaxY(pageBounds) - CGRectGetMaxY(pdfBounds)) / CGRectGetHeight(pageBounds)) * AcaciaCanonicalPageHeight;
+  CGFloat width = (CGRectGetWidth(pdfBounds) / CGRectGetWidth(pageBounds)) * AcaciaCanonicalPageWidth;
+  CGFloat height = (CGRectGetHeight(pdfBounds) / CGRectGetHeight(pageBounds)) * AcaciaCanonicalPageHeight;
+  return AcaciaClampCanonicalBounds(CGRectMake(x, y, width, height));
+}
+
+static CGRect AcaciaExpandedPDFRectForDrag(CGPoint startPagePoint,
+                                           CGPoint endPagePoint,
+                                           CGRect pageBounds)
+{
+  CGFloat minX = MIN(startPagePoint.x, endPagePoint.x);
+  CGFloat minY = MIN(startPagePoint.y, endPagePoint.y);
+  CGFloat width = fabs(endPagePoint.x - startPagePoint.x);
+  CGFloat height = fabs(endPagePoint.y - startPagePoint.y);
+  CGFloat minimumHeight = MAX(12.0, CGRectGetHeight(pageBounds) * 0.012);
+
+  if (height < minimumHeight) {
+    CGFloat midY = (startPagePoint.y + endPagePoint.y) / 2.0;
+    minY = midY - minimumHeight / 2.0;
+    height = minimumHeight;
+  }
+
+  CGRect expanded = CGRectInset(CGRectMake(minX, minY, MAX(width, 4.0), height), -4.0, -6.0);
+  CGRect clamped = CGRectIntersection(expanded, pageBounds);
+  return CGRectIsEmpty(clamped) ? expanded : clamped;
+}
+
 static NSArray<NSDictionary *> *AcaciaCanonicalInkPathForViewPoints(NSArray<NSValue *> *viewPoints,
                                                                     PDFView *pdfView,
                                                                     PDFPage *page,
@@ -152,6 +182,16 @@ static CGPoint AcaciaPDFPointForCanonicalPoint(NSDictionary *pointInfo, CGRect p
     CGRectGetMinX(pageBounds) + canonicalX / AcaciaCanonicalPageWidth * CGRectGetWidth(pageBounds),
     CGRectGetMaxY(pageBounds) - canonicalY / AcaciaCanonicalPageHeight * CGRectGetHeight(pageBounds)
   );
+}
+
+static NSArray<NSValue *> *AcaciaHighlightQuadPointsForBounds(CGRect bounds)
+{
+  return @[
+    [NSValue valueWithCGPoint:CGPointMake(CGRectGetMinX(bounds), CGRectGetMaxY(bounds))],
+    [NSValue valueWithCGPoint:CGPointMake(CGRectGetMaxX(bounds), CGRectGetMaxY(bounds))],
+    [NSValue valueWithCGPoint:CGPointMake(CGRectGetMinX(bounds), CGRectGetMinY(bounds))],
+    [NSValue valueWithCGPoint:CGPointMake(CGRectGetMaxX(bounds), CGRectGetMinY(bounds))],
+  ];
 }
 
 static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page)
@@ -310,6 +350,15 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   [self applyZoom];
 }
 
+- (void)setActiveTool:(NSString *)activeTool
+{
+  _activeTool = [activeTool copy];
+
+  if ([_activeTool isEqualToString:@"highlight"]) {
+    [self highlightCurrentSelectionIfPossible];
+  }
+}
+
 - (void)applyZoom
 {
   if (_pdfView.document == nil || CGRectIsEmpty(self.bounds)) {
@@ -341,6 +390,109 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 {
   _annotations = [annotations copy];
   [self applyAnnotations];
+}
+
+- (BOOL)highlightCurrentSelectionIfPossible
+{
+  PDFSelection *selection = _pdfView.currentSelection;
+  if (selection == nil || selection.string.length == 0 || self.onCanvasPress == nil || _pdfView.document == nil) {
+    return NO;
+  }
+
+  NSArray<PDFSelection *> *lineSelections = selection.selectionsByLine;
+  if (lineSelections.count == 0) {
+    lineSelections = @[selection];
+  }
+
+  BOOL emittedHighlight = NO;
+  for (PDFSelection *lineSelection in lineSelections) {
+    PDFPage *page = lineSelection.pages.firstObject;
+    if (page == nil) {
+      continue;
+    }
+
+    CGRect lineBounds = [lineSelection boundsForPage:page];
+    if (CGRectIsEmpty(lineBounds)) {
+      continue;
+    }
+
+    CGRect pageBounds = [page boundsForBox:kPDFDisplayBoxCropBox];
+    if (CGRectIsEmpty(pageBounds)) {
+      pageBounds = [page boundsForBox:kPDFDisplayBoxMediaBox];
+    }
+    if (CGRectIsEmpty(pageBounds)) {
+      continue;
+    }
+
+    CGRect canonicalBounds = AcaciaCanonicalBoundsForPDFBounds(lineBounds, pageBounds);
+    NSUInteger pageIndex = [_pdfView.document indexForPage:page];
+    self.onCanvasPress(@{
+      @"kind": @"highlight",
+      @"pageIndex": @(pageIndex),
+      @"bounds": @{
+        @"x": @(CGRectGetMinX(canonicalBounds)),
+        @"y": @(CGRectGetMinY(canonicalBounds)),
+        @"width": @(CGRectGetWidth(canonicalBounds)),
+        @"height": @(CGRectGetHeight(canonicalBounds)),
+      },
+    });
+    emittedHighlight = YES;
+  }
+
+  if (emittedHighlight) {
+    [_pdfView clearSelection];
+  }
+
+  return emittedHighlight;
+}
+
+- (BOOL)emitTextHighlightAnnotationsForPage:(PDFPage *)page dragBounds:(CGRect)dragBounds
+{
+  if (self.onCanvasPress == nil || _pdfView.document == nil || CGRectIsEmpty(dragBounds)) {
+    return NO;
+  }
+
+  PDFSelection *selection = [page selectionForRect:dragBounds];
+  if (selection == nil || selection.string.length == 0) {
+    return NO;
+  }
+
+  CGRect pageBounds = [page boundsForBox:kPDFDisplayBoxCropBox];
+  if (CGRectIsEmpty(pageBounds)) {
+    pageBounds = [page boundsForBox:kPDFDisplayBoxMediaBox];
+  }
+  if (CGRectIsEmpty(pageBounds)) {
+    return NO;
+  }
+
+  NSArray<PDFSelection *> *lineSelections = selection.selectionsByLine;
+  if (lineSelections.count == 0) {
+    lineSelections = @[selection];
+  }
+
+  BOOL emittedHighlight = NO;
+  NSUInteger pageIndex = [_pdfView.document indexForPage:page];
+  for (PDFSelection *lineSelection in lineSelections) {
+    CGRect lineBounds = [lineSelection boundsForPage:page];
+    if (CGRectIsEmpty(lineBounds)) {
+      continue;
+    }
+
+    CGRect canonicalBounds = AcaciaCanonicalBoundsForPDFBounds(lineBounds, pageBounds);
+    self.onCanvasPress(@{
+      @"kind": @"highlight",
+      @"pageIndex": @(pageIndex),
+      @"bounds": @{
+        @"x": @(CGRectGetMinX(canonicalBounds)),
+        @"y": @(CGRectGetMinY(canonicalBounds)),
+        @"width": @(CGRectGetWidth(canonicalBounds)),
+        @"height": @(CGRectGetHeight(canonicalBounds)),
+      },
+    });
+    emittedHighlight = YES;
+  }
+
+  return emittedHighlight;
 }
 
 - (void)handleTap:(UITapGestureRecognizer *)recognizer
@@ -489,6 +641,13 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 
   BOOL meaningfulDrag = preferDrag &&
     (fabs(endViewPoint.x - startViewPoint.x) >= 6.0 || fabs(endViewPoint.y - startViewPoint.y) >= 6.0);
+  if ([kind isEqualToString:@"highlight"] && meaningfulDrag) {
+    CGRect dragBounds = AcaciaExpandedPDFRectForDrag(startPagePoint, endPagePoint, pageBounds);
+    if ([self emitTextHighlightAnnotationsForPage:page dragBounds:dragBounds]) {
+      return;
+    }
+  }
+
   CGRect canonicalBounds = meaningfulDrag
     ? AcaciaCanonicalBoundsForDrag(startPagePoint, endPagePoint, pageBounds)
     : AcaciaCanonicalBoundsForPoint(kind, startPagePoint, pageBounds);
@@ -633,12 +792,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
       annotation.contents = [RCTConvert NSString:annotationInfo[@"text"]] ?: @"Local drawing";
     } else {
       annotation.color = [UIColor colorWithRed:1 green:0.82 blue:0.12 alpha:0.42];
-      annotation.quadrilateralPoints = @[
-        [NSValue valueWithCGPoint:CGPointMake(CGRectGetMinX(bounds), CGRectGetMaxY(bounds))],
-        [NSValue valueWithCGPoint:CGPointMake(CGRectGetMaxX(bounds), CGRectGetMaxY(bounds))],
-        [NSValue valueWithCGPoint:CGPointMake(CGRectGetMinX(bounds), CGRectGetMinY(bounds))],
-        [NSValue valueWithCGPoint:CGPointMake(CGRectGetMaxX(bounds), CGRectGetMinY(bounds))],
-      ];
+      annotation.quadrilateralPoints = AcaciaHighlightQuadPointsForBounds(bounds);
     }
     [page addAnnotation:annotation];
   }

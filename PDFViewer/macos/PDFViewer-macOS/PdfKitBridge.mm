@@ -7,6 +7,22 @@
 
 static const CGFloat AcaciaCanonicalPageWidth = 595.0;
 static const CGFloat AcaciaCanonicalPageHeight = 842.0;
+static NSString *const AcaciaPDFMenuOpenURLNotification = @"AcaciaPDFMenuOpenURLNotification";
+static NSString *const AcaciaPdfOpenedFromMenuEvent = @"AcaciaPdfOpenedFromMenu";
+
+static NSArray<NSDictionary *> *AcaciaDemoPDFSpecs(void)
+{
+  return @[
+    @{@"id": @"q4-market-analysis", @"title": @"Q4 Market Analysis Report", @"author": @"Analytics Team", @"pageCount": @32},
+    @{@"id": @"competitive-landscape", @"title": @"Competitive Landscape Overview", @"author": @"Strategy Group", @"pageCount": @18},
+    @{@"id": @"product-roadmap", @"title": @"Product Roadmap 2025", @"author": @"Product Team", @"pageCount": @44},
+    @{@"id": @"annual-financial-report", @"title": @"Annual Financial Report", @"author": @"Finance Department", @"pageCount": @56},
+    @{@"id": @"future-work", @"title": @"Future of Work Report", @"author": @"Trend Insights", @"pageCount": @32},
+    @{@"id": @"marketing-strategy", @"title": @"Marketing Strategy 2025", @"author": @"Marketing Team", @"pageCount": @24},
+    @{@"id": @"board-minutes-apr", @"title": @"Board Meeting Minutes - Apr 2025", @"author": @"Corporate Secretary", @"pageCount": @14},
+    @{@"id": @"invoice-0042", @"title": @"Invoice #INV-2025-0042", @"author": @"Finance Department", @"pageCount": @4},
+  ];
+}
 
 static NSRect AcaciaFallbackAnnotationBounds(PDFPage *page)
 {
@@ -59,6 +75,16 @@ static NSRect AcaciaPDFBoundsForAnnotation(NSDictionary *boundsInfo, PDFPage *pa
   return NSMakeRect(x, y, width, height);
 }
 
+static NSArray<NSValue *> *AcaciaHighlightQuadPointsForBounds(NSRect bounds)
+{
+  return @[
+    [NSValue valueWithPoint:NSMakePoint(NSMinX(bounds), NSMaxY(bounds))],
+    [NSValue valueWithPoint:NSMakePoint(NSMaxX(bounds), NSMaxY(bounds))],
+    [NSValue valueWithPoint:NSMakePoint(NSMinX(bounds), NSMinY(bounds))],
+    [NSValue valueWithPoint:NSMakePoint(NSMaxX(bounds), NSMinY(bounds))],
+  ];
+}
+
 static NSPoint AcaciaPDFPointForCanonicalPoint(NSDictionary *pointInfo, NSRect pageBounds)
 {
   CGFloat canonicalX = [RCTConvert CGFloat:pointInfo[@"x"]];
@@ -100,18 +126,89 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 }
 
 @interface PdfKitBridge ()
+@property (nonatomic, assign) BOOL hasPdfMenuOpenListeners;
+@property (nonatomic, strong) NSMutableArray<NSDictionary *> *pendingMenuOpenEvents;
 + (NSURL *)resolvedURLForPath:(NSString *)path
                      bookmark:(NSString *)bookmark
            didStartAccessing:(BOOL *)didStartAccessing;
++ (NSURL *)demoPDFDirectoryURL;
++ (BOOL)writeDemoPDFForSpec:(NSDictionary *)spec toURL:(NSURL *)url error:(NSError **)error;
++ (NSURL *)thumbnailURLForDocumentId:(NSString *)documentId pageIndex:(NSNumber *)pageIndex;
++ (NSString *)cacheSafeIdentifierForString:(NSString *)value;
 @end
 
 @implementation PdfKitBridge
 
 RCT_EXPORT_MODULE();
 
+- (instancetype)init
+{
+  self = [super init];
+  if (self) {
+    _pendingMenuOpenEvents = [NSMutableArray array];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(handleMenuOpenPDFNotification:)
+                                                 name:AcaciaPDFMenuOpenURLNotification
+                                               object:nil];
+  }
+  return self;
+}
+
+- (void)dealloc
+{
+  [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
 + (BOOL)requiresMainQueueSetup
 {
   return YES;
+}
+
+- (NSArray<NSString *> *)supportedEvents
+{
+  return @[AcaciaPdfOpenedFromMenuEvent];
+}
+
+- (void)startObserving
+{
+  self.hasPdfMenuOpenListeners = YES;
+
+  for (NSDictionary *metadata in self.pendingMenuOpenEvents) {
+    [self sendEventWithName:@"AcaciaPdfOpenedFromMenu" body:metadata];
+  }
+  [self.pendingMenuOpenEvents removeAllObjects];
+}
+
+- (void)stopObserving
+{
+  self.hasPdfMenuOpenListeners = NO;
+}
+
+- (void)emitOpenedPDFMetadata:(NSDictionary *)metadata
+{
+  if (self.hasPdfMenuOpenListeners) {
+    [self sendEventWithName:@"AcaciaPdfOpenedFromMenu" body:metadata];
+  } else {
+    [self.pendingMenuOpenEvents addObject:metadata];
+  }
+}
+
+- (void)handleMenuOpenPDFNotification:(NSNotification *)notification
+{
+  NSURL *url = notification.userInfo[@"url"];
+  if (![url isKindOfClass:[NSURL class]]) {
+    return;
+  }
+
+  NSError *error = nil;
+  NSDictionary *metadata = [PdfKitBridge metadataForURL:url error:&error];
+  if (metadata == nil) {
+    NSLog(@"Unable to open PDF from menu: %@", error.localizedDescription);
+    return;
+  }
+
+  [[NSDocumentController sharedDocumentController] noteNewRecentDocumentURL:url];
+  [self emitOpenedPDFMetadata:metadata];
 }
 
 RCT_EXPORT_METHOD(openPdf:(RCTPromiseResolveBlock)resolve
@@ -130,6 +227,7 @@ RCT_EXPORT_METHOD(openPdf:(RCTPromiseResolveBlock)resolve
         return;
       }
 
+      [[NSDocumentController sharedDocumentController] noteNewRecentDocumentURL:testURL];
       resolve(metadata);
       return;
     }
@@ -154,7 +252,49 @@ RCT_EXPORT_METHOD(openPdf:(RCTPromiseResolveBlock)resolve
       return;
     }
 
+    [[NSDocumentController sharedDocumentController] noteNewRecentDocumentURL:panel.URL];
     resolve(metadata);
+  });
+}
+
+RCT_EXPORT_METHOD(seedDemoPdfs:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+    NSURL *directoryURL = [PdfKitBridge demoPDFDirectoryURL];
+    NSError *directoryError = nil;
+    [[NSFileManager defaultManager] createDirectoryAtURL:directoryURL
+                             withIntermediateDirectories:YES
+                                              attributes:nil
+                                                   error:&directoryError];
+
+    if (directoryError != nil) {
+      reject(@"pdf_demo_seed_failed", directoryError.localizedDescription, directoryError);
+      return;
+    }
+
+    NSMutableArray *metadataItems = [NSMutableArray array];
+
+    for (NSDictionary *spec in AcaciaDemoPDFSpecs()) {
+      NSString *identifier = spec[@"id"];
+      NSURL *url = [directoryURL URLByAppendingPathComponent:[NSString stringWithFormat:@"%@.pdf", identifier]];
+
+      if (![[NSFileManager defaultManager] fileExistsAtPath:url.path]) {
+        NSError *writeError = nil;
+        if (![PdfKitBridge writeDemoPDFForSpec:spec toURL:url error:&writeError]) {
+          reject(@"pdf_demo_seed_failed", writeError.localizedDescription, writeError);
+          return;
+        }
+      }
+
+      NSError *metadataError = nil;
+      NSDictionary *metadata = [PdfKitBridge metadataForURL:url error:&metadataError];
+      if (metadata != nil) {
+        [metadataItems addObject:metadata];
+      }
+    }
+
+    resolve(metadataItems);
   });
 }
 
@@ -349,6 +489,64 @@ RCT_EXPORT_METHOD(exportPageImage:(NSString *)path
   resolve(outputURL.path);
 }
 
+RCT_EXPORT_METHOD(renderPageThumbnail:(NSString *)path
+                  bookmark:(NSString *)bookmark
+                  pageIndex:(nonnull NSNumber *)pageIndex
+                  documentId:(NSString *)documentId
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+  BOOL didStartAccessing = NO;
+  NSURL *url = [PdfKitBridge resolvedURLForPath:path
+                                       bookmark:bookmark
+                             didStartAccessing:&didStartAccessing];
+  PDFDocument *document = [[PDFDocument alloc] initWithURL:url];
+  PDFPage *page = [document pageAtIndex:pageIndex.unsignedIntegerValue];
+
+  if (page == nil) {
+    if (didStartAccessing) {
+      [url stopAccessingSecurityScopedResource];
+    }
+    reject(@"pdf_thumbnail_failed", @"Page not found.", nil);
+    return;
+  }
+
+  NSImage *thumbnail = [page thumbnailOfSize:NSMakeSize(220, 320)
+                                      forBox:kPDFDisplayBoxMediaBox];
+  NSData *tiff = thumbnail.TIFFRepresentation;
+  NSBitmapImageRep *bitmap = tiff == nil ? nil : [NSBitmapImageRep imageRepWithData:tiff];
+  NSData *imageData = [bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+
+  if (imageData == nil) {
+    if (didStartAccessing) {
+      [url stopAccessingSecurityScopedResource];
+    }
+    reject(@"pdf_thumbnail_failed", @"Unable to render page thumbnail.", nil);
+    return;
+  }
+
+  NSURL *outputURL = [PdfKitBridge thumbnailURLForDocumentId:documentId pageIndex:pageIndex];
+  NSError *error = nil;
+  [[NSFileManager defaultManager] createDirectoryAtURL:outputURL.URLByDeletingLastPathComponent
+                          withIntermediateDirectories:YES
+                                           attributes:nil
+                                                error:nil];
+
+  if (![imageData writeToURL:outputURL options:NSDataWritingAtomic error:&error]) {
+    if (didStartAccessing) {
+      [url stopAccessingSecurityScopedResource];
+    }
+    reject(@"pdf_thumbnail_failed", error.localizedDescription, error);
+    return;
+  }
+
+  if (didStartAccessing) {
+    [url stopAccessingSecurityScopedResource];
+  }
+
+  resolve(outputURL.path);
+}
+
 RCT_EXPORT_METHOD(exportAnnotatedCopy:(NSString *)path
                   bookmark:(NSString *)bookmark
                   annotations:(NSArray *)annotations
@@ -449,6 +647,15 @@ RCT_EXPORT_METHOD(readSidecar:(NSString *)documentId
                   rejecter:(RCTPromiseRejectBlock)reject)
 {
   NSURL *url = [PdfKitBridge sidecarURLForDocumentId:documentId];
+  BOOL shouldResetAppState =
+      [documentId isEqualToString:@"__acacia_app_state__"] &&
+      [[[NSProcessInfo processInfo].environment objectForKey:@"PDFVIEWER_RESET_STATE"] isEqualToString:@"1"];
+  if (shouldResetAppState) {
+    [[NSFileManager defaultManager] removeItemAtURL:url error:nil];
+    resolve(nil);
+    return;
+  }
+
   NSError *error = nil;
   NSString *contents = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
 
@@ -478,6 +685,180 @@ RCT_EXPORT_METHOD(writeSidecar:(NSString *)documentId
   }
 
   resolve(@YES);
+}
+
++ (NSURL *)demoPDFDirectoryURL
+{
+  NSURL *supportURL = [[NSFileManager defaultManager] URLsForDirectory:NSApplicationSupportDirectory
+                                                             inDomains:NSUserDomainMask].firstObject;
+  return [supportURL URLByAppendingPathComponent:@"Acacia/DemoPDFs" isDirectory:YES];
+}
+
++ (BOOL)writeDemoPDFForSpec:(NSDictionary *)spec toURL:(NSURL *)url error:(NSError **)error
+{
+  NSString *title = spec[@"title"] ?: @"Acacia Demo PDF";
+  NSString *author = spec[@"author"] ?: @"Acacia";
+  NSUInteger pageCount = [spec[@"pageCount"] unsignedIntegerValue];
+  if (pageCount == 0) {
+    pageCount = 1;
+  }
+
+  NSMutableData *data = [NSMutableData data];
+  CGRect mediaBox = CGRectMake(0, 0, AcaciaCanonicalPageWidth, AcaciaCanonicalPageHeight);
+  NSDictionary *pdfInfo = @{
+    (NSString *)kCGPDFContextTitle: title,
+    (NSString *)kCGPDFContextAuthor: author,
+  };
+  CGDataConsumerRef consumer = CGDataConsumerCreateWithCFData((__bridge CFMutableDataRef)data);
+  CGContextRef context = CGPDFContextCreate(consumer, &mediaBox, (__bridge CFDictionaryRef)pdfInfo);
+
+  if (consumer != nil) {
+    CGDataConsumerRelease(consumer);
+  }
+
+  if (context == nil) {
+    if (error != nil) {
+      *error = [NSError errorWithDomain:@"PdfKitBridge"
+                                   code:2001
+                               userInfo:@{NSLocalizedDescriptionKey: @"Unable to create demo PDF context."}];
+    }
+    return NO;
+  }
+
+  NSDictionary *titleAttributes = @{
+    NSFontAttributeName: [NSFont fontWithName:@"Georgia-Bold" size:34] ?: [NSFont systemFontOfSize:34 weight:NSFontWeightBold],
+    NSForegroundColorAttributeName: [NSColor colorWithCalibratedWhite:0.08 alpha:1.0],
+  };
+  NSDictionary *leadAttributes = @{
+    NSFontAttributeName: [NSFont systemFontOfSize:14 weight:NSFontWeightSemibold],
+    NSForegroundColorAttributeName: [NSColor colorWithCalibratedRed:0.08 green:0.35 blue:0.86 alpha:1.0],
+  };
+  NSDictionary *bodyAttributes = @{
+    NSFontAttributeName: [NSFont systemFontOfSize:11 weight:NSFontWeightRegular],
+    NSForegroundColorAttributeName: [NSColor colorWithCalibratedWhite:0.14 alpha:1.0],
+  };
+  NSDictionary *captionAttributes = @{
+    NSFontAttributeName: [NSFont monospacedDigitSystemFontOfSize:9 weight:NSFontWeightMedium],
+    NSForegroundColorAttributeName: [NSColor colorWithCalibratedWhite:0.46 alpha:1.0],
+  };
+  NSMutableParagraphStyle *readerParagraphStyle = [NSMutableParagraphStyle new];
+  readerParagraphStyle.lineSpacing = 5.0;
+  readerParagraphStyle.paragraphSpacing = 12.0;
+  NSDictionary *readerTitleAttributes = @{
+    NSFontAttributeName: [NSFont fontWithName:@"Georgia-Bold" size:34] ?: [NSFont systemFontOfSize:34 weight:NSFontWeightBold],
+    NSForegroundColorAttributeName: [NSColor colorWithCalibratedWhite:0.08 alpha:1.0],
+  };
+  NSDictionary *readerHeadingAttributes = @{
+    NSFontAttributeName: [NSFont fontWithName:@"Georgia-Bold" size:18] ?: [NSFont systemFontOfSize:18 weight:NSFontWeightBold],
+    NSForegroundColorAttributeName: [NSColor colorWithCalibratedWhite:0.08 alpha:1.0],
+  };
+  NSDictionary *readerBodyAttributes = @{
+    NSFontAttributeName: [NSFont fontWithName:@"Georgia" size:14] ?: [NSFont systemFontOfSize:14 weight:NSFontWeightRegular],
+    NSForegroundColorAttributeName: [NSColor colorWithCalibratedWhite:0.13 alpha:1.0],
+    NSParagraphStyleAttributeName: readerParagraphStyle,
+  };
+  NSDictionary *highlightAttributes = @{
+    NSFontAttributeName: [NSFont fontWithName:@"Georgia" size:14] ?: [NSFont systemFontOfSize:14 weight:NSFontWeightRegular],
+    NSForegroundColorAttributeName: [NSColor colorWithCalibratedWhite:0.10 alpha:1.0],
+  };
+
+  NSArray<NSString *> *segments = @[@"Technology", @"Healthcare", @"Consumer Goods", @"Financial Services"];
+
+  for (NSUInteger pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+    CGPDFContextBeginPage(context, NULL);
+    [NSGraphicsContext saveGraphicsState];
+    NSGraphicsContext *graphicsContext = [NSGraphicsContext graphicsContextWithCGContext:context flipped:NO];
+    [NSGraphicsContext setCurrentContext:graphicsContext];
+
+    [[NSColor whiteColor] setFill];
+    NSRectFill(NSMakeRect(0, 0, AcaciaCanonicalPageWidth, AcaciaCanonicalPageHeight));
+    [[NSColor colorWithCalibratedWhite:0.86 alpha:1.0] setStroke];
+    NSFrameRect(NSMakeRect(48, 56, AcaciaCanonicalPageWidth - 96, AcaciaCanonicalPageHeight - 112));
+
+    [title drawInRect:NSMakeRect(72, 724, 420, 42) withAttributes:captionAttributes];
+    [[NSString stringWithFormat:@"%lu", (unsigned long)pageIndex + 1]
+      drawInRect:NSMakeRect(512, 724, 32, 20)
+      withAttributes:captionAttributes];
+
+    if ([title isEqualToString:@"Product Roadmap 2025"]) {
+      [@"PRODUCT ROADMAP 2025 - VISION" drawInRect:NSMakeRect(72, 660, 420, 18) withAttributes:captionAttributes];
+      [@"Why now" drawInRect:NSMakeRect(72, 616, 420, 46) withAttributes:readerTitleAttributes];
+
+      NSString *first = @"Three forces are converging that make 2025 the right year to commit. First, the cost of high-quality models has fallen by an order of magnitude in the last twelve months.";
+      [first drawInRect:NSMakeRect(72, 548, 420, 78) withAttributes:readerBodyAttributes];
+
+      [[NSColor colorWithCalibratedRed:1.00 green:0.87 blue:0.34 alpha:0.70] setFill];
+      NSRectFill(NSMakeRect(72, 499, 404, 20));
+      NSRectFill(NSMakeRect(72, 476, 394, 20));
+      NSRectFill(NSMakeRect(72, 453, 276, 20));
+      NSString *highlight = @"Second, customer behavior has shifted: enterprises are no longer evaluating AI in isolation but as a layer threaded through existing workflows.";
+      [highlight drawInRect:NSMakeRect(72, 452, 420, 66) withAttributes:highlightAttributes];
+
+      NSString *second = @"Third, the regulatory picture has clarified enough to plan without guessing.\n\nActing on these three at once is the prize. The risk is not novelty - it is coordination. We have to ship a coherent product across surfaces that previously moved at different speeds.";
+      [second drawInRect:NSMakeRect(72, 352, 420, 98) withAttributes:readerBodyAttributes];
+
+      [@"Three commitments" drawInRect:NSMakeRect(72, 310, 420, 28) withAttributes:readerHeadingAttributes];
+      NSString *third = @"We are organizing the year around three commitments, deliberately fewer than last year. Each is owned end-to-end by a named lead, with quarterly checkpoints and a single success metric.";
+      [third drawInRect:NSMakeRect(72, 234, 420, 70) withAttributes:readerBodyAttributes];
+
+      NSString *footer = [NSString stringWithFormat:@"Acacia local demo PDF - %@ - Page %lu of %lu",
+                          author,
+                          (unsigned long)pageIndex + 1,
+                          (unsigned long)pageCount];
+      [footer drawInRect:NSMakeRect(72, 76, 420, 18) withAttributes:captionAttributes];
+
+      [NSGraphicsContext restoreGraphicsState];
+      CGPDFContextEndPage(context);
+      continue;
+    }
+
+    NSString *pageHeading = pageIndex == 0
+      ? title
+      : (pageIndex % 3 == 0 ? @"Revenue by Region" : (pageIndex % 3 == 1 ? @"Key Takeaways" : @"Market Overview"));
+    [pageHeading drawInRect:NSMakeRect(72, 650, 440, 56) withAttributes:titleAttributes];
+
+    NSString *lead = [title isEqualToString:@"Future of Work Report"]
+      ? @"The hybrid model is no longer an experiment; it has become the new standard."
+      : @"Global markets closed the year with steady growth across key segments.";
+    [lead drawInRect:NSMakeRect(72, 606, 430, 34) withAttributes:leadAttributes];
+
+    NSString *body = [NSString stringWithFormat:
+      @"%@ page %lu contains searchable text for Acacia demo validation. Use it to test PDFKit rendering, document search, page navigation, zooming, highlights, notes, pen drawings, signatures, export, and Open Recent behavior without relying on placeholder views.",
+      title,
+      (unsigned long)pageIndex + 1];
+    [body drawInRect:NSMakeRect(72, 548, 430, 48) withAttributes:bodyAttributes];
+
+    [[NSColor colorWithCalibratedRed:0.91 green:0.94 blue:0.98 alpha:1.0] setFill];
+    NSRectFill(NSMakeRect(72, 292, 440, 214));
+    [[NSColor colorWithCalibratedRed:0.15 green:0.43 blue:0.92 alpha:1.0] setFill];
+    for (NSUInteger index = 0; index < 5; index += 1) {
+      CGFloat barHeight = 54 + index * 19 + (pageIndex % 4) * 5;
+      NSRectFill(NSMakeRect(108 + index * 76, 326, 42, barHeight));
+      [[NSString stringWithFormat:@"Q%lu", (unsigned long)index + 1]
+        drawInRect:NSMakeRect(106 + index * 76, 304, 52, 16)
+        withAttributes:captionAttributes];
+      [[NSColor colorWithCalibratedRed:0.15 green:0.43 blue:0.92 alpha:1.0] setFill];
+    }
+
+    for (NSUInteger index = 0; index < segments.count; index += 1) {
+      NSString *line = [NSString stringWithFormat:@"- %@ %@%%", segments[index], @[@34, @28, @22, @16][index]];
+      [line drawInRect:NSMakeRect(92, 226 - index * 20, 320, 18) withAttributes:bodyAttributes];
+    }
+
+    NSString *footer = [NSString stringWithFormat:@"Acacia local demo PDF - %@ - Page %lu of %lu",
+                        author,
+                        (unsigned long)pageIndex + 1,
+                        (unsigned long)pageCount];
+    [footer drawInRect:NSMakeRect(72, 76, 420, 18) withAttributes:captionAttributes];
+
+    [NSGraphicsContext restoreGraphicsState];
+    CGPDFContextEndPage(context);
+  }
+
+  CGPDFContextClose(context);
+  CGContextRelease(context);
+
+  return [data writeToURL:url options:NSDataWritingAtomic error:error];
 }
 
 + (NSDictionary *)metadataForURL:(NSURL *)url error:(NSError **)error
@@ -552,12 +933,7 @@ RCT_EXPORT_METHOD(writeSidecar:(NSString *)documentId
         [annotation addBezierPath:inkPath];
       }
     } else if ([subtype isEqualToString:PDFAnnotationSubtypeHighlight]) {
-      annotation.quadrilateralPoints = @[
-        [NSValue valueWithPoint:NSMakePoint(NSMinX(bounds), NSMaxY(bounds))],
-        [NSValue valueWithPoint:NSMakePoint(NSMaxX(bounds), NSMaxY(bounds))],
-        [NSValue valueWithPoint:NSMakePoint(NSMinX(bounds), NSMinY(bounds))],
-        [NSValue valueWithPoint:NSMakePoint(NSMaxX(bounds), NSMinY(bounds))],
-      ];
+      annotation.quadrilateralPoints = AcaciaHighlightQuadPointsForBounds(bounds);
     }
     [page addAnnotation:annotation];
   }
@@ -569,6 +945,33 @@ RCT_EXPORT_METHOD(writeSidecar:(NSString *)documentId
                                                              inDomains:NSUserDomainMask].firstObject;
   return [[supportURL URLByAppendingPathComponent:@"Acacia/Sidecars" isDirectory:YES]
           URLByAppendingPathComponent:[NSString stringWithFormat:@"%@.json", documentId]];
+}
+
++ (NSURL *)thumbnailURLForDocumentId:(NSString *)documentId pageIndex:(NSNumber *)pageIndex
+{
+  NSURL *supportURL = [[NSFileManager defaultManager] URLsForDirectory:NSApplicationSupportDirectory
+                                                             inDomains:NSUserDomainMask].firstObject;
+  NSString *safeDocumentId = [PdfKitBridge cacheSafeIdentifierForString:documentId ?: @"document"];
+  return [[[supportURL URLByAppendingPathComponent:@"Acacia/ThumbnailCache" isDirectory:YES]
+           URLByAppendingPathComponent:safeDocumentId isDirectory:YES]
+          URLByAppendingPathComponent:[NSString stringWithFormat:@"page-%@.png", pageIndex]];
+}
+
++ (NSString *)cacheSafeIdentifierForString:(NSString *)value
+{
+  NSCharacterSet *allowed = [NSCharacterSet alphanumericCharacterSet];
+  NSMutableString *result = [NSMutableString string];
+
+  for (NSUInteger index = 0; index < value.length; index += 1) {
+    unichar character = [value characterAtIndex:index];
+    if ([allowed characterIsMember:character]) {
+      [result appendFormat:@"%C", character];
+    } else if (result.length == 0 || ![result hasSuffix:@"-"]) {
+      [result appendString:@"-"];
+    }
+  }
+
+  return result.length == 0 ? @"document" : result;
 }
 
 + (NSString *)stableIdForURL:(NSURL *)url

@@ -43,7 +43,8 @@
     "react": "19.1.4",
     "react-native": "0.81.6",
     "react-native-macos": "^0.81.7",
-    "react-native-safe-area-context": "^5.5.2"
+    "react-native-safe-area-context": "^5.5.2",
+    "react-native-svg": "^15.15.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

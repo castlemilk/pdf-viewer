@@ -278,6 +278,25 @@ test('fallback PDF canvas scrolls demo pages without reflowing page layout on zo
   expect(frameStyle.height).toBeCloseTo(744.5545, 3);
 });
 
+test('fallback PDF canvas exposes demo page text as selectable content', async () => {
+  const document = demoDocuments[0];
+  const viewer = createInitialViewerState(document.id, document.pageCount);
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(
+      <PdfCanvas document={document} viewer={viewer} annotations={[]} />,
+    );
+  });
+
+  expect(
+    renderer!.root.findByProps({testID: 'pdf-demo-title-1'}).props.selectable,
+  ).toBe(true);
+  expect(
+    renderer!.root.findByProps({testID: 'pdf-demo-body-1'}).props.selectable,
+  ).toBe(true);
+});
+
 test('fallback PDF canvas creates highlight annotations at the clicked page position', async () => {
   const document = demoDocuments[0];
   const viewer = {

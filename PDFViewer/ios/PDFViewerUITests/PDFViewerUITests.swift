@@ -7,6 +7,11 @@ final class PDFViewerUITests: XCTestCase {
 
   func testMobilePdfControlsNavigateZoomAndHighlight() throws {
     let app = XCUIApplication()
+    app.launchArguments = ["--uitesting"]
+    app.launchEnvironment = [
+      "PDFVIEWER_UITESTING": "1",
+      "PDFVIEWER_RESET_STATE": "1",
+    ]
     app.launch()
 
     XCTAssertTrue(
