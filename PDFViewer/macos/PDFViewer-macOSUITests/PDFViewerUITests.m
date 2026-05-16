@@ -264,13 +264,13 @@
 - (void)clickElement:(XCUIElement *)element
 {
   [self.app activate];
-  if (element.isHittable) {
-    [element click];
-  } else {
-    XCUICoordinate *center =
-        [element coordinateWithNormalizedOffset:CGVectorMake(0.5, 0.5)];
-    [center click];
-  }
+  XCTAssertTrue(element.exists, @"Expected element %@ to exist before clicking", element.identifier);
+  // React Native macOS can expose testIDs as generic elements even when the
+  // native control is a button; coordinate clicks avoid XCTest re-querying by
+  // a stale element type.
+  XCUICoordinate *center =
+      [element coordinateWithNormalizedOffset:CGVectorMake(0.5, 0.5)];
+  [center click];
 }
 
 - (void)scrollIdentifierIntoView:(NSString *)identifier
