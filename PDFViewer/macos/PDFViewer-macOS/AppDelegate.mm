@@ -13,6 +13,7 @@ static NSString *const AcaciaPDFMenuOpenURLNotification = @"AcaciaPDFMenuOpenURL
 @interface AppDelegate () <NSWindowDelegate>
 - (void)ensureMainWindowVisibleWithLaunchOptions:(NSDictionary *)launchOptions;
 - (NSWindow *)mainWindowCreatingIfNeededWithLaunchOptions:(NSDictionary *)launchOptions;
+- (void)applyAcaciaWindowChrome:(NSWindow *)window;
 - (void)wireFileMenuActions;
 - (BOOL)openPDFURLFromMenu:(NSURL *)url;
 @end
@@ -140,9 +141,18 @@ static NSString *const AcaciaPDFMenuOpenURLNotification = @"AcaciaPDFMenuOpenURL
   if (window != nil) {
     window.releasedWhenClosed = NO;
     window.delegate = self;
+    [self applyAcaciaWindowChrome:window];
   }
 
   return window;
+}
+
+- (void)applyAcaciaWindowChrome:(NSWindow *)window
+{
+  window.titleVisibility = NSWindowTitleHidden;
+  window.titlebarAppearsTransparent = YES;
+  window.styleMask = window.styleMask | NSWindowStyleMaskFullSizeContentView;
+  window.backgroundColor = NSColor.whiteColor;
 }
 
 - (void)ensureMainWindowVisibleWithLaunchOptions:(NSDictionary *)launchOptions

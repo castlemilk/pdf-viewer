@@ -21,7 +21,7 @@ capture_mode() {
   local output="$2"
 
   pkill -x Acacia >/dev/null 2>&1 || true
-  "$APP_PATH/Contents/MacOS/Acacia" --uitesting "--screenshot=$mode" >/tmp/acacia-screenshot.log 2>&1 &
+  PDFVIEWER_RESET_STATE=1 "$APP_PATH/Contents/MacOS/Acacia" --uitesting "--screenshot=$mode" >/tmp/acacia-screenshot.log 2>&1 &
   local pid=$!
   sleep 2
 
@@ -39,6 +39,8 @@ OSA
 
   sleep 1
   screencapture -x -R"$RECT" "$OUT_DIR/$output"
+  osascript -e 'tell application "Acacia" to quit' >/dev/null 2>&1 || true
+  sleep 0.3
   kill "$pid" >/dev/null 2>&1 || true
   wait "$pid" >/dev/null 2>&1 || true
 }

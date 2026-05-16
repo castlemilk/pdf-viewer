@@ -486,7 +486,7 @@ test('desktop reader clips the canvas below toolbar and scrubber controls', asyn
     expect.objectContaining({
       position: 'absolute',
       top: 0,
-      height: 54,
+      height: 52,
       zIndex: 10,
     }),
   );
@@ -497,7 +497,7 @@ test('desktop reader clips the canvas below toolbar and scrubber controls', asyn
   ).toEqual(
     expect.objectContaining({
       position: 'absolute',
-      top: 54,
+      top: 52,
       bottom: 52,
       overflow: 'hidden',
       zIndex: 0,
@@ -599,7 +599,7 @@ test('desktop library favorite, sort, and filter controls update visible state',
     renderer!.root.findByProps({testID: 'sort-last-opened-button'}).props.onPress();
   });
 
-  expect(JSON.stringify(renderer?.toJSON())).toContain('Sort: Modified');
+  expect(JSON.stringify(renderer?.toJSON())).toContain('Modified');
 
   await ReactTestRenderer.act(() => {
     renderer!.root
@@ -907,6 +907,80 @@ test('restores persisted imported PDFs and preferences before seeding demos', as
     '__acacia_app_state__',
     expect.stringContaining('persisted-imported-pdf'),
   );
+});
+
+test('screenshot launches ignore persisted sidecar state', async () => {
+  const persistedAt = '2026-05-13T08:30:00.000Z';
+  const persistedState = {
+    schemaVersion: 1,
+    libraryState: {
+      documents: [
+        importedPdfToDocument({
+          id: 'persisted-imported-pdf',
+          title: 'Persisted Imported PDF',
+          author: 'Local Author',
+          pageCount: 7,
+          sizeMb: 3.4,
+          createdAt: persistedAt,
+          modifiedAt: persistedAt,
+          path: '/tmp/persisted-imported.pdf',
+          bookmark: 'persisted-bookmark',
+        }),
+      ],
+      tags: [{id: 'work', label: 'Work', tone: 'blue'}],
+      collections: [{id: 'archive', label: 'Archive', count: 1}],
+      storageUsedGb: 0,
+      storageLimitGb: 0,
+    },
+    filter: {
+      query: '',
+      tagId: 'all',
+      collectionId: 'all',
+      scope: 'recent',
+      sortBy: 'lastOpened',
+      viewMode: 'list',
+    },
+    screenMode: 'viewer',
+    selectedDocumentId: 'persisted-imported-pdf',
+    viewerState: {
+      documentId: 'persisted-imported-pdf',
+      pageCount: 7,
+      pageIndex: 3,
+      zoom: 1.25,
+      activeTool: 'select',
+      inspectorTab: 'info',
+      showThumbnails: true,
+      searchQuery: '',
+    },
+    annotations: [],
+    signatures: [],
+    activeSignatureId: '',
+    accountState: {signedIn: false, plan: 'free'},
+    compareSynced: true,
+    updatedAt: persistedAt,
+  };
+  const readSpy = jest
+    .spyOn(PdfKitBridge, 'readSidecar')
+    .mockResolvedValueOnce(JSON.stringify(persistedState));
+  const writeSpy = jest
+    .spyOn(PdfKitBridge, 'writeSidecar')
+    .mockResolvedValue(true);
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(async () => {
+    renderer = ReactTestRenderer.create(<App screenshotMode="library" />);
+  });
+  await ReactTestRenderer.act(async () => {
+    await Promise.resolve();
+  });
+
+  const output = JSON.stringify(renderer?.toJSON());
+  expect(readSpy).not.toHaveBeenCalled();
+  expect(writeSpy).not.toHaveBeenCalled();
+  expect(output).toContain('Library');
+  expect(output).toContain('Q4 Market Analysis Report');
+  expect(output).not.toContain('Persisted Imported PDF');
+  expect(output).not.toContain('Viewer screen Persisted Imported PDF');
 });
 
 test('renders real PDF thumbnail rail pages from cached page images', async () => {

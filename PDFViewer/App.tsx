@@ -113,23 +113,25 @@ const initialAnnotations: Annotation[] = [
   }),
 ];
 
-function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps) {
+function App({screenshotMode, forceCompactLayout = false}: AppProps) {
+  const isScreenshotLaunch = screenshotMode !== undefined;
+  const initialScreenshotMode = screenshotMode ?? 'library';
   const [libraryState, dispatchLibrary] = useReducer(
     libraryReducer,
     createInitialLibraryState(),
   );
   const [filter, setFilter] = useState<LibraryFilter>(initialFilter);
   const [screenMode, setScreenMode] = useState<ScreenMode>(() =>
-    getInitialScreenMode(screenshotMode),
+    getInitialScreenMode(initialScreenshotMode),
   );
   const [selectedDocumentId, setSelectedDocumentId] = useState(
-    getInitialDocumentId(screenshotMode),
+    getInitialDocumentId(initialScreenshotMode),
   );
   const selectedDocument =
     libraryState.documents.find(document => document.id === selectedDocumentId) ??
     libraryState.documents[0];
   const [viewerState, setViewerState] = useState<ViewerState>(() =>
-    createInitialViewerStateForMode(selectedDocument, screenshotMode),
+    createInitialViewerStateForMode(selectedDocument, initialScreenshotMode),
   );
   const [annotations, setAnnotations] =
     useState<Annotation[]>(initialAnnotations);
@@ -350,16 +352,18 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
       let activeState =
         initialPersistedSnapshotRef.current ?? createPersistedAppState();
 
-      try {
-        const rawState = await PdfKitBridge.readSidecar(APP_STATE_SIDECAR_ID);
-        const persisted = parsePersistedAppState(rawState);
+      if (!isScreenshotLaunch) {
+        try {
+          const rawState = await PdfKitBridge.readSidecar(APP_STATE_SIDECAR_ID);
+          const persisted = parsePersistedAppState(rawState);
 
-        if (!isCancelled && persisted) {
-          activeState = persisted;
-          applyPersistedState(persisted);
+          if (!isCancelled && persisted) {
+            activeState = persisted;
+            applyPersistedState(persisted);
+          }
+        } catch {
+          // A corrupt or unavailable app-state sidecar should never block launch.
         }
-      } catch {
-        // A corrupt or unavailable app-state sidecar should never block launch.
       }
 
       try {
@@ -387,10 +391,14 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [isScreenshotLaunch]);
 
   useEffect(() => {
     if (!persistenceHydratedRef.current) {
+      return;
+    }
+
+    if (isScreenshotLaunch) {
       return;
     }
 
@@ -439,6 +447,7 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
     libraryState,
     screenMode,
     selectedDocumentId,
+    isScreenshotLaunch,
     signatures,
     viewerState,
   ]);
@@ -1113,9 +1122,8 @@ function MobileExperience({
         <View style={mobileStyles.header}>
           <View>
             <Text style={mobileStyles.appTitle}>Acacia</Text>
-            <Text style={mobileStyles.headerMeta}>PDF workspace</Text>
           </View>
-          <MobileButton label="Open" icon="+" primary onPress={onOpenFile} />
+          <MobileButton label="Open" icon="plus" primary onPress={onOpenFile} />
         </View>
         <View style={mobileStyles.searchBox}>
           <TextInput
@@ -1163,7 +1171,7 @@ function MobileExperience({
               label="All"
               active={filter.tagId === 'all'}
               testID="mobile-tag-all"
-              icon="🏷️"
+              icon="tag"
               onPress={() => onFilterChange({scope: 'library', tagId: 'all'})}
             />
             {tags.map(tag => (
@@ -1172,7 +1180,6 @@ function MobileExperience({
                 label={tag.label}
                 active={filter.tagId === tag.id}
                 tone={tag.tone}
-                icon={tagEmoji(tag.id)}
                 testID={`mobile-tag-${tag.id}`}
                 onPress={() =>
                   onFilterChange({scope: 'library', tagId: tag.id})
@@ -1184,7 +1191,7 @@ function MobileExperience({
             <>
               <View style={mobileStyles.sectionHeader}>
                 <Text style={mobileStyles.sectionTitle}>Continue Reading</Text>
-                <MobileButton label="Compare" icon="↔️" onPress={onCompare} />
+                <Text style={mobileStyles.headerMeta}>{continueReading.length} in progress</Text>
               </View>
               <ScrollView
                 horizontal
@@ -1302,27 +1309,27 @@ function MobileViewer({
             style={mobileStyles.viewerToolRail}
             contentContainerStyle={mobileStyles.viewerToolScroller}>
             <MobileButton
-              label="Highlight"
-              icon="🖍"
+            label="Highlight"
+              icon="highlighter"
               primary
               testID="mobile-highlight"
               onPress={() => onSelectTool('highlight')}
             />
             <MobileButton
-              label="Note"
-              icon="💬"
+            label="Note"
+              icon="comment"
               testID="mobile-note"
               onPress={() => onSelectTool('comment')}
             />
             <MobileButton
-              label="Draw"
-              icon="✏️"
+            label="Draw"
+              icon="pen"
               testID="mobile-draw"
               onPress={() => onSelectTool('pen')}
             />
             <MobileButton
-              label="Sign"
-              icon="✍️"
+            label="Sign"
+              icon="signature"
               testID="mobile-signature"
               onPress={() => onSelectTool('signature')}
             />
@@ -1858,8 +1865,16 @@ function TitleBar({
     <View style={styles.titleBar}>
       {isLibrary ? (
         <View style={styles.titleBlock}>
-          <Text style={styles.titleText}>Library</Text>
-          <Text style={styles.titleMeta}>{documentCount} documents</Text>
+          <View
+            style={styles.appBrand}
+            accessible
+            accessibilityLabel={`Acacia library, ${documentCount} documents`}>
+            <View style={styles.appMark}>
+              <Text style={styles.appMarkText}>A</Text>
+            </View>
+            <Text style={styles.appName}>Acacia</Text>
+            <Text style={styles.commandHint}>⌘K</Text>
+          </View>
         </View>
       ) : (
         <View style={styles.readerTitleBlock}>
@@ -1920,7 +1935,7 @@ function TitleBar({
       {isLibrary ? (
         <ButtonChrome
           label="Open PDF"
-          icon="📂"
+          icon="plus"
           onPress={onOpenFile}
           primary
           testID="open-file-button"
@@ -2010,8 +2025,8 @@ function LibraryScreen({
           <SegmentedControl
             value={filter.viewMode}
             options={[
-              {label: '▦ Grid', value: 'grid'},
-              {label: '☰ List', value: 'list'},
+              {label: 'Grid', value: 'grid'},
+              {label: 'List', value: 'list'},
             ]}
             onChange={value =>
               onFilterChange({viewMode: value as LibraryFilter['viewMode']})
@@ -2020,15 +2035,15 @@ function LibraryScreen({
           />
           <View style={styles.toolbarRight}>
             <ButtonChrome
-              label={`Sort: ${sortLabel(filter.sortBy)}`}
-              icon="🧭"
+              label={sortLabel(filter.sortBy)}
+              icon="sort"
               onPress={() => onFilterChange({sortBy: nextSort(filter.sortBy)})}
               testID="sort-last-opened-button"
               tooltip="Cycle library sorting"
             />
             <ButtonChrome
-              label={filterCount > 0 ? `Filters (${filterCount})` : 'Filters'}
-              icon="🎛️"
+              label={filterCount > 0 ? `Filter ${filterCount}` : 'Filter'}
+              icon="filter"
               onPress={onToggleFilterPanel}
               active={filterPanelOpen}
               testID="filter-button"
@@ -2041,7 +2056,7 @@ function LibraryScreen({
             />
             <ButtonChrome
               label="Open PDF"
-              icon="📂"
+              icon="plus"
               onPress={onOpenFile}
               primary
               testID="toolbar-open-file-button"
@@ -2172,7 +2187,13 @@ function LibraryResultsSummary({
       accessible
       accessibilityLabel={`Library results summary: ${summaryText}`}
       style={styles.summaryStrip}>
-      <Text style={styles.summaryIcon}>{scopeIcon(filter.scope)}</Text>
+      <View style={styles.summaryIcon}>
+        <Icon
+          name={scopeIconName(filter.scope)}
+          size={16}
+          color={acacia.color.ink3}
+        />
+      </View>
       <View style={styles.summaryBody}>
         <Text
           testID="library-results-summary-text"
@@ -2221,7 +2242,9 @@ function LibraryEmptyState({
       accessible
       accessibilityLabel="No documents found"
       style={styles.emptyState}>
-      <Text style={styles.emptyStateIcon}>🔎</Text>
+      <View style={styles.emptyStateIcon}>
+        <Icon name="search" size={20} color={acacia.color.ink3} />
+      </View>
       <Text style={styles.emptyStateTitle}>No documents found</Text>
       <Text style={styles.emptyStateCopy}>
         Try a broader search, clear the active filters, or import a local PDF.
@@ -2229,14 +2252,14 @@ function LibraryEmptyState({
       <View style={styles.emptyStateActions}>
         <ButtonChrome
           label="Clear Filters"
-          icon="🧹"
+          icon="trash"
           onPress={onClearFilters}
           testID="clear-empty-state-filters"
           flush
         />
         <ButtonChrome
           label="Open PDF"
-          icon="📂"
+          icon="plus"
           onPress={onOpenFile}
           primary
           testID="empty-state-open-file"
@@ -2502,27 +2525,27 @@ function CompareScreen({
       <View style={styles.readerToolbar} testID="compare-toolbar">
         <ButtonChrome
           label="Library"
-          icon="🗂️"
+          icon="arrow_left"
           onPress={onBack}
           testID="compare-library-button"
         />
         <ButtonChrome
           label="Compare"
-          icon="↔️"
+          icon="compare"
           onPress={() => onViewerAction({type: 'setInspectorTab', tab: 'changes'})}
           primary
           testID="compare-mode-button"
         />
         <ButtonChrome
           label={syncedScroll ? 'Sync On' : 'Sync Off'}
-          icon={syncedScroll ? '🔗' : '○'}
+          icon={syncedScroll ? 'link' : 'minus'}
           onPress={onToggleSyncedScroll}
           testID="sync-scroll-button"
         />
         <View style={styles.pageStepper}>
           <ButtonChrome
             label="Previous page"
-            icon="◀️"
+            icon="chevron_left"
             compact
             onPress={() =>
               onViewerAction({type: 'setPage', pageIndex: viewer.pageIndex - 1})
@@ -2536,7 +2559,7 @@ function CompareScreen({
           </View>
           <ButtonChrome
             label="Next page"
-            icon="▶️"
+            icon="chevron_right"
             compact
             onPress={() =>
               onViewerAction({type: 'setPage', pageIndex: viewer.pageIndex + 1})
@@ -2660,7 +2683,7 @@ function Sidebar({
           accessibilityRole="button"
           style={styles.sidebarTag}
           onPress={() => onSelectTag(tag.id)}>
-          <Text style={styles.sidebarEmoji}>{tagEmoji(tag.id)}</Text>
+          <View style={[styles.tagDot, toneStyle(tag.tone)]} />
           <Text
             style={[
               styles.sidebarText,
@@ -2677,7 +2700,7 @@ function Sidebar({
         accessibilityRole="button"
         style={styles.sidebarTag}
         onPress={() => onSelectTag('all')}>
-        <Text style={styles.sidebarEmoji}>🏷️</Text>
+        <Icon name="tag" size={14} color={acacia.color.ink4} style={styles.sidebarIconFrame} />
         <Text
           style={[
             styles.sidebarText,
@@ -2709,12 +2732,12 @@ function Sidebar({
           style={styles.collectionItem}
           onPress={() => onSelectCollection(collection.id)}>
           <Text
-            style={[
-              styles.sidebarText,
-              selectedCollectionId === collection.id &&
-                styles.sidebarTextActive,
-            ]}>
-            📁 {collection.label}
+          style={[
+            styles.sidebarText,
+            selectedCollectionId === collection.id &&
+              styles.sidebarTextActive,
+          ]}>
+            {collection.label}
           </Text>
           <Text style={styles.collectionCount}>{collection.count}</Text>
         </Pressable>
@@ -2776,7 +2799,7 @@ function FilterPanel({
         <Text style={styles.filterLabel}>Tags</Text>
         <ButtonChrome
           label="All"
-          icon="🏷️"
+          icon="tag"
           compact={false}
           active={filter.tagId === 'all'}
           onPress={() => onFilterChange({tagId: 'all'})}
@@ -2786,7 +2809,7 @@ function FilterPanel({
           <ButtonChrome
             key={tag.id}
             label={tag.label}
-            icon={tagEmoji(tag.id)}
+            icon="tag"
             active={filter.tagId === tag.id}
             onPress={() => onFilterChange({scope: 'library', tagId: tag.id})}
             testID={`filter-tag-${tag.id}`}
@@ -2797,7 +2820,7 @@ function FilterPanel({
         <Text style={styles.filterLabel}>Collections</Text>
         <ButtonChrome
           label="All"
-          icon="🗂️"
+          icon="library"
           active={filter.collectionId === 'all'}
           onPress={() => onFilterChange({collectionId: 'all'})}
           testID="filter-collection-all"
@@ -2806,7 +2829,7 @@ function FilterPanel({
           <ButtonChrome
             key={collection.id}
             label={`${collection.label} (${collection.count})`}
-            icon="📁"
+            icon="folder"
             active={filter.collectionId === collection.id}
             onPress={() =>
               onFilterChange({scope: 'library', collectionId: collection.id})
@@ -2817,7 +2840,7 @@ function FilterPanel({
       </View>
       <ButtonChrome
         label="Clear"
-        icon="🧹"
+        icon="trash"
         onPress={onClearFilters}
         testID="clear-filters-button"
         tooltip="Clear all library filters"
@@ -2974,10 +2997,22 @@ function PdfCover({
         large && styles.coverLarge,
         coverToneStyle(document.thumbnailTone),
       ]}>
-      <Text numberOfLines={3} style={[styles.coverTitle, large && styles.coverTitleLarge]}>
+      <Text
+        numberOfLines={3}
+        style={[
+          styles.coverTitle,
+          document.thumbnailTone === 'navy' && styles.coverTitleInverse,
+          large && styles.coverTitleLarge,
+        ]}>
         {document.title}
       </Text>
-      <Text style={styles.coverAuthor}>{document.author}</Text>
+      <Text
+        style={[
+          styles.coverAuthor,
+          document.thumbnailTone === 'navy' && styles.coverAuthorInverse,
+        ]}>
+        {document.author}
+      </Text>
       {large && document.progress > 0 ? (
         <Text style={styles.progressBadge}>
           {Math.round(document.progress * 100)}%
@@ -3036,25 +3071,25 @@ function LibraryInspector({
       <Text style={styles.inspectorCaption}>Quick Actions</Text>
       <ActionRow
         label="Open"
-        icon="↗"
+        icon="arrow_up_right"
         onPress={onOpen}
         testID="inspector-open-action"
       />
       <ActionRow
         label="Share"
-        icon="⇧"
+        icon="share"
         onPress={onShare}
         testID="inspector-share-action"
       />
       <ActionRow
         label={document.favorite ? 'Remove Favorite' : 'Add to Favorites'}
-        icon="★"
+        icon="star"
         onPress={onToggleFavorite}
         testID="inspector-favorite-action"
       />
       <ActionRow
         label="Compare Versions"
-        icon="⇄"
+        icon="compare"
         onPress={onCompare}
         testID="inspector-compare-action"
       />
@@ -3076,20 +3111,20 @@ function ReaderToolbar({
   onSelectTool: (tool: ViewerTool) => void;
 }) {
   const tools: Array<{label: string; icon: string; value: ViewerTool}> = [
-    {label: 'Select', icon: '↖️', value: 'select'},
-    {label: 'Hand', icon: '✋', value: 'pan'},
-    {label: 'Text', icon: 'A', value: 'text'},
-    {label: 'Highlight', icon: '🖍', value: 'highlight'},
-    {label: 'Comment', icon: '💬', value: 'comment'},
-    {label: 'Pen', icon: '✏️', value: 'pen'},
-    {label: 'Sign', icon: '✍️', value: 'signature'},
+    {label: 'Select', icon: 'arrow_up_right', value: 'select'},
+    {label: 'Hand', icon: 'hand', value: 'pan'},
+    {label: 'Text', icon: 'text', value: 'text'},
+    {label: 'Highlight', icon: 'highlighter', value: 'highlight'},
+    {label: 'Comment', icon: 'comment', value: 'comment'},
+    {label: 'Pen', icon: 'pen', value: 'pen'},
+    {label: 'Sign', icon: 'signature', value: 'signature'},
   ];
 
   return (
     <View style={styles.readerToolbar} testID="reader-toolbar">
       <ButtonChrome
         label="Library"
-        icon="🗂️"
+        icon="arrow_left"
         onPress={onBack}
         compact
         testID="viewer-library-button"
@@ -3118,7 +3153,7 @@ function ReaderToolbar({
       <View style={styles.pageStepper}>
         <ButtonChrome
           label="Previous page"
-          icon="◀️"
+          icon="chevron_left"
           compact
           onPress={() =>
             onAction({type: 'setPage', pageIndex: viewer.pageIndex - 1})
@@ -3144,7 +3179,7 @@ function ReaderToolbar({
         </View>
         <ButtonChrome
           label="Next page"
-          icon="▶️"
+          icon="chevron_right"
           compact
           onPress={() =>
             onAction({type: 'setPage', pageIndex: viewer.pageIndex + 1})
@@ -3170,7 +3205,7 @@ function ReaderToolbar({
       </View>
       <ButtonChrome
         label="Compare"
-        icon="↔️"
+        icon="compare"
         onPress={onCompare}
         primary
         compact
@@ -3479,57 +3514,57 @@ function ViewerInspector({
           <Text style={styles.inspectorCaption}>Quick Actions</Text>
           <ActionRow
             label="Add Note"
-            icon="💬"
+            icon="comment"
             badge={!canUseReviewFeatures ? 'Pro' : undefined}
             onPress={() => onSelectTool('comment')}
             testID="quick-action-add-note"
           />
           <ActionRow
             label="Highlight Text"
-            icon="🖍"
+            icon="highlighter"
             onPress={() => onSelectTool('highlight')}
             testID="quick-action-highlight"
           />
           <ActionRow
             label="Draw"
-            icon="✏️"
+            icon="pen"
             onPress={() => onSelectTool('pen')}
             testID="quick-action-draw"
           />
           <ActionRow
             label="Add Signature"
-            icon="✍️"
+            icon="signature"
             onPress={() => onSelectTool('signature')}
             testID="quick-action-signature"
           />
           <ActionRow
             label="Add Bookmark"
-            icon="🔖"
+            icon="bookmark"
             onPress={onAddBookmark}
             testID="quick-action-bookmark"
           />
           <Text style={styles.inspectorCaption}>Export</Text>
           <ActionRow
             label="Export as PNG"
-            icon="▧"
+            icon="doc"
             onPress={() => onExport('png')}
             testID="export-png-action"
           />
           <ActionRow
             label="Export as JPG"
-            icon="▧"
+            icon="doc"
             onPress={() => onExport('jpg')}
             testID="export-jpg-action"
           />
           <ActionRow
             label="Export as Text"
-            icon="Aa"
+            icon="text"
             onPress={() => onExport('text')}
             testID="export-text-action"
           />
           <ActionRow
             label="Export Annotated PDF"
-            icon="🧾"
+            icon="doc_lines"
             onPress={() => onExport('annotated')}
             testID="export-annotated-action"
           />
@@ -4419,16 +4454,20 @@ function mobileScopeLabel(scope: LibraryScope) {
 }
 
 function scopeIcon(scope: LibraryScope) {
+  return scopeIconName(scope);
+}
+
+function scopeIconName(scope: LibraryScope): IconName {
   switch (scope) {
     case 'recent':
-      return '🕘';
+      return 'clock';
     case 'favorites':
-      return '⭐';
+      return 'star';
     case 'shared':
-      return '📤';
+      return 'share';
     case 'library':
     default:
-      return '📚';
+      return 'library';
   }
 }
 
@@ -4716,17 +4755,17 @@ function isJestRuntime() {
 const styles = StyleSheet.create({
   window: {
     flex: 1,
-    backgroundColor: acacia.color.surface,
+    backgroundColor: acacia.color.paper,
   },
   titleBar: {
     position: 'relative',
-    height: 64,
+    height: 52,
     backgroundColor: acacia.color.paper,
     borderBottomColor: acacia.color.hairline,
     borderBottomWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 12,
     zIndex: 3,
   },
   trafficLights: {
@@ -4755,12 +4794,52 @@ const styles = StyleSheet.create({
     marginRight: 18,
   },
   titleBlock: {
-    width: 250,
+    width: 220,
+    paddingLeft: 58,
   },
-  readerTitleBlock: {
-    width: 430,
+  appBrand: {
+    height: 32,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  appMark: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    backgroundColor: acacia.color.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 9,
+  },
+  appMarkText: {
+    color: acacia.color.paper,
+    fontFamily: acacia.font.ui,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  appName: {
+    flex: 1,
+    color: acacia.color.ink,
+    fontFamily: acacia.font.ui,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  commandHint: {
+    color: acacia.color.ink4,
+    borderColor: acacia.color.hairline,
+    borderWidth: 1,
+    borderRadius: 5,
+    overflow: 'hidden',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    fontFamily: acacia.font.mono,
+    fontSize: 10,
+  },
+  readerTitleBlock: {
+    width: 370,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 58,
   },
   titleText: {
     color: acacia.color.ink,
@@ -4776,13 +4855,13 @@ const styles = StyleSheet.create({
   },
   searchBox: {
     flex: 1,
-    height: 36,
+    height: 30,
     borderColor: acacia.color.hairlineStrong,
     borderWidth: 1,
-    borderRadius: 9,
+    borderRadius: 7,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 13,
+    paddingHorizontal: 10,
     backgroundColor: acacia.color.paper,
     marginRight: 12,
   },
@@ -4806,23 +4885,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   sidebar: {
-    width: 224,
+    width: 232,
     backgroundColor: acacia.color.surface,
     borderRightColor: acacia.color.hairline,
     borderRightWidth: 1,
     paddingHorizontal: 14,
-    paddingTop: 14,
+    paddingTop: 12,
   },
   navItem: {
-    height: 36,
+    height: 28,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 8,
     borderRadius: 6,
     marginBottom: 6,
   },
   navItemActive: {
-    backgroundColor: acacia.color.hairline,
+    backgroundColor: acacia.color.sunken,
   },
   navText: {
     color: acacia.color.ink2,
@@ -4849,20 +4928,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   navCount: {
-    minWidth: 22,
-    color: '#697386',
-    backgroundColor: '#ECEFF5',
+    minWidth: 18,
+    color: acacia.color.ink3,
+    backgroundColor: 'transparent',
     borderRadius: 10,
     overflow: 'hidden',
     paddingHorizontal: 7,
     paddingVertical: 2,
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '600',
     textAlign: 'center',
   },
   navCountActive: {
     color: acacia.color.ink,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: acacia.color.paper,
   },
   navTextActive: {
     color: acacia.color.ink,
@@ -4870,13 +4949,15 @@ const styles = StyleSheet.create({
   },
   sidebarRule: {
     height: 1,
-    backgroundColor: '#DDE1E8',
+    backgroundColor: acacia.color.hairline,
     marginVertical: 14,
   },
   sidebarCaption: {
-    color: '#181D25',
-    fontSize: 12,
+    color: acacia.color.ink4,
+    fontFamily: acacia.font.mono,
+    fontSize: 11,
     fontWeight: '700',
+    textTransform: 'uppercase',
     marginBottom: 10,
   },
   sidebarTag: {
@@ -4891,8 +4972,12 @@ const styles = StyleSheet.create({
     marginRight: 6,
     textAlign: 'center',
   },
+  sidebarIconFrame: {
+    width: 22,
+    marginRight: 6,
+  },
   sidebarText: {
-    color: '#343B48',
+    color: acacia.color.ink2,
     fontSize: 13,
   },
   sidebarTextActive: {
@@ -4900,25 +4985,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   tagDot: {
-    width: 11,
-    height: 11,
-    borderRadius: 6,
-    marginRight: 10,
+    width: 12,
+    height: 12,
+    borderRadius: 4,
+    marginRight: 9,
   },
   blueDot: {
-    backgroundColor: '#2E74F5',
+    backgroundColor: acacia.color.blue,
   },
   greenDot: {
-    backgroundColor: '#4CC76A',
+    backgroundColor: acacia.color.green,
   },
   purpleDot: {
-    backgroundColor: '#9B62E8',
+    backgroundColor: acacia.color.gray,
   },
   amberDot: {
-    backgroundColor: '#F6AA2D',
+    backgroundColor: acacia.color.yellow,
   },
   redDot: {
-    backgroundColor: '#F2484B',
+    backgroundColor: acacia.color.rose,
   },
   grayDot: {
     backgroundColor: '#B5BBC5',
@@ -4962,15 +5047,16 @@ const styles = StyleSheet.create({
   },
   libraryMain: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingHorizontal: 28,
+    paddingTop: 26,
+    backgroundColor: acacia.color.paper,
   },
   libraryToolbar: {
-    height: 44,
+    height: 34,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 18,
+    marginBottom: 16,
   },
   toolbarRight: {
     flexDirection: 'row',
@@ -4985,36 +5071,33 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   summaryStrip: {
-    minHeight: 52,
-    borderColor: '#DCE4F2',
-    borderWidth: 1,
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    minHeight: 0,
+    borderColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 16,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    marginBottom: 20,
   },
   summaryIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    overflow: 'hidden',
-    color: '#1769E8',
-    backgroundColor: '#EAF1FF',
-    fontSize: 17,
-    lineHeight: 34,
-    textAlign: 'center',
-    marginRight: 12,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: acacia.color.sunken,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
   summaryBody: {
     flex: 1,
     minWidth: 0,
   },
   summaryText: {
-    color: '#273040',
-    fontSize: 13,
+    color: acacia.color.ink,
+    fontSize: 14,
     fontWeight: '700',
   },
   summaryStrong: {
@@ -5022,8 +5105,8 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   summaryHint: {
-    color: '#6A7484',
-    fontSize: 11,
+    color: acacia.color.ink3,
+    fontSize: 12,
     marginTop: 3,
   },
   summaryChips: {
@@ -5066,79 +5149,86 @@ const styles = StyleSheet.create({
     width: 76,
   },
   sectionTitle: {
-    color: '#171B22',
-    fontSize: 17,
+    color: acacia.color.ink,
+    fontSize: 15,
     fontWeight: '800',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   cardRow: {
     flexDirection: 'row',
     paddingBottom: 22,
   },
   documentCard: {
-    width: 158,
-    marginRight: 24,
+    width: 136,
+    marginRight: 20,
     marginBottom: 22,
   },
   documentCardSelected: {
     opacity: 1,
   },
   cover: {
-    width: 34,
-    height: 46,
-    borderColor: '#D8DDE6',
+    width: 32,
+    height: 44,
+    borderColor: acacia.color.hairlineStrong,
     borderWidth: 1,
-    borderRadius: 2,
+    borderRadius: 3,
     overflow: 'hidden',
     padding: 4,
   },
   coverLarge: {
-    width: 124,
-    height: 172,
+    width: 132,
+    height: 176,
     padding: 12,
     marginBottom: 10,
-    shadowColor: '#1F2937',
-    shadowOpacity: 0.14,
-    shadowRadius: 9,
-    shadowOffset: {width: 0, height: 6},
+    shadowColor: acacia.color.ink,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: {width: 0, height: 4},
   },
   coverPastel: {
-    backgroundColor: '#DDE8EE',
+    backgroundColor: acacia.color.surface,
   },
   coverNavy: {
-    backgroundColor: '#0F477A',
+    backgroundColor: acacia.color.ink,
   },
   coverIce: {
-    backgroundColor: '#EFF5FC',
+    backgroundColor: acacia.color.sunken,
   },
   coverRed: {
-    backgroundColor: '#FF424C',
+    backgroundColor: acacia.color.rose,
   },
   coverTeal: {
-    backgroundColor: '#E8F7F5',
+    backgroundColor: acacia.color.gray,
   },
   coverPaper: {
-    backgroundColor: '#FEFEFD',
+    backgroundColor: acacia.color.paper,
   },
   coverTitle: {
-    color: '#0F1730',
+    color: acacia.color.ink,
+    fontFamily: acacia.font.display,
     fontSize: 5,
     fontWeight: '800',
   },
   coverTitleLarge: {
     fontSize: 13,
   },
+  coverTitleInverse: {
+    color: acacia.color.paper,
+  },
   coverAuthor: {
-    color: '#374151',
+    color: acacia.color.ink4,
     fontSize: 4,
     marginTop: 3,
+  },
+  coverAuthorInverse: {
+    color: acacia.color.hairlineStrong,
   },
   progressBadge: {
     position: 'absolute',
     left: 10,
     bottom: 8,
-    color: '#203040',
-    backgroundColor: '#FFFFFF',
+    color: acacia.color.paper,
+    backgroundColor: acacia.color.ink,
     borderRadius: 4,
     overflow: 'hidden',
     paddingHorizontal: 5,
@@ -5147,19 +5237,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   cardTitle: {
-    color: '#1A1F29',
+    color: acacia.color.ink,
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 17,
     fontWeight: '700',
     marginTop: 4,
   },
   cardMeta: {
-    color: '#687282',
+    color: acacia.color.ink4,
     fontSize: 11,
     marginTop: 4,
   },
   recentHeader: {
-    borderTopColor: '#DADDE4',
+    borderTopColor: acacia.color.hairline,
     borderTopWidth: 1,
     paddingTop: 20,
     flexDirection: 'row',
@@ -5185,13 +5275,10 @@ const styles = StyleSheet.create({
   emptyStateIcon: {
     width: 44,
     height: 44,
-    color: '#1769E8',
-    backgroundColor: '#EAF1FF',
+    backgroundColor: acacia.color.sunken,
     borderRadius: 10,
-    overflow: 'hidden',
-    textAlign: 'center',
-    lineHeight: 44,
-    fontSize: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 14,
   },
   emptyStateTitle: {
@@ -5223,7 +5310,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   tableHeadText: {
-    color: '#4E5665',
+    color: acacia.color.ink4,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -5235,7 +5322,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   tableRowSelected: {
-    backgroundColor: '#F3F6FD',
+    backgroundColor: acacia.color.surface,
   },
   nameColumn: {
     flex: 2.1,
@@ -5306,10 +5393,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#EDF0F4',
   },
   inspector: {
-    width: 260,
-    borderLeftColor: '#DADDE4',
+    width: 282,
+    borderLeftColor: acacia.color.hairline,
     borderLeftWidth: 1,
-    backgroundColor: '#F8F9FB',
+    backgroundColor: acacia.color.surface,
     padding: 20,
   },
   inspectorTitle: {
@@ -5474,7 +5561,7 @@ const styles = StyleSheet.create({
     minHeight: 32,
     borderColor: acacia.color.hairlineStrong,
     borderWidth: 1,
-    borderRadius: 7,
+    borderRadius: 8,
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -5501,7 +5588,7 @@ const styles = StyleSheet.create({
   },
   buttonActive: {
     borderColor: acacia.color.ink,
-    backgroundColor: acacia.color.hairline,
+    backgroundColor: acacia.color.sunken,
   },
   buttonPressed: {
     opacity: 0.74,
@@ -5537,46 +5624,47 @@ const styles = StyleSheet.create({
   segmentedControl: {
     flexDirection: 'row',
     borderWidth: 1,
-    borderColor: '#CBD4E4',
-    borderRadius: 7,
+    borderColor: acacia.color.hairline,
+    borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
   },
   segment: {
-    minWidth: 64,
-    height: 32,
+    minWidth: 58,
+    height: 30,
     alignItems: 'center',
     justifyContent: 'center',
   },
   segmentActive: {
-    backgroundColor: '#EAF1FF',
+    backgroundColor: acacia.color.sunken,
   },
   segmentText: {
-    color: '#4C5564',
+    color: acacia.color.ink3,
     fontSize: 12,
     fontWeight: '700',
   },
   segmentTextActive: {
-    color: '#1769E8',
+    color: acacia.color.ink,
   },
   readerShell: {
     position: 'relative',
     flex: 1,
     overflow: 'hidden',
     zIndex: 0,
+    backgroundColor: acacia.color.paper,
   },
   readerToolbar: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 54,
+    height: 52,
     backgroundColor: acacia.color.paper,
     borderBottomColor: acacia.color.hairline,
     borderBottomWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     zIndex: 10,
   },
   zoomText: {
@@ -5588,8 +5676,8 @@ const styles = StyleSheet.create({
   pageStepper: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 14,
-    marginRight: 14,
+    marginLeft: 8,
+    marginRight: 8,
     flexShrink: 0,
   },
   pageMeter: {
@@ -5598,7 +5686,7 @@ const styles = StyleSheet.create({
     borderColor: acacia.color.hairlineStrong,
     borderWidth: 1,
     borderRadius: acacia.radius.md,
-    backgroundColor: acacia.color.surface,
+    backgroundColor: acacia.color.paper,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -5606,7 +5694,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   pageInput: {
-    width: 28,
+    width: 30,
     height: 30,
     color: '#1F2633',
     fontSize: 13,
@@ -5643,7 +5731,7 @@ const styles = StyleSheet.create({
   },
   readerBody: {
     position: 'absolute',
-    top: 54,
+    top: 52,
     right: 0,
     bottom: 52,
     left: 0,
@@ -5663,12 +5751,14 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 7,
     borderWidth: 0,
     marginBottom: 10,
   },
   thumbnailActive: {
     backgroundColor: acacia.color.sunken,
+    borderColor: 'transparent',
+    borderWidth: 0,
   },
   thumbnailImage: {
     width: 84,
@@ -6185,11 +6275,11 @@ const mobileStyles = StyleSheet.create({
     backgroundColor: acacia.color.paper,
   },
   header: {
-    minHeight: 68,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderBottomColor: acacia.color.hairline,
-    borderBottomWidth: 1,
+    minHeight: 58,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderBottomColor: 'transparent',
+    borderBottomWidth: 0,
     backgroundColor: acacia.color.paper,
     flexDirection: 'row',
     alignItems: 'center',
@@ -6198,7 +6288,7 @@ const mobileStyles = StyleSheet.create({
   appTitle: {
     color: acacia.color.ink,
     fontFamily: acacia.font.ui,
-    fontSize: 28,
+    fontSize: 18,
     fontWeight: '900',
   },
   headerMeta: {
@@ -6208,12 +6298,12 @@ const mobileStyles = StyleSheet.create({
     marginTop: 3,
   },
   searchBox: {
-    marginHorizontal: 16,
-    marginTop: 14,
+    marginHorizontal: 20,
+    marginTop: 8,
     height: 42,
-    borderColor: acacia.color.hairline,
-    borderWidth: 1,
-    borderRadius: 10,
+    borderColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 12,
     backgroundColor: acacia.color.sunken,
     justifyContent: 'center',
     paddingHorizontal: 12,
@@ -6225,7 +6315,7 @@ const mobileStyles = StyleSheet.create({
     padding: 0,
   },
   libraryContent: {
-    padding: 16,
+    padding: 20,
     paddingBottom: 32,
   },
   scopeScroller: {
@@ -6235,9 +6325,9 @@ const mobileStyles = StyleSheet.create({
     paddingBottom: 14,
   },
   tagButton: {
-    height: 34,
-    borderColor: acacia.color.hairline,
-    borderWidth: 1,
+    height: 32,
+    borderColor: 'transparent',
+    borderWidth: 0,
     borderRadius: 17,
     backgroundColor: acacia.color.sunken,
     paddingHorizontal: 12,
@@ -6273,11 +6363,11 @@ const mobileStyles = StyleSheet.create({
     marginLeft: 7,
   },
   tagCountActive: {
-    color: acacia.color.paper,
+    color: acacia.color.ink,
     backgroundColor: '#FFFFFF',
   },
   tagTextActive: {
-    color: '#1769E8',
+    color: acacia.color.paper,
   },
   sectionHeader: {
     marginTop: 6,
@@ -6303,18 +6393,18 @@ const mobileStyles = StyleSheet.create({
     paddingBottom: 20,
   },
   documentCard: {
-    width: 142,
-    minHeight: 236,
+    width: 126,
+    minHeight: 234,
     marginRight: 14,
-    borderColor: '#DFE4EC',
-    borderWidth: 1,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    padding: 10,
+    borderColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+    padding: 0,
   },
   documentCardSelected: {
-    borderColor: '#2E74F5',
-    backgroundColor: '#F4F8FF',
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
   },
   documentTitle: {
     color: '#18202D',
@@ -6329,15 +6419,15 @@ const mobileStyles = StyleSheet.create({
     marginTop: 3,
   },
   documentList: {
-    borderColor: '#DFE4EC',
-    borderWidth: 1,
-    borderRadius: 12,
+    borderColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
     backgroundColor: '#FFFFFF',
     overflow: 'hidden',
   },
   documentRow: {
-    minHeight: 82,
-    borderBottomColor: '#E6E9EF',
+    minHeight: 76,
+    borderBottomColor: acacia.color.hairline,
     borderBottomWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -6345,7 +6435,7 @@ const mobileStyles = StyleSheet.create({
     paddingVertical: 10,
   },
   rowSelected: {
-    backgroundColor: '#F4F8FF',
+    backgroundColor: acacia.color.surface,
   },
   documentRowBody: {
     flex: 1,
@@ -6363,7 +6453,7 @@ const mobileStyles = StyleSheet.create({
     fontWeight: '800',
   },
   topBar: {
-    minHeight: 68,
+    minHeight: 58,
     borderBottomColor: acacia.color.hairline,
     borderBottomWidth: 1,
     backgroundColor: acacia.color.paper,
@@ -6382,7 +6472,7 @@ const mobileStyles = StyleSheet.create({
     fontWeight: '900',
   },
   viewerToolbar: {
-    height: 52,
+    height: 48,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -6411,11 +6501,13 @@ const mobileStyles = StyleSheet.create({
     paddingRight: 2,
   },
   mobileCanvasFrame: {
-    height: 430,
-    margin: 12,
-    borderColor: '#DADDE4',
-    borderWidth: 1,
-    borderRadius: 12,
+    height: 458,
+    marginHorizontal: 0,
+    marginTop: 0,
+    marginBottom: 10,
+    borderColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
     overflow: 'hidden',
     backgroundColor: acacia.color.sunken,
   },
@@ -6444,12 +6536,12 @@ const mobileStyles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   pageMeter: {
-    minWidth: 86,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: acacia.color.sunken,
-    borderColor: acacia.color.hairline,
-    borderWidth: 1,
+    minWidth: 72,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: acacia.color.paper,
+    borderColor: 'transparent',
+    borderWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 14,
@@ -6479,8 +6571,8 @@ const mobileStyles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
     backgroundColor: acacia.color.paper,
     paddingHorizontal: 20,
     paddingTop: 12,
