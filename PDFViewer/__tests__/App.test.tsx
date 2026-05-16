@@ -60,6 +60,16 @@ function localHighlightCommentItems(renderer: ReactTestRenderer.ReactTestRendere
   );
 }
 
+function highlightAnnotationIds(renderer: ReactTestRenderer.ReactTestRenderer) {
+  return renderer.root
+    .findAll(
+      instance =>
+        typeof instance.props.testID === 'string' &&
+        instance.props.testID.startsWith('pdf-annotation-highlight-'),
+    )
+    .map(instance => instance.props.testID as string);
+}
+
 afterEach(() => {
   jest.restoreAllMocks();
 });
@@ -196,6 +206,50 @@ test('mobile viewer controls page, zoom, and highlight state', async () => {
   expect(JSON.stringify(renderer?.toJSON())).toContain(
     'comment-item-local-highlight',
   );
+});
+
+test('mobile highlights created in the same tick receive unique keys', async () => {
+  jest.spyOn(Date, 'now').mockReturnValue(1770000000000);
+  const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App forceCompactLayout />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findByProps({testID: 'mobile-doc-row-q4-market-analysis'})
+      .props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'mobile-highlight'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props.onResponderRelease({
+      nativeEvent: {locationX: 150, locationY: 220},
+    });
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props.onResponderRelease({
+      nativeEvent: {locationX: 170, locationY: 240},
+    });
+  });
+
+  const annotationIds = highlightAnnotationIds(renderer!);
+  const duplicateKeyWarnings = consoleErrorSpy.mock.calls.filter(call =>
+    call.some(
+      argument =>
+        typeof argument === 'string' &&
+        argument.includes('Encountered two children with the same key'),
+    ),
+  );
+
+  expect(new Set(annotationIds).size).toBe(2);
+  expect(duplicateKeyWarnings).toHaveLength(0);
 });
 
 test('mobile demo canvas scrolling updates the visible page state', async () => {

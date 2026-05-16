@@ -160,6 +160,7 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
   const lastViewerSearchKeyRef = useRef('');
+  const localIdSequenceRef = useRef(0);
   const initialPersistedSnapshotRef = useRef<
     ReturnType<typeof createPersistedAppState> | undefined
   >(undefined);
@@ -464,11 +465,26 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
     }
   }
 
+  function nextLocalId(prefix: string) {
+    const existingIds = new Set([
+      ...annotations.map(annotation => annotation.id),
+      ...signatures.map(signature => signature.id),
+    ]);
+    let candidate = '';
+
+    do {
+      localIdSequenceRef.current += 1;
+      candidate = `${prefix}-${Date.now()}-${localIdSequenceRef.current}`;
+    } while (existingIds.has(candidate));
+
+    return candidate;
+  }
+
   function addCanvasAnnotation(request: CanvasAnnotationRequest) {
     const signature = signatures.find(item => item.id === activeSignatureId) ?? signatures[0];
     const copy = annotationCopyForRequest(request, signature?.value);
     const annotation = createAnnotation({
-      id: `${request.kind}-${Date.now()}`,
+      id: nextLocalId(request.kind),
       documentId: selectedDocument.id,
       pageIndex: request.pageIndex,
       kind: request.kind,
@@ -497,7 +513,7 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
 
   function addBookmark() {
     const annotation = createAnnotation({
-      id: `bookmark-${Date.now()}`,
+      id: nextLocalId('bookmark'),
       documentId: selectedDocument.id,
       pageIndex: viewerState.pageIndex,
       kind: 'bookmark',
@@ -563,7 +579,7 @@ function App({screenshotMode = 'library', forceCompactLayout = false}: AppProps)
       }
 
       const signature = {
-        id: `signature-${Date.now()}`,
+        id: nextLocalId('signature'),
         label: trimmedValue,
         value: trimmedValue,
         updatedAt,
