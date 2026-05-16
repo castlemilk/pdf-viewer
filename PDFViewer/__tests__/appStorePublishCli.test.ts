@@ -104,7 +104,8 @@ describe('App Store CLI publishing pipeline', () => {
     expect(buildScript).toContain('Signing:');
     expect(buildScript).toContain('Xcode account');
     expect(buildScript).toContain('App Store Connect API key');
-    expect(buildScript).toContain('repair_react_native_privacy_bundles');
+    expect(buildScript).toContain('repair_react_native_resource_bundles');
+    expect(buildScript).toContain("-name '*.bundle'");
     expect(buildScript).toContain("codesign --remove-signature");
     expect(prereqsScript).toContain('Mac App Store export will use the signed-in Xcode account.');
   });

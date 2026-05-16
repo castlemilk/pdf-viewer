@@ -81,7 +81,7 @@ if [[ "$USE_XCODE_ACCOUNT_SIGNING" != "1" ]]; then
   )
 fi
 
-repair_react_native_privacy_bundles() {
+repair_react_native_resource_bundles() {
   local app_path="$1"
   [[ -d "$app_path" ]] || return 0
 
@@ -91,10 +91,10 @@ repair_react_native_privacy_bundles() {
       /usr/bin/codesign --remove-signature "$bundle_path" || true
       repaired=$((repaired + 1))
     fi
-  done < <(/usr/bin/find "$app_path" -maxdepth 2 -type d -name '*_privacy.bundle' -print0)
+  done < <(/usr/bin/find "$app_path" -maxdepth 2 -type d -name '*.bundle' -print0)
 
   if [[ "$repaired" -gt 0 ]]; then
-    echo "[archive] Removed stale signatures from $repaired React Native privacy bundles before export"
+    echo "[archive] Removed stale signatures from $repaired React Native resource bundles before export"
   fi
 }
 
@@ -176,7 +176,7 @@ else
   echo "[archive] Reusing existing archive because --skip-archive is set"
 fi
 
-repair_react_native_privacy_bundles "$ARCHIVE_PATH/Products/Applications/Acacia.app"
+repair_react_native_resource_bundles "$ARCHIVE_PATH/Products/Applications/Acacia.app"
 
 echo "[export] $DESTINATION via xcodebuild -exportArchive"
 EXPORT_ARGS=(
