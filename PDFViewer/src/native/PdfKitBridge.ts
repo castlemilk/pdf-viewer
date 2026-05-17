@@ -3,7 +3,7 @@ import {
   NativeEventEmitter,
   NativeModules,
 } from 'react-native';
-import type {Annotation, CompareSummary, DocumentRecord} from '../domain/types';
+import type {Annotation, CompareSummary, DocumentRecord, PdfRect} from '../domain/types';
 
 export type ImportedPdf = {
   id: string;
@@ -25,7 +25,7 @@ type NativePdfKitBridge = {
     path: string,
     bookmark: string,
     query: string,
-  ) => Promise<Array<{pageIndex: number; snippet: string}>>;
+  ) => Promise<Array<{pageIndex: number; snippet: string; bounds?: PdfRect[]}>>;
   exportPageImage?: (
     path: string,
     bookmark: string,
@@ -47,6 +47,10 @@ type NativePdfKitBridge = {
     path: string,
     bookmark: string,
     annotations: Annotation[],
+  ) => Promise<string>;
+  exportMarkdown?: (
+    path: string,
+    bookmark: string,
   ) => Promise<string>;
   compareDocuments?: (
     leftPath: string,
@@ -123,6 +127,10 @@ export const PdfKitBridge = {
     bookmark = '',
   ) {
     return nativeBridge?.exportAnnotatedCopy?.(path, bookmark, annotations);
+  },
+
+  async exportMarkdown(path: string, bookmark = '') {
+    return nativeBridge?.exportMarkdown?.(path, bookmark);
   },
 
   async compareDocuments(leftPath: string, rightPath: string) {

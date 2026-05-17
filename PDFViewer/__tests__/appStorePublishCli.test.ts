@@ -94,12 +94,18 @@ describe('App Store CLI publishing pipeline', () => {
       path.join(appRoot, 'scripts', 'build-app-store-archive.sh'),
       'utf8',
     );
+    const keychainScript = readFileSync(
+      path.join(appRoot, 'scripts', 'prepare-apple-build-keychain.sh'),
+      'utf8',
+    );
     const prereqsScript = readFileSync(
       path.join(appRoot, 'scripts', 'check-publishing-prereqs.sh'),
       'utf8',
     );
 
     expect(buildScript).toContain('APP_STORE_EXPORT_USE_XCODE_ACCOUNT');
+    expect(buildScript).toContain('prepare-apple-build-keychain.sh');
+    expect(buildScript).toContain('OTHER_CODE_SIGN_FLAGS=--keychain $APPLE_BUILD_KEYCHAIN_PATH');
     expect(buildScript).toContain('AUTHENTICATION_ARGS=()');
     expect(buildScript).toContain('Signing:');
     expect(buildScript).toContain('Xcode account');
@@ -107,6 +113,12 @@ describe('App Store CLI publishing pipeline', () => {
     expect(buildScript).toContain('repair_react_native_resource_bundles');
     expect(buildScript).toContain("-name '*.bundle'");
     expect(buildScript).toContain("codesign --remove-signature");
+    expect(keychainScript).toContain('acacia-build.keychain-db');
+    expect(keychainScript).toContain('acacia-build.keychain.password');
+    expect(keychainScript).toContain('security unlock-keychain -p "$ACACIA_KEYCHAIN_PASSWORD"');
+    expect(keychainScript).toContain('security set-key-partition-list -S apple-tool:,apple:,codesign:');
+    expect(keychainScript).toContain('security list-keychains -d user -s "${keychains[@]}"');
+    expect(keychainScript).toContain('refusing to continue because macOS would otherwise show a GUI keychain prompt');
     expect(prereqsScript).toContain('Mac App Store export will use the signed-in Xcode account.');
   });
 
@@ -143,6 +155,8 @@ describe('App Store CLI publishing pipeline', () => {
 
     expect(iosBuildScript).toContain('generic/platform=iOS');
     expect(iosBuildScript).toContain('APP_STORE_EXPORT_USE_XCODE_ACCOUNT');
+    expect(iosBuildScript).toContain('prepare-apple-build-keychain.sh');
+    expect(iosBuildScript).toContain('OTHER_CODE_SIGN_FLAGS=--keychain $APPLE_BUILD_KEYCHAIN_PATH');
     expect(iosBuildScript).toContain('PRODUCT_BUNDLE_IDENTIFIER=$BUNDLE_ID');
     expect(iosBuildScript).toContain("platform: 'IOS'");
     expect(iosBuildScript).toContain('Acacia-iOS-${VERSION}-${BUILD_NUMBER}.xcarchive');

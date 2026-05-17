@@ -115,6 +115,43 @@ test('fallback PDF canvas positions annotations from canonical page coordinates'
   );
 });
 
+test('fallback PDF canvas renders transient search highlights separately from annotations', async () => {
+  const document = demoDocuments[0];
+  const viewer = createInitialViewerState(document.id, document.pageCount);
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(
+      <PdfCanvas
+        document={document}
+        viewer={viewer}
+        annotations={[]}
+        searchHighlights={[
+          {
+            id: 'match-1',
+            pageIndex: 0,
+            bounds: {x: 128, y: 240, width: 220, height: 22},
+          },
+        ]}
+      />,
+    );
+  });
+
+  const highlight = renderer!.root.findByProps({
+    testID: 'pdf-search-highlight-match-1',
+  });
+
+  expect(StyleSheet.flatten(highlight.props.style)).toEqual(
+    expect.objectContaining({
+      left: '21.5126%',
+      top: '28.5036%',
+      width: '36.9748%',
+      height: '2.6128%',
+      backgroundColor: 'rgba(247, 214, 74, 0.58)',
+    }),
+  );
+});
+
 test('fallback PDF canvas creates drag-sized highlight bounds', async () => {
   const document = demoDocuments[0];
   const viewer = {
@@ -167,6 +204,55 @@ test('fallback PDF canvas creates drag-sized highlight bounds', async () => {
     }),
   });
   expect(onCreateAnnotation.mock.calls[0][0].bounds.width).toBeGreaterThan(160);
+});
+
+test('fallback PDF canvas previews the active signature at the pointer before stamping', async () => {
+  const document = demoDocuments[0];
+  const viewer = {
+    ...createInitialViewerState(document.id, document.pageCount),
+    activeTool: 'signature' as const,
+  };
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(
+      <PdfCanvas
+        document={document}
+        viewer={viewer}
+        annotations={[]}
+        signaturePreviewText="Ben Ebsworth"
+      />,
+    );
+  });
+
+  const canvas = renderer!.root.findByProps({testID: 'pdf-canvas-fallback'});
+  await ReactTestRenderer.act(() => {
+    canvas.props.onLayout({
+      nativeEvent: {layout: {width: 760, height: 580}},
+    });
+  });
+
+  const hitbox = renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'});
+  await ReactTestRenderer.act(() => {
+    hitbox.props.onResponderGrant({
+      nativeEvent: {locationX: 210, locationY: 320},
+    });
+    hitbox.props.onResponderMove({
+      nativeEvent: {locationX: 240, locationY: 340},
+    });
+  });
+
+  const preview = renderer!.root.findByProps({
+    testID: 'pdf-signature-preview',
+  });
+
+  expect(preview.props.children.props.children).toBe('Ben Ebsworth');
+  expect(StyleSheet.flatten(preview.props.style)).toEqual(
+    expect.objectContaining({
+      left: 186,
+      top: 316,
+    }),
+  );
 });
 
 test('fallback PDF canvas maps zoomed visual highlight gestures back to page coordinates', async () => {

@@ -103,4 +103,51 @@ describe('native PDFKit highlight placement', () => {
     expect(macCanvas).toContain('_drawingPanRecognizer.enabled = [kind isEqualToString:@"drawing"]');
     expect(macCanvas).toContain('shouldRecognizeSimultaneouslyWithGestureRecognizer');
   });
+
+  it('macOS canvas shows a pointer-following signature preview before stamping', () => {
+    const macCanvas = readFileSync(
+      path.join(__dirname, '..', 'macos/PDFViewer-macOS/PdfCanvasViewManager.mm'),
+      'utf8',
+    );
+
+    expect(macCanvas).toContain('signaturePreviewText');
+    expect(macCanvas).toContain('NSTrackingArea');
+    expect(macCanvas).toContain('mouseMoved:');
+    expect(macCanvas).toContain('updateSignaturePreviewAtPoint');
+    expect(macCanvas).toContain('_signaturePreviewLabel.hidden = NO');
+  });
+
+  it('native search returns page-space bounds for transient match highlights', () => {
+    const macBridge = readFileSync(
+      path.join(__dirname, '..', 'macos/PDFViewer-macOS/PdfKitBridge.mm'),
+      'utf8',
+    );
+    const iosBridge = readFileSync(
+      path.join(__dirname, '..', 'ios/PDFViewer/PdfKitBridge.m'),
+      'utf8',
+    );
+
+    for (const source of [macBridge, iosBridge]) {
+      expect(source).toContain('searchBounds');
+      expect(source).toContain('selectionsByLine');
+      expect(source).toContain('AcaciaCanonicalBoundsForPDFBounds');
+      expect(source).toContain('@"bounds": searchBounds');
+    }
+  });
+
+  it('macOS markdown export invokes the MarkItDown local-file converter', () => {
+    const macBridge = readFileSync(
+      path.join(__dirname, '..', 'macos/PDFViewer-macOS/PdfKitBridge.mm'),
+      'utf8',
+    );
+    const tsBridge = readFileSync(
+      path.join(__dirname, '..', 'src/native/PdfKitBridge.ts'),
+      'utf8',
+    );
+
+    expect(macBridge).toContain('exportMarkdown:(NSString *)path');
+    expect(macBridge).toContain('markitdown');
+    expect(macBridge).toContain('convert_local');
+    expect(tsBridge).toContain('exportMarkdown?.(path, bookmark)');
+  });
 });

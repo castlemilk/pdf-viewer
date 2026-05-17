@@ -6,6 +6,7 @@ import React from 'react';
 import {Alert, StyleSheet} from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import App from '../App';
+import {createInitialLibraryState} from '../src/domain';
 import {importedPdfToDocument, PdfKitBridge} from '../src/native/PdfKitBridge';
 
 function pressSidebarItem(
@@ -113,6 +114,73 @@ test('hides account storage quota while signed out', async () => {
   ).toHaveLength(0);
 });
 
+test('hides account storage quota for signed-in free accounts', async () => {
+  const persistedAt = '2026-05-13T08:30:00.000Z';
+  const libraryState = {
+    ...createInitialLibraryState(),
+    storageUsedGb: 4.5,
+    storageLimitGb: 10,
+  };
+  const persistedState = {
+    schemaVersion: 1,
+    libraryState,
+    filter: {
+      query: '',
+      tagId: 'all',
+      collectionId: 'all',
+      scope: 'library',
+      sortBy: 'lastOpened',
+      viewMode: 'grid',
+    },
+    screenMode: 'library',
+    selectedDocumentId: 'q4-market-analysis',
+    viewerState: {
+      documentId: 'q4-market-analysis',
+      pageCount: 32,
+      pageIndex: 0,
+      zoom: 1,
+      activeTool: 'select',
+      inspectorTab: 'info',
+      showThumbnails: true,
+      searchQuery: '',
+    },
+    annotations: [],
+    signatures: [],
+    activeSignatureId: '',
+    accountState: {signedIn: true, plan: 'free'},
+    compareSynced: true,
+    updatedAt: persistedAt,
+  };
+  jest
+    .spyOn(PdfKitBridge, 'readSidecar')
+    .mockResolvedValueOnce(JSON.stringify(persistedState));
+  jest.spyOn(PdfKitBridge, 'writeSidecar').mockResolvedValue(true);
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(async () => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+  await ReactTestRenderer.act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(
+    renderer!.root.findAllByProps({testID: 'account-storage-usage'}),
+  ).toHaveLength(0);
+  expect(JSON.stringify(renderer?.toJSON())).not.toContain('GB of');
+});
+
+test('library brand uses the Acacia logo image instead of a letter mark', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  expect(renderer!.root.findByProps({testID: 'app-logo-image'})).toBeTruthy();
+  expect(renderer!.root.findAllByProps({testID: 'app-mark-letter'})).toHaveLength(0);
+});
+
 test('renders a compact mobile shell when requested', async () => {
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 
@@ -157,8 +225,22 @@ test('mobile viewer controls page, zoom, and highlight state', async () => {
 
   expect(JSON.stringify(renderer?.toJSON())).toContain('Page 2 of 32');
   expect(
-    renderer!.root.findByProps({testID: 'mobile-page-label'}).props.children,
-  ).toBe('2 / 32');
+    renderer!.root.findByProps({testID: 'mobile-page-current'}).props.children,
+  ).toBe(2);
+  expect(
+    renderer!.root.findByProps({testID: 'mobile-page-label'}).props.children[2]
+      .props.children,
+  ).toBe(32);
+  expect(
+    StyleSheet.flatten(
+      renderer!.root.findByProps({testID: 'mobile-page-meter'}).props.style,
+    ),
+  ).toEqual(
+    expect.objectContaining({
+      alignItems: 'center',
+      justifyContent: 'center',
+    }),
+  );
 
   await ReactTestRenderer.act(() => {
     renderer!.root.findByProps({testID: 'mobile-page-previous'}).props.onPress();
@@ -166,8 +248,8 @@ test('mobile viewer controls page, zoom, and highlight state', async () => {
 
   expect(JSON.stringify(renderer?.toJSON())).toContain('Page 1 of 32');
   expect(
-    renderer!.root.findByProps({testID: 'mobile-page-label'}).props.children,
-  ).toBe('1 / 32');
+    renderer!.root.findByProps({testID: 'mobile-page-current'}).props.children,
+  ).toBe(1);
 
   await ReactTestRenderer.act(() => {
     renderer!.root.findByProps({testID: 'mobile-zoom-in'}).props.onPress();
@@ -272,8 +354,12 @@ test('mobile demo canvas scrolling updates the visible page state', async () => 
   });
 
   expect(
-    renderer!.root.findByProps({testID: 'mobile-page-label'}).props.children,
-  ).toBe('3 / 32');
+    renderer!.root.findByProps({testID: 'mobile-page-current'}).props.children,
+  ).toBe(3);
+  expect(
+    renderer!.root.findByProps({testID: 'mobile-page-label'}).props.children[2].props
+      .children,
+  ).toBe(32);
 });
 
 test('mobile signature tool exposes signature manager and stamps the page', async () => {
@@ -1252,6 +1338,9 @@ test('desktop export actions use the native PDFKit bridge for imported PDFs', as
   const exportAnnotatedSpy = jest
     .spyOn(PdfKitBridge, 'exportAnnotatedCopy')
     .mockResolvedValueOnce('/tmp/manual-imported-annotated.pdf');
+  const exportMarkdownSpy = jest
+    .spyOn(PdfKitBridge, 'exportMarkdown')
+    .mockResolvedValueOnce('/tmp/manual-imported.md');
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 
   await ReactTestRenderer.act(() => {
@@ -1303,6 +1392,19 @@ test('desktop export actions use the native PDFKit bridge for imported PDFs', as
   expect(alertSpy).toHaveBeenLastCalledWith(
     'Export ready',
     expect.stringContaining('/tmp/manual-imported-annotated.pdf'),
+  );
+
+  await ReactTestRenderer.act(async () => {
+    await renderer!.root.findByProps({testID: 'export-markdown-action'}).props.onPress();
+  });
+
+  expect(exportMarkdownSpy).toHaveBeenCalledWith(
+    '/tmp/manual-imported.pdf',
+    'bookmark-data',
+  );
+  expect(alertSpy).toHaveBeenLastCalledWith(
+    'Export ready',
+    expect.stringContaining('/tmp/manual-imported.md'),
   );
 });
 
@@ -1370,6 +1472,13 @@ test('viewer search navigates within demo documents', async () => {
     });
 
     expect(JSON.stringify(renderer?.toJSON())).toContain('Page 12 of 32');
+    expect(
+      renderer!.root.findAll(
+        instance =>
+          typeof instance.props.testID === 'string' &&
+          instance.props.testID.startsWith('pdf-search-highlight-'),
+      ).length,
+    ).toBeGreaterThan(0);
   } finally {
     jest.useRealTimers();
   }

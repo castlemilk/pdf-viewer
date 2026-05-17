@@ -75,6 +75,15 @@ static NSRect AcaciaPDFBoundsForAnnotation(NSDictionary *boundsInfo, PDFPage *pa
   return NSMakeRect(x, y, width, height);
 }
 
+static NSRect AcaciaCanonicalBoundsForPDFBounds(NSRect pdfBounds, NSRect pageBounds)
+{
+  CGFloat x = ((NSMinX(pdfBounds) - NSMinX(pageBounds)) / NSWidth(pageBounds)) * AcaciaCanonicalPageWidth;
+  CGFloat y = ((NSMaxY(pageBounds) - NSMaxY(pdfBounds)) / NSHeight(pageBounds)) * AcaciaCanonicalPageHeight;
+  CGFloat width = (NSWidth(pdfBounds) / NSWidth(pageBounds)) * AcaciaCanonicalPageWidth;
+  CGFloat height = (NSHeight(pdfBounds) / NSHeight(pageBounds)) * AcaciaCanonicalPageHeight;
+  return NSMakeRect(round(x), round(y), round(width), round(height));
+}
+
 static NSArray<NSValue *> *AcaciaHighlightQuadPointsForBounds(NSRect bounds)
 {
   return @[
@@ -342,9 +351,36 @@ RCT_EXPORT_METHOD(search:(NSString *)path
     PDFPage *page = selection.pages.firstObject;
     NSUInteger pageIndex = page == nil ? 0 : [document indexForPage:page];
     NSString *snippet = selection.string ?: query;
+    NSMutableArray *searchBounds = [NSMutableArray array];
+    NSArray<PDFSelection *> *lineSelections = selection.selectionsByLine;
+    if (lineSelections.count == 0) {
+      lineSelections = @[selection];
+    }
+    for (PDFSelection *lineSelection in lineSelections) {
+      PDFPage *linePage = lineSelection.pages.firstObject ?: page;
+      if (linePage == nil) {
+        continue;
+      }
+      NSRect lineBounds = [lineSelection boundsForPage:linePage];
+      NSRect pageBounds = [linePage boundsForBox:kPDFDisplayBoxCropBox];
+      if (NSIsEmptyRect(pageBounds)) {
+        pageBounds = [linePage boundsForBox:kPDFDisplayBoxMediaBox];
+      }
+      if (NSIsEmptyRect(lineBounds) || NSIsEmptyRect(pageBounds)) {
+        continue;
+      }
+      NSRect canonicalBounds = AcaciaCanonicalBoundsForPDFBounds(lineBounds, pageBounds);
+      [searchBounds addObject:@{
+        @"x": @(NSMinX(canonicalBounds)),
+        @"y": @(NSMinY(canonicalBounds)),
+        @"width": @(NSWidth(canonicalBounds)),
+        @"height": @(NSHeight(canonicalBounds)),
+      }];
+    }
     [results addObject:@{
       @"pageIndex": @(pageIndex),
       @"snippet": snippet,
+      @"bounds": searchBounds,
     }];
   }
 
@@ -577,6 +613,97 @@ RCT_EXPORT_METHOD(exportAnnotatedCopy:(NSString *)path
       [url stopAccessingSecurityScopedResource];
     }
     reject(@"pdf_export_failed", @"Unable to write annotated PDF copy.", nil);
+    return;
+  }
+
+  if (didStartAccessing) {
+    [url stopAccessingSecurityScopedResource];
+  }
+
+  resolve(outputURL.path);
+}
+
++ (BOOL)runMarkItDownForURL:(NSURL *)sourceURL outputURL:(NSURL *)outputURL error:(NSError **)error
+{
+  NSString *pythonScript =
+    @"import sys\n"
+    @"from markitdown import MarkItDown\n"
+    @"result = MarkItDown(enable_plugins=False).convert_local(sys.argv[1])\n"
+    @"with open(sys.argv[2], 'w', encoding='utf-8') as output:\n"
+    @"    output.write(result.text_content or '')\n";
+  NSArray<NSDictionary *> *attempts = @[
+    @{
+      @"executable": @"/usr/bin/env",
+      @"arguments": @[@"markitdown", sourceURL.path, @"-o", outputURL.path],
+    },
+    @{
+      @"executable": @"/usr/bin/env",
+      @"arguments": @[@"python3", @"-c", pythonScript, sourceURL.path, outputURL.path],
+    },
+  ];
+  NSString *lastFailure = @"MarkItDown is not available. Install it with `pip install 'markitdown[pdf]'` and try again.";
+
+  for (NSDictionary *attempt in attempts) {
+    NSTask *task = [NSTask new];
+    task.executableURL = [NSURL fileURLWithPath:attempt[@"executable"]];
+    task.arguments = attempt[@"arguments"];
+    task.environment = @{
+      @"PATH": @"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+      @"PYTHONIOENCODING": @"utf-8",
+    };
+    NSPipe *errorPipe = [NSPipe pipe];
+    task.standardError = errorPipe;
+
+    NSError *launchError = nil;
+    if (![task launchAndReturnError:&launchError]) {
+      lastFailure = launchError.localizedDescription ?: lastFailure;
+      continue;
+    }
+
+    [task waitUntilExit];
+    NSData *errorData = [errorPipe.fileHandleForReading readDataToEndOfFile];
+    NSString *stderrText = [[NSString alloc] initWithData:errorData encoding:NSUTF8StringEncoding];
+    BOOL outputExists = [[NSFileManager defaultManager] fileExistsAtPath:outputURL.path];
+    if (task.terminationStatus == 0 && outputExists) {
+      return YES;
+    }
+    if (stderrText.length > 0) {
+      lastFailure = stderrText;
+    }
+  }
+
+  if (error != nil) {
+    *error = [NSError errorWithDomain:@"PdfKitBridge"
+                                 code:3001
+                             userInfo:@{NSLocalizedDescriptionKey: lastFailure}];
+  }
+  return NO;
+}
+
+RCT_EXPORT_METHOD(exportMarkdown:(NSString *)path
+                  bookmark:(NSString *)bookmark
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+  BOOL didStartAccessing = NO;
+  NSURL *url = [PdfKitBridge resolvedURLForPath:path
+                                       bookmark:bookmark
+                             didStartAccessing:&didStartAccessing];
+  if (url == nil) {
+    reject(@"pdf_export_markdown_failed", @"Unable to resolve PDF URL.", nil);
+    return;
+  }
+
+  NSString *baseName = path.lastPathComponent.stringByDeletingPathExtension;
+  NSString *outputName = [NSString stringWithFormat:@"%@.md", baseName];
+  NSURL *outputURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:outputName]];
+  NSError *error = nil;
+
+  if (![PdfKitBridge runMarkItDownForURL:url outputURL:outputURL error:&error]) {
+    if (didStartAccessing) {
+      [url stopAccessingSecurityScopedResource];
+    }
+    reject(@"pdf_export_markdown_failed", error.localizedDescription, error);
     return;
   }
 

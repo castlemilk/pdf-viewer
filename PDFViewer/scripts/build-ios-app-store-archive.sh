@@ -12,6 +12,8 @@ cd "$ROOT_DIR"
 
 # shellcheck disable=SC1091
 source "$ROOT_DIR/scripts/load-apple-publishing-env.sh"
+# shellcheck disable=SC1091
+source "$ROOT_DIR/scripts/prepare-apple-build-keychain.sh"
 
 VERSION="${VERSION:-${APP_STORE_VERSION:-$(node -p "require('${ROOT_DIR}/package.json').version")}}"
 BUILD_NUMBER="${BUILD_NUMBER:-${APP_STORE_BUILD_NUMBER:-$(date +%Y%m%d%H%M)}}"
@@ -164,6 +166,7 @@ if [[ "$SKIP_ARCHIVE" != "1" ]]; then
     "MARKETING_VERSION=$VERSION"
     "CURRENT_PROJECT_VERSION=$BUILD_NUMBER"
     "DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM"
+    "OTHER_CODE_SIGN_FLAGS=--keychain $APPLE_BUILD_KEYCHAIN_PATH"
   )
 
   if [[ "$USE_XCODE_ACCOUNT_SIGNING" != "1" ]]; then

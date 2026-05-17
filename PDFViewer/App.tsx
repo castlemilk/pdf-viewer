@@ -13,7 +13,11 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import {type CanvasAnnotationRequest, PdfCanvas} from './src/components/PdfCanvas';
+import {
+  type CanvasAnnotationRequest,
+  PdfCanvas,
+  type SearchHighlight,
+} from './src/components/PdfCanvas';
 import {ICON_PATHS, Icon, type IconName} from './src/components/Icon';
 import {acacia} from './src/design/acaciaTheme';
 import {
@@ -41,6 +45,7 @@ import type {
   LibraryFilter,
   LibraryScope,
   LibrarySort,
+  PdfRect,
   PersistedAccountState,
   PersistedSignatureProfile,
   Tag,
@@ -69,9 +74,19 @@ type AppProps = {
   forceCompactLayout?: boolean;
 };
 
+declare const require: (assetPath: string) => number;
+
+const acaciaLogoSource = require('./ios/PDFViewer/Images.xcassets/AppIcon.appiconset/ios_marketing_icon_1024x1024.png');
+
 type AccountState = PersistedAccountState;
 
 type SignatureProfile = PersistedSignatureProfile;
+type SearchHighlightSet = {
+  documentId: string;
+  query: string;
+  highlights: SearchHighlight[];
+};
+type ExportFormat = 'png' | 'jpg' | 'text' | 'annotated' | 'markdown';
 
 type ScopeCounts = Record<LibraryScope, number>;
 type CommentAnnotationFilter =
@@ -135,6 +150,8 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
   );
   const [annotations, setAnnotations] =
     useState<Annotation[]>(initialAnnotations);
+  const [searchHighlightSet, setSearchHighlightSet] =
+    useState<SearchHighlightSet | undefined>(undefined);
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [signatures, setSignatures] = useState<SignatureProfile[]>([
     {
@@ -209,6 +226,11 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
   const selectedAnnotations = annotations.filter(
     annotation => annotation.documentId === selectedDocument.id,
   );
+  const selectedSearchHighlights =
+    searchHighlightSet?.documentId === selectedDocument.id &&
+    searchHighlightSet.query === viewerState.searchQuery.trim()
+      ? searchHighlightSet.highlights
+      : [];
   const canUseReviewFeatures =
     accountState.signedIn && accountState.plan === 'pro';
   const compareRightDocument =
@@ -238,6 +260,7 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
   }
 
   function openDocument(document: DocumentRecord, mode: ScreenMode = 'viewer') {
+    setSearchHighlightSet(undefined);
     dispatchLibrary({
       type: 'updateDocument',
       documentId: document.id,
@@ -627,26 +650,42 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
         selectedDocument.bookmark,
       );
       if (matches[0]) {
+        setSearchHighlightSet({
+          documentId: selectedDocument.id,
+          query,
+          highlights: searchHighlightsFromMatches(selectedDocument, query, matches),
+        });
         updateViewer({type: 'setPage', pageIndex: matches[0].pageIndex});
+      } else {
+        setSearchHighlightSet(undefined);
       }
       return;
     }
 
-    const demoMatch = searchDemoDocument(selectedDocument, query);
+    const demoMatch = searchDemoDocumentMatch(selectedDocument, query);
     if (demoMatch !== undefined) {
-      updateViewer({type: 'setPage', pageIndex: demoMatch});
+      setSearchHighlightSet({
+        documentId: selectedDocument.id,
+        query,
+        highlights: [demoMatch.highlight],
+      });
+      updateViewer({type: 'setPage', pageIndex: demoMatch.pageIndex});
+    } else {
+      setSearchHighlightSet(undefined);
     }
   }
 
   useEffect(() => {
     if (screenMode === 'library') {
       lastViewerSearchKeyRef.current = '';
+      setSearchHighlightSet(undefined);
       return;
     }
 
     const query = viewerState.searchQuery.trim();
     if (query.length < 2) {
       lastViewerSearchKeyRef.current = '';
+      setSearchHighlightSet(undefined);
       return;
     }
 
@@ -670,21 +709,39 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
             selectedDocument.bookmark,
           );
           if (!isCancelled && matches[0]) {
+            setSearchHighlightSet({
+              documentId: selectedDocument.id,
+              query,
+              highlights: searchHighlightsFromMatches(
+                selectedDocument,
+                query,
+                matches,
+              ),
+            });
             setViewerState(current =>
               viewerReducer(current, {
                 type: 'setPage',
                 pageIndex: matches[0].pageIndex,
               }),
             );
+          } else if (!isCancelled) {
+            setSearchHighlightSet(undefined);
           }
           return;
         }
 
-        const demoMatch = searchDemoDocument(selectedDocument, query);
+        const demoMatch = searchDemoDocumentMatch(selectedDocument, query);
         if (!isCancelled && demoMatch !== undefined) {
+          setSearchHighlightSet({
+            documentId: selectedDocument.id,
+            query,
+            highlights: [demoMatch.highlight],
+          });
           setViewerState(current =>
-            viewerReducer(current, {type: 'setPage', pageIndex: demoMatch}),
+            viewerReducer(current, {type: 'setPage', pageIndex: demoMatch.pageIndex}),
           );
+        } else if (!isCancelled) {
+          setSearchHighlightSet(undefined);
         }
       }
 
@@ -710,9 +767,7 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
     Alert.alert(title, message);
   }
 
-  async function exportCurrentDocument(
-    format: 'png' | 'jpg' | 'text' | 'annotated',
-  ) {
+  async function exportCurrentDocument(format: ExportFormat) {
     if (!selectedDocument.path) {
       showLocalAction(
         'Import a PDF to export',
@@ -728,6 +783,11 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
         outputPath = await PdfKitBridge.exportAnnotatedCopy(
           selectedDocument.path,
           selectedAnnotations,
+          selectedDocument.bookmark,
+        );
+      } else if (format === 'markdown') {
+        outputPath = await PdfKitBridge.exportMarkdown(
+          selectedDocument.path,
           selectedDocument.bookmark,
         );
       } else if (format === 'text') {
@@ -785,6 +845,7 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
         continueReading={continueReading}
         viewer={viewerState}
         annotations={selectedAnnotations}
+        searchHighlights={selectedSearchHighlights}
         annotationSheetOpen={mobileAnnotationSheetOpen}
         canUseReviewFeatures={canUseReviewFeatures}
         compareSummary={compareSummary}
@@ -857,7 +918,7 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
           filterPanelOpen={filterPanelOpen}
           storageUsedGb={libraryState.storageUsedGb}
           storageLimitGb={libraryState.storageLimitGb}
-          canShowStorage={accountState.signedIn}
+          canShowStorage={canUseReviewFeatures}
           onOpenFile={openImportedPdf}
           onFilterChange={patch =>
             setFilter(current => ({...current, ...patch}))
@@ -915,6 +976,7 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
           tags={libraryState.tags}
           viewer={viewerState}
           annotations={selectedAnnotations}
+          searchHighlights={selectedSearchHighlights}
           canUseReviewFeatures={canUseReviewFeatures}
           onBack={() => setScreenMode('library')}
           onCompare={() => setScreenMode('compare')}
@@ -1018,6 +1080,7 @@ function MobileExperience({
   continueReading,
   viewer,
   annotations,
+  searchHighlights,
   annotationSheetOpen,
   canUseReviewFeatures,
   compareSummary,
@@ -1049,6 +1112,7 @@ function MobileExperience({
   continueReading: DocumentRecord[];
   viewer: ViewerState;
   annotations: Annotation[];
+  searchHighlights: SearchHighlight[];
   annotationSheetOpen: boolean;
   canUseReviewFeatures: boolean;
   compareSummary: CompareSummary;
@@ -1083,6 +1147,7 @@ function MobileExperience({
         document={selectedDocument}
         viewer={viewer}
         annotations={annotations}
+        searchHighlights={searchHighlights}
         annotationSheetOpen={annotationSheetOpen}
         canUseReviewFeatures={canUseReviewFeatures}
         onBack={onBack}
@@ -1242,6 +1307,7 @@ function MobileViewer({
   document,
   viewer,
   annotations,
+  searchHighlights,
   annotationSheetOpen,
   canUseReviewFeatures,
   onBack,
@@ -1259,6 +1325,7 @@ function MobileViewer({
   document: DocumentRecord;
   viewer: ViewerState;
   annotations: Annotation[];
+  searchHighlights: SearchHighlight[];
   annotationSheetOpen: boolean;
   canUseReviewFeatures: boolean;
   onBack: () => void;
@@ -1340,6 +1407,10 @@ function MobileViewer({
             document={document}
             viewer={viewer}
             annotations={annotations}
+            searchHighlights={searchHighlights}
+            signaturePreviewText={
+              signatures.find(signature => signature.id === activeSignatureId)?.value
+            }
             compact
             onCreateAnnotation={onCanvasAnnotation}
             onPageChange={pageIndex =>
@@ -1363,7 +1434,11 @@ function MobileViewer({
           </View>
           <View testID="mobile-page-meter" style={mobileStyles.pageMeter}>
             <Text testID="mobile-page-label" style={mobileStyles.pageLabel}>
-              {`${viewer.pageIndex + 1} / ${viewer.pageCount}`}
+              <Text testID="mobile-page-current" style={mobileStyles.pageCurrent}>
+                {viewer.pageIndex + 1}
+              </Text>
+              <Text style={mobileStyles.pageSlash}> / </Text>
+              <Text style={mobileStyles.pageTotal}>{viewer.pageCount}</Text>
             </Text>
           </View>
           <View style={[mobileStyles.pageControlSlot, mobileStyles.pageControlSlotEnd]}>
@@ -1870,7 +1945,11 @@ function TitleBar({
             accessible
             accessibilityLabel={`Acacia library, ${documentCount} documents`}>
             <View style={styles.appMark}>
-              <Text style={styles.appMarkText}>A</Text>
+              <Image
+                testID="app-logo-image"
+                source={acaciaLogoSource}
+                style={styles.appLogoImage}
+              />
             </View>
             <Text style={styles.appName}>Acacia</Text>
             <Text style={styles.commandHint}>⌘K</Text>
@@ -2393,6 +2472,7 @@ function ViewerScreen({
   tags,
   viewer,
   annotations,
+  searchHighlights,
   canUseReviewFeatures,
   signatures,
   activeSignatureId,
@@ -2413,6 +2493,7 @@ function ViewerScreen({
   tags: Tag[];
   viewer: ViewerState;
   annotations: Annotation[];
+  searchHighlights: SearchHighlight[];
   canUseReviewFeatures: boolean;
   signatures: SignatureProfile[];
   activeSignatureId: string;
@@ -2430,7 +2511,7 @@ function ViewerScreen({
   onUnlockReviewFeatures: () => void;
   onSelectSignature: (id: string) => void;
   onSaveSignature: (value: string) => void;
-  onExport: (format: 'png' | 'jpg' | 'text' | 'annotated') => void;
+  onExport: (format: ExportFormat) => void;
 }) {
   return (
     <View
@@ -2458,6 +2539,10 @@ function ViewerScreen({
           document={document}
           viewer={viewer}
           annotations={annotations}
+          searchHighlights={searchHighlights}
+          signaturePreviewText={
+            signatures.find(signature => signature.id === activeSignatureId)?.value
+          }
           onCreateAnnotation={onCanvasAnnotation}
           onPageChange={pageIndex => onViewerAction({type: 'setPage', pageIndex})}
         />
@@ -3424,7 +3509,7 @@ function ViewerInspector({
   onUnlockReviewFeatures: () => void;
   onSelectSignature: (id: string) => void;
   onSaveSignature: (value: string) => void;
-  onExport: (format: 'png' | 'jpg' | 'text' | 'annotated') => void;
+  onExport: (format: ExportFormat) => void;
 }) {
   const inspectorTabs: Array<{tab: InspectorTab; label: string; icon: IconName}> =
     [
@@ -3561,6 +3646,12 @@ function ViewerInspector({
             icon="text"
             onPress={() => onExport('text')}
             testID="export-text-action"
+          />
+          <ActionRow
+            label="Export as Markdown"
+            icon="doc_lines"
+            onPress={() => onExport('markdown')}
+            testID="export-markdown-action"
           />
           <ActionRow
             label="Export Annotated PDF"
@@ -4540,13 +4631,58 @@ function nextCollectionLabel(collections: Collection[]) {
   return `${base} ${suffix}`;
 }
 
-function searchDemoDocument(document: DocumentRecord, query: string) {
+function searchDemoDocumentMatch(document: DocumentRecord, query: string) {
   const normalizedQuery = query.trim().toLowerCase();
   const pages = demoSearchPages(document);
-
-  return pages.find(page =>
+  const match = pages.find(page =>
     page.text.toLowerCase().includes(normalizedQuery),
-  )?.pageIndex;
+  );
+
+  if (!match) {
+    return undefined;
+  }
+
+  return {
+    pageIndex: match.pageIndex,
+    highlight: {
+      id: `${document.id}-${match.pageIndex + 1}-${slugify(query) || 'match'}`,
+      pageIndex: match.pageIndex,
+      bounds: demoSearchHighlightBounds(document, match.pageIndex),
+    },
+  };
+}
+
+function searchHighlightsFromMatches(
+  document: DocumentRecord,
+  query: string,
+  matches: Array<{pageIndex: number; snippet: string; bounds?: PdfRect[]}>,
+): SearchHighlight[] {
+  return matches.flatMap((match, matchIndex) => {
+    const bounds =
+      match.bounds && match.bounds.length > 0
+        ? match.bounds
+        : [demoSearchHighlightBounds(document, match.pageIndex)];
+
+    return bounds.map((bound, boundIndex) => ({
+      id: `${document.id}-${slugify(query) || 'match'}-${match.pageIndex + 1}-${matchIndex}-${boundIndex}`,
+      pageIndex: match.pageIndex,
+      bounds: bound,
+    }));
+  });
+}
+
+function demoSearchHighlightBounds(document: DocumentRecord, pageIndex: number): PdfRect {
+  if (document.id === 'future-work') {
+    return {x: 42, y: 104, width: 380, height: 44};
+  }
+
+  if (document.id === 'product-roadmap') {
+    return {x: 42, y: 196, width: 430, height: 64};
+  }
+
+  return pageIndex === 0
+    ? {x: 42, y: 104, width: 360, height: 42}
+    : {x: 42, y: 128, width: 400, height: 28};
 }
 
 function outlineRowsForDocument(document: DocumentRecord) {
@@ -4806,10 +4942,16 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 6,
-    backgroundColor: acacia.color.ink,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 9,
+    overflow: 'hidden',
+  },
+  appLogoImage: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
   },
   appMarkText: {
     color: acacia.color.paper,
@@ -6536,21 +6678,41 @@ const mobileStyles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   pageMeter: {
-    minWidth: 72,
-    height: 32,
-    borderRadius: 8,
+    minWidth: 86,
+    height: 34,
+    borderRadius: 10,
     backgroundColor: acacia.color.paper,
-    borderColor: 'transparent',
-    borderWidth: 0,
+    borderColor: acacia.color.hairlineStrong,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
   },
   pageLabel: {
-    color: acacia.color.ink2,
-    fontSize: 13,
+    color: acacia.color.ink,
+    fontFamily: acacia.font.ui,
+    fontSize: 14,
     fontWeight: '800',
+    lineHeight: 18,
     textAlign: 'center',
+  },
+  pageCurrent: {
+    color: acacia.color.ink,
+    fontSize: 17,
+    fontWeight: '900',
+    lineHeight: 20,
+  },
+  pageSlash: {
+    color: acacia.color.ink4,
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+  pageTotal: {
+    color: acacia.color.ink2,
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 20,
   },
   detailPanel: {
     padding: 16,

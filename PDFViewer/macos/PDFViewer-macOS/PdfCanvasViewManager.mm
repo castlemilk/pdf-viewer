@@ -281,13 +281,47 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 - (void)beginPDFAnnotationGestureAtPoint:(NSPoint)viewPoint;
 - (void)continuePDFAnnotationGestureAtPoint:(NSPoint)viewPoint;
 - (void)endPDFAnnotationGestureAtPoint:(NSPoint)viewPoint;
+- (void)updateSignaturePreviewAtPoint:(NSPoint)viewPoint;
+- (void)hideSignaturePreview;
 @end
 
 @interface AcaciaPDFView : PDFView
 @property (nonatomic, weak) id<AcaciaPDFAnnotationEventHandling> annotationHost;
+@property (nonatomic, strong) NSTrackingArea *acaciaTrackingArea;
 @end
 
 @implementation AcaciaPDFView
+
+- (void)updateTrackingAreas
+{
+  [super updateTrackingAreas];
+
+  if (self.acaciaTrackingArea != nil) {
+    [self removeTrackingArea:self.acaciaTrackingArea];
+  }
+
+  self.acaciaTrackingArea =
+    [[NSTrackingArea alloc] initWithRect:NSZeroRect
+                                 options:NSTrackingMouseMoved |
+                                         NSTrackingMouseEnteredAndExited |
+                                         NSTrackingActiveInKeyWindow |
+                                         NSTrackingInVisibleRect
+                                   owner:self
+                                userInfo:nil];
+  [self addTrackingArea:self.acaciaTrackingArea];
+}
+
+- (void)mouseMoved:(NSEvent *)event
+{
+  [self.annotationHost updateSignaturePreviewAtPoint:[self convertPoint:event.locationInWindow fromView:nil]];
+  [super mouseMoved:event];
+}
+
+- (void)mouseExited:(NSEvent *)event
+{
+  [self.annotationHost hideSignaturePreview];
+  [super mouseExited:event];
+}
 
 - (void)mouseDown:(NSEvent *)event
 {
@@ -329,6 +363,8 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 @property (nonatomic, strong) NSNumber *zoom;
 @property (nonatomic, copy) NSString *activeTool;
 @property (nonatomic, copy) NSArray *annotations;
+@property (nonatomic, copy) NSArray *searchHighlights;
+@property (nonatomic, copy) NSString *signaturePreviewText;
 @property (nonatomic, copy) RCTBubblingEventBlock onCanvasPress;
 - (void)refreshAccessibilityValue;
 @end
@@ -345,6 +381,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   NSClickGestureRecognizer *_annotationClickRecognizer;
   NSPanGestureRecognizer *_highlightPanRecognizer;
   NSPanGestureRecognizer *_drawingPanRecognizer;
+  NSTextField *_signaturePreviewLabel;
 }
 
 - (instancetype)initWithFrame:(NSRect)frame
@@ -375,6 +412,14 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     _drawingPanRecognizer.delegate = self;
     _drawingPanRecognizer.enabled = NO;
     [_pdfView addGestureRecognizer:_drawingPanRecognizer];
+    _signaturePreviewLabel = [NSTextField labelWithString:@"Signature"];
+    _signaturePreviewLabel.hidden = YES;
+    _signaturePreviewLabel.wantsLayer = YES;
+    _signaturePreviewLabel.layer.backgroundColor = [NSColor colorWithCalibratedWhite:1.0 alpha:0.74].CGColor;
+    _signaturePreviewLabel.font = [NSFont fontWithName:@"Snell Roundhand" size:22] ?: [NSFont systemFontOfSize:20 weight:NSFontWeightSemibold];
+    _signaturePreviewLabel.textColor = [NSColor colorWithCalibratedWhite:0.08 alpha:1.0];
+    _signaturePreviewLabel.alignment = NSTextAlignmentCenter;
+    [self addSubview:_signaturePreviewLabel];
   }
   return self;
 }
@@ -386,6 +431,9 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     kind != nil && ![kind isEqualToString:@"highlight"] && ![kind isEqualToString:@"drawing"];
   _highlightPanRecognizer.enabled = [kind isEqualToString:@"highlight"];
   _drawingPanRecognizer.enabled = [kind isEqualToString:@"drawing"];
+  if (![kind isEqualToString:@"signature"]) {
+    [self hideSignaturePreview];
+  }
 }
 
 - (BOOL)gestureRecognizerShouldBegin:(NSGestureRecognizer *)gestureRecognizer
@@ -452,6 +500,36 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 - (BOOL)shouldHandlePDFAnnotationMouseEvents
 {
   return NO;
+}
+
+- (void)updateSignaturePreviewAtPoint:(NSPoint)viewPoint
+{
+  NSString *kind = AcaciaAnnotationKindForTool(_activeTool);
+  if (![kind isEqualToString:@"signature"]) {
+    [self hideSignaturePreview];
+    return;
+  }
+
+  PDFPage *page = [_pdfView pageForPoint:viewPoint nearest:NO];
+  if (page == nil) {
+    [self hideSignaturePreview];
+    return;
+  }
+
+  NSString *previewText = _signaturePreviewText.length > 0 ? _signaturePreviewText : @"Signature";
+  _signaturePreviewLabel.stringValue = previewText;
+  NSPoint localPoint = [self convertPoint:viewPoint fromView:_pdfView];
+  CGFloat width = 188.0;
+  CGFloat height = 46.0;
+  CGFloat x = MIN(MAX(localPoint.x + 12.0, 8.0), MAX(8.0, NSWidth(self.bounds) - width - 8.0));
+  CGFloat y = MIN(MAX(localPoint.y - height / 2.0, 8.0), MAX(8.0, NSHeight(self.bounds) - height - 8.0));
+  _signaturePreviewLabel.frame = NSMakeRect(x, y, width, height);
+  _signaturePreviewLabel.hidden = NO;
+}
+
+- (void)hideSignaturePreview
+{
+  _signaturePreviewLabel.hidden = YES;
 }
 
 - (PDFPage *)pageForViewPoint:(NSPoint)viewPoint
@@ -586,6 +664,14 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   }
 }
 
+- (void)setSignaturePreviewText:(NSString *)signaturePreviewText
+{
+  _signaturePreviewText = [signaturePreviewText copy];
+  _signaturePreviewLabel.stringValue = _signaturePreviewText.length > 0
+    ? _signaturePreviewText
+    : @"Signature";
+}
+
 - (void)applyZoom
 {
   if (_pdfView.document == nil || NSIsEmptyRect(self.bounds)) {
@@ -616,6 +702,12 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 {
   _annotations = [annotations copy];
   [self applyAnnotations];
+}
+
+- (void)setSearchHighlights:(NSArray *)searchHighlights
+{
+  _searchHighlights = [searchHighlights copy];
+  [self applySearchHighlights];
 }
 
 - (BOOL)highlightCurrentSelectionIfPossible
@@ -1020,6 +1112,46 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     [page addAnnotation:annotation];
   }
 
+  [self applySearchHighlights];
+  [self refreshAccessibilityValue];
+}
+
+- (void)applySearchHighlights
+{
+  PDFDocument *document = _pdfView.document;
+  if (document == nil) {
+    return;
+  }
+
+  for (NSUInteger pageIndex = 0; pageIndex < document.pageCount; pageIndex += 1) {
+    PDFPage *page = [document pageAtIndex:pageIndex];
+    for (PDFAnnotation *annotation in page.annotations.copy) {
+      if ([annotation.userName isEqualToString:@"AcaciaSearch"] ||
+          [annotation.contents hasPrefix:@"AcaciaSearch:"]) {
+        [page removeAnnotation:annotation];
+      }
+    }
+  }
+
+  for (NSDictionary *highlightInfo in _searchHighlights) {
+    NSNumber *pageIndex = [RCTConvert NSNumber:highlightInfo[@"pageIndex"]];
+    PDFPage *page = [document pageAtIndex:pageIndex.unsignedIntegerValue];
+    if (page == nil) {
+      continue;
+    }
+
+    NSDictionary *boundsInfo = [RCTConvert NSDictionary:highlightInfo[@"bounds"]];
+    NSRect bounds = AcaciaPDFBoundsForAnnotation(boundsInfo, page);
+    PDFAnnotation *annotation = [[PDFAnnotation alloc] initWithBounds:bounds
+                                                             forType:PDFAnnotationSubtypeHighlight
+                                                      withProperties:nil];
+    annotation.userName = @"AcaciaSearch";
+    annotation.contents = [NSString stringWithFormat:@"AcaciaSearch:%@", [RCTConvert NSString:highlightInfo[@"id"]]];
+    annotation.color = [NSColor colorWithCalibratedRed:1.0 green:0.84 blue:0.18 alpha:0.58];
+    annotation.quadrilateralPoints = AcaciaHighlightQuadPointsForBounds(bounds);
+    [page addAnnotation:annotation];
+  }
+
   [self refreshAccessibilityValue];
 }
 
@@ -1055,6 +1187,8 @@ RCT_EXPORT_VIEW_PROPERTY(pageIndex, NSNumber)
 RCT_EXPORT_VIEW_PROPERTY(zoom, NSNumber)
 RCT_EXPORT_VIEW_PROPERTY(activeTool, NSString)
 RCT_EXPORT_VIEW_PROPERTY(annotations, NSArray)
+RCT_EXPORT_VIEW_PROPERTY(searchHighlights, NSArray)
+RCT_EXPORT_VIEW_PROPERTY(signaturePreviewText, NSString)
 RCT_EXPORT_VIEW_PROPERTY(onCanvasPress, RCTBubblingEventBlock)
 
 - (NSView *)view

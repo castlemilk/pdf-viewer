@@ -231,6 +231,8 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 @property (nonatomic, strong) NSNumber *zoom;
 @property (nonatomic, copy) NSString *activeTool;
 @property (nonatomic, copy) NSArray *annotations;
+@property (nonatomic, copy) NSArray *searchHighlights;
+@property (nonatomic, copy) NSString *signaturePreviewText;
 @property (nonatomic, copy) RCTBubblingEventBlock onCanvasPress;
 @end
 
@@ -390,6 +392,12 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 {
   _annotations = [annotations copy];
   [self applyAnnotations];
+}
+
+- (void)setSearchHighlights:(NSArray *)searchHighlights
+{
+  _searchHighlights = [searchHighlights copy];
+  [self applySearchHighlights];
 }
 
 - (BOOL)highlightCurrentSelectionIfPossible
@@ -797,6 +805,52 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     [page addAnnotation:annotation];
   }
 
+  [self applySearchHighlights];
+  [self refreshAccessibilityValue];
+}
+
+- (void)applySearchHighlights
+{
+  PDFDocument *document = _pdfView.document;
+  if (document == nil) {
+    return;
+  }
+
+  for (NSUInteger pageIndex = 0; pageIndex < document.pageCount; pageIndex += 1) {
+    PDFPage *page = [document pageAtIndex:pageIndex];
+    for (PDFAnnotation *annotation in page.annotations.copy) {
+      if ([annotation.userName isEqualToString:@"AcaciaSearch"] ||
+          [annotation.contents hasPrefix:@"AcaciaSearch:"]) {
+        [page removeAnnotation:annotation];
+      }
+    }
+  }
+
+  for (NSDictionary *highlightInfo in _searchHighlights) {
+    NSNumber *pageIndex = [RCTConvert NSNumber:highlightInfo[@"pageIndex"]];
+    PDFPage *page = [document pageAtIndex:pageIndex.unsignedIntegerValue];
+    if (page == nil) {
+      continue;
+    }
+
+    NSDictionary *boundsInfo = [RCTConvert NSDictionary:highlightInfo[@"bounds"]];
+    CGRect requestedBounds = CGRectMake(
+      [RCTConvert CGFloat:boundsInfo[@"x"]],
+      [RCTConvert CGFloat:boundsInfo[@"y"]],
+      [RCTConvert CGFloat:boundsInfo[@"width"]],
+      [RCTConvert CGFloat:boundsInfo[@"height"]]
+    );
+    CGRect bounds = [self visibleAnnotationBoundsForRequestedBounds:requestedBounds page:page];
+    PDFAnnotation *annotation = [[PDFAnnotation alloc] initWithBounds:bounds
+                                                             forType:PDFAnnotationSubtypeHighlight
+                                                      withProperties:nil];
+    annotation.userName = @"AcaciaSearch";
+    annotation.contents = [NSString stringWithFormat:@"AcaciaSearch:%@", [RCTConvert NSString:highlightInfo[@"id"]]];
+    annotation.color = [UIColor colorWithRed:1.0 green:0.84 blue:0.18 alpha:0.58];
+    annotation.quadrilateralPoints = AcaciaHighlightQuadPointsForBounds(bounds);
+    [page addAnnotation:annotation];
+  }
+
   [self refreshAccessibilityValue];
 }
 
@@ -863,6 +917,8 @@ RCT_EXPORT_VIEW_PROPERTY(pageIndex, NSNumber)
 RCT_EXPORT_VIEW_PROPERTY(zoom, NSNumber)
 RCT_EXPORT_VIEW_PROPERTY(activeTool, NSString)
 RCT_EXPORT_VIEW_PROPERTY(annotations, NSArray)
+RCT_EXPORT_VIEW_PROPERTY(searchHighlights, NSArray)
+RCT_EXPORT_VIEW_PROPERTY(signaturePreviewText, NSString)
 RCT_EXPORT_VIEW_PROPERTY(onCanvasPress, RCTBubblingEventBlock)
 
 - (UIView *)view

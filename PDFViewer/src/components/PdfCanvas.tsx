@@ -34,6 +34,8 @@ type NativePdfCanvasProps = {
   zoom: number;
   activeTool?: string;
   annotations: Annotation[];
+  searchHighlights: SearchHighlight[];
+  signaturePreviewText?: string;
   onCanvasPress?: (event: {
     nativeEvent: CanvasAnnotationRequest;
   }) => void;
@@ -44,6 +46,8 @@ type PdfCanvasProps = {
   document: DocumentRecord;
   viewer: ViewerState;
   annotations: Annotation[];
+  searchHighlights?: SearchHighlight[];
+  signaturePreviewText?: string;
   compact?: boolean;
   onCreateAnnotation?: (request: CanvasAnnotationRequest) => void;
   onPageChange?: (pageIndex: number) => void;
@@ -61,6 +65,17 @@ export type CanvasAnnotationRequest = {
   points?: PdfPoint[];
 };
 
+export type SearchHighlight = {
+  id: string;
+  pageIndex: number;
+  bounds: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+};
+
 const NativePdfCanvas =
   (Platform.OS as string) === 'macos' ||
   ((Platform.OS as string) === 'ios' && !isJestRuntime())
@@ -71,11 +86,18 @@ export function PdfCanvas({
   document,
   viewer,
   annotations,
+  searchHighlights = [],
+  signaturePreviewText,
   compact = false,
   onCreateAnnotation,
   onPageChange,
 }: PdfCanvasProps) {
   const [viewportSize, setViewportSize] = useState({width: 0, height: 0});
+  const [signaturePreview, setSignaturePreview] = useState<{
+    pageIndex: number;
+    x: number;
+    y: number;
+  } | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const pageWidth = getPageWidth(viewportSize, compact);
   const pageHeight = pageWidth / pageAspectRatio;
@@ -118,6 +140,8 @@ export function PdfCanvas({
           zoom={viewer.zoom}
           activeTool={interactiveKind}
           annotations={annotations}
+          searchHighlights={searchHighlights}
+          signaturePreviewText={signaturePreviewText}
           onCanvasPress={event => {
             if (!interactiveKind) {
               return;
@@ -204,6 +228,37 @@ export function PdfCanvas({
                     annotation={annotation}
                   />
                 ))}
+              {searchHighlights
+                .filter(highlight => highlight.pageIndex === pageIndex)
+                .map(highlight => (
+                  <SearchHighlightOverlay
+                    key={highlight.id}
+                    highlight={highlight}
+                  />
+                ))}
+              {interactiveKind === 'signature' &&
+              signaturePreview?.pageIndex === pageIndex ? (
+                <View
+                  testID="pdf-signature-preview"
+                  pointerEvents="none"
+                  style={[
+                    styles.signaturePreview,
+                    {
+                      left: Math.min(
+                        pageWidth - 190,
+                        Math.max(8, signaturePreview.x + 12),
+                      ),
+                      top: Math.min(
+                        pageHeight - 58,
+                        Math.max(8, signaturePreview.y - 24),
+                      ),
+                    },
+                  ]}>
+                  <Text style={styles.signaturePreviewText}>
+                    {signaturePreviewText || 'Signature'}
+                  </Text>
+                </View>
+              ) : null}
             </View>
             {interactiveKind ? (
               <View
@@ -221,17 +276,26 @@ export function PdfCanvas({
                     ...point,
                   };
                   gesturePointsRef.current = [{pageIndex, ...point}];
+                  if (interactiveKind === 'signature') {
+                    setSignaturePreview({pageIndex, ...point});
+                  }
                 }}
                 onResponderMove={(event: GestureResponderEvent) => {
-                  if (interactiveKind !== 'drawing') {
-                    return;
-                  }
-
                   const point = pagePointFromVisualPoint(
                     event.nativeEvent.locationX,
                     event.nativeEvent.locationY,
                     viewer.zoom,
                   );
+
+                  if (interactiveKind === 'signature') {
+                    setSignaturePreview({pageIndex, ...point});
+                    return;
+                  }
+
+                  if (interactiveKind !== 'drawing') {
+                    return;
+                  }
+
                   gesturePointsRef.current = [
                     ...gesturePointsRef.current,
                     {pageIndex, ...point},
@@ -258,6 +322,7 @@ export function PdfCanvas({
                       : undefined;
                   gestureStartRef.current = null;
                   gesturePointsRef.current = [];
+                  setSignaturePreview(null);
                   onCreateAnnotation?.(
                     canvasGestureToAnnotation(
                       interactiveKind,
@@ -279,6 +344,7 @@ export function PdfCanvas({
                 onResponderTerminate={() => {
                   gestureStartRef.current = null;
                   gesturePointsRef.current = [];
+                  setSignaturePreview(null);
                 }}
                 style={styles.demoPageHitbox}
               />
@@ -566,6 +632,19 @@ function AnnotationOverlay({annotation}: {annotation: Annotation}) {
   );
 }
 
+function SearchHighlightOverlay({highlight}: {highlight: SearchHighlight}) {
+  return (
+    <View
+      testID={`pdf-search-highlight-${highlight.id}`}
+      pointerEvents="none"
+      style={[
+        styles.searchHighlight,
+        annotationBoundsToFallbackStyle(highlight.bounds) as ViewStyle,
+      ]}
+    />
+  );
+}
+
 const styles = StyleSheet.create({
   nativeCanvas: {
     flex: 1,
@@ -784,6 +863,31 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     opacity: 0.58,
     minHeight: 8,
+  },
+  searchHighlight: {
+    position: 'absolute',
+    borderRadius: 2,
+    minHeight: 8,
+    backgroundColor: 'rgba(247, 214, 74, 0.58)',
+    borderColor: 'rgba(180, 137, 0, 0.26)',
+    borderWidth: 1,
+  },
+  signaturePreview: {
+    position: 'absolute',
+    zIndex: 14,
+    minWidth: 176,
+    minHeight: 44,
+    borderBottomColor: '#111827',
+    borderBottomWidth: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  signaturePreviewText: {
+    color: '#111827',
+    fontSize: 16,
+    fontWeight: '700',
+    fontStyle: 'italic',
   },
   annotationNote: {
     borderRadius: 5,
