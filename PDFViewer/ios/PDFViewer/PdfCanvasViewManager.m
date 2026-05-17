@@ -262,6 +262,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   CGPoint _highlightPanStartPoint;
   BOOL _hasHighlightPanStartPoint;
   NSMutableArray<NSValue *> *_drawingViewPoints;
+  PDFSelection *_pendingTextSelection;
   UIPanGestureRecognizer *_highlightPanRecognizer;
   UIPanGestureRecognizer *_drawingPanRecognizer;
 }
@@ -294,6 +295,10 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     _drawingPanRecognizer.delegate = self;
     _drawingPanRecognizer.cancelsTouchesInView = NO;
     [_pdfView addGestureRecognizer:_drawingPanRecognizer];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(pdfSelectionChanged:)
+                                                 name:PDFViewSelectionChangedNotification
+                                               object:_pdfView];
 
     self.isAccessibilityElement = YES;
     self.accessibilityLabel = @"PDF canvas";
@@ -335,6 +340,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 
 - (void)dealloc
 {
+  [[NSNotificationCenter defaultCenter] removeObserver:self];
   [self stopAccessingDocumentURL];
 }
 
@@ -371,6 +377,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   _activeTool = [activeTool copy];
 
   if ([_activeTool isEqualToString:@"highlight"]) {
+    [self cacheCurrentSelectionForHighlight];
     [self highlightCurrentSelectionIfPossible];
   }
 }
@@ -414,9 +421,28 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   [self applySearchHighlights];
 }
 
+- (void)pdfSelectionChanged:(NSNotification *)notification
+{
+  [self cacheCurrentSelectionForHighlight];
+}
+
+- (void)cacheCurrentSelectionForHighlight
+{
+  PDFSelection *selection = _pdfView.currentSelection;
+  if (selection == nil || selection.string.length == 0) {
+    return;
+  }
+
+  _pendingTextSelection = [selection copy];
+}
+
 - (BOOL)highlightCurrentSelectionIfPossible
 {
   PDFSelection *selection = _pdfView.currentSelection;
+  if (selection == nil || selection.string.length == 0) {
+    selection = _pendingTextSelection;
+  }
+
   if (selection == nil || selection.string.length == 0 || self.onCanvasPress == nil || _pdfView.document == nil) {
     return NO;
   }
@@ -462,6 +488,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   }
 
   if (emittedHighlight) {
+    _pendingTextSelection = nil;
     [_pdfView clearSelection];
   }
 
@@ -705,6 +732,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     return;
   }
 
+  _pendingTextSelection = nil;
   [self stopAccessingDocumentURL];
   NSURL *documentURL = [self resolvedDocumentURL];
   if (documentURL == nil) {

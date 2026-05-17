@@ -470,7 +470,7 @@ test('fallback PDF canvas creates signature stamps from the clicked page positio
       kind: 'signature',
       pageIndex: 0,
       bounds: {
-        x: 242,
+        x: 351,
         y: 483,
         width: 180,
         height: 48,

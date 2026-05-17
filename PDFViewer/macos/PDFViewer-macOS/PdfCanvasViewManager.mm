@@ -7,6 +7,7 @@
 
 static const CGFloat AcaciaCanonicalPageWidth = 595.0;
 static const CGFloat AcaciaCanonicalPageHeight = 842.0;
+static const CGFloat AcaciaSignaturePointerOffsetX = 12.0;
 
 static NSString *AcaciaAnnotationKindForTool(NSString *tool)
 {
@@ -31,6 +32,11 @@ static NSSize AcaciaAnnotationSizeForKind(NSString *kind)
     return NSMakeSize(120.0, 80.0);
   }
   return NSMakeSize(160.0, 24.0);
+}
+
+static NSSize AcaciaSignaturePreviewSize(void)
+{
+  return AcaciaAnnotationSizeForKind(@"signature");
 }
 
 static NSString *AcaciaAnnotationSubtypeForKind(NSString *kind)
@@ -92,6 +98,23 @@ static NSRect AcaciaCanonicalBoundsForPoint(NSString *kind, NSPoint pagePoint, N
   return AcaciaClampCanonicalBounds(NSMakeRect(
     canonicalPoint.x - annotationSize.width / 2.0,
     canonicalPoint.y - annotationSize.height / 2.0,
+    annotationSize.width,
+    annotationSize.height
+  ));
+}
+
+static NSRect AcaciaCanonicalBoundsForSignatureAtViewPoint(PDFView *pdfView,
+                                                           PDFPage *page,
+                                                           NSPoint viewPoint,
+                                                           NSRect pageBounds)
+{
+  NSSize annotationSize = AcaciaAnnotationSizeForKind(@"signature");
+  NSPoint anchorViewPoint = NSMakePoint(viewPoint.x + AcaciaSignaturePointerOffsetX, viewPoint.y);
+  NSPoint anchorPagePoint = [pdfView convertPoint:anchorViewPoint toPage:page];
+  NSPoint canonicalAnchor = AcaciaCanonicalPointForPDFPoint(anchorPagePoint, pageBounds);
+  return AcaciaClampCanonicalBounds(NSMakeRect(
+    canonicalAnchor.x,
+    canonicalAnchor.y - annotationSize.height / 2.0,
     annotationSize.width,
     annotationSize.height
   ));
@@ -299,6 +322,77 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 - (void)hideSignaturePreview;
 @end
 
+@interface AcaciaPDFAnnotationOverlayView : NSView
+@property (nonatomic, weak) id<AcaciaPDFAnnotationEventHandling> annotationHost;
+@property (nonatomic, strong) NSTrackingArea *acaciaTrackingArea;
+@end
+
+@implementation AcaciaPDFAnnotationOverlayView
+
+- (BOOL)isOpaque
+{
+  return NO;
+}
+
+- (NSView *)hitTest:(NSPoint)point
+{
+  if (![self.annotationHost shouldHandlePDFAnnotationMouseEvents]) {
+    return nil;
+  }
+
+  return [super hitTest:point];
+}
+
+- (void)updateTrackingAreas
+{
+  [super updateTrackingAreas];
+
+  if (self.acaciaTrackingArea != nil) {
+    [self removeTrackingArea:self.acaciaTrackingArea];
+  }
+
+  self.acaciaTrackingArea =
+    [[NSTrackingArea alloc] initWithRect:NSZeroRect
+                                 options:NSTrackingMouseMoved |
+                                         NSTrackingMouseEnteredAndExited |
+                                         NSTrackingActiveInKeyWindow |
+                                         NSTrackingInVisibleRect
+                                   owner:self
+                                userInfo:nil];
+  [self addTrackingArea:self.acaciaTrackingArea];
+}
+
+- (void)mouseMoved:(NSEvent *)event
+{
+  NSPoint point = [self convertPoint:event.locationInWindow fromView:nil];
+  [self.annotationHost updateSignaturePreviewAtPoint:point];
+}
+
+- (void)mouseExited:(NSEvent *)event
+{
+  [self.annotationHost hideSignaturePreview];
+}
+
+- (void)mouseDown:(NSEvent *)event
+{
+  NSPoint point = [self convertPoint:event.locationInWindow fromView:nil];
+  [self.annotationHost beginPDFAnnotationGestureAtPoint:point];
+}
+
+- (void)mouseDragged:(NSEvent *)event
+{
+  NSPoint point = [self convertPoint:event.locationInWindow fromView:nil];
+  [self.annotationHost continuePDFAnnotationGestureAtPoint:point];
+}
+
+- (void)mouseUp:(NSEvent *)event
+{
+  NSPoint point = [self convertPoint:event.locationInWindow fromView:nil];
+  [self.annotationHost endPDFAnnotationGestureAtPoint:point];
+}
+
+@end
+
 @interface AcaciaPDFView : PDFView
 @property (nonatomic, weak) id<AcaciaPDFAnnotationEventHandling> annotationHost;
 @property (nonatomic, strong) NSTrackingArea *acaciaTrackingArea;
@@ -385,6 +479,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 
 @implementation PdfCanvasView {
   PDFView *_pdfView;
+  AcaciaPDFAnnotationOverlayView *_annotationOverlayView;
   NSString *_loadedPath;
   NSString *_loadedBookmark;
   NSURL *_securityScopedURL;
@@ -392,6 +487,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   NSPoint _highlightPanStartPoint;
   BOOL _hasHighlightPanStartPoint;
   NSMutableArray<NSValue *> *_drawingViewPoints;
+  PDFSelection *_pendingTextSelection;
   NSClickGestureRecognizer *_annotationClickRecognizer;
   NSPanGestureRecognizer *_highlightPanRecognizer;
   NSPanGestureRecognizer *_drawingPanRecognizer;
@@ -410,6 +506,10 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     _pdfView.displaysPageBreaks = YES;
     _pdfView.backgroundColor = [NSColor colorWithCalibratedWhite:0.92 alpha:1.0];
     [self addSubview:_pdfView];
+    _annotationOverlayView = [[AcaciaPDFAnnotationOverlayView alloc] initWithFrame:self.bounds];
+    _annotationOverlayView.annotationHost = self;
+    _annotationOverlayView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    [self addSubview:_annotationOverlayView];
     _annotationClickRecognizer =
       [[NSClickGestureRecognizer alloc] initWithTarget:self action:@selector(handleClick:)];
     _annotationClickRecognizer.delegate = self;
@@ -434,6 +534,10 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     _signaturePreviewLabel.textColor = [NSColor colorWithCalibratedWhite:0.08 alpha:1.0];
     _signaturePreviewLabel.alignment = NSTextAlignmentCenter;
     [self addSubview:_signaturePreviewLabel];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(pdfSelectionChanged:)
+                                                 name:PDFViewSelectionChangedNotification
+                                               object:_pdfView];
   }
   return self;
 }
@@ -441,10 +545,9 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 - (void)updateAnnotationGestureRecognizerState
 {
   NSString *kind = AcaciaAnnotationKindForTool(_activeTool);
-  _annotationClickRecognizer.enabled =
-    kind != nil && ![kind isEqualToString:@"highlight"] && ![kind isEqualToString:@"drawing"];
-  _highlightPanRecognizer.enabled = [kind isEqualToString:@"highlight"];
-  _drawingPanRecognizer.enabled = [kind isEqualToString:@"drawing"];
+  _annotationClickRecognizer.enabled = NO;
+  _highlightPanRecognizer.enabled = NO;
+  _drawingPanRecognizer.enabled = NO;
   if (![kind isEqualToString:@"signature"]) {
     [self hideSignaturePreview];
   }
@@ -513,7 +616,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 
 - (BOOL)shouldHandlePDFAnnotationMouseEvents
 {
-  return NO;
+  return AcaciaAnnotationKindForTool(_activeTool) != nil;
 }
 
 - (void)updateSignaturePreviewAtPoint:(NSPoint)viewPoint
@@ -533,9 +636,10 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   NSString *previewText = _signaturePreviewText.length > 0 ? _signaturePreviewText : @"Signature";
   _signaturePreviewLabel.stringValue = previewText;
   NSPoint localPoint = [self convertPoint:viewPoint fromView:_pdfView];
-  CGFloat width = 188.0;
-  CGFloat height = 46.0;
-  CGFloat x = MIN(MAX(localPoint.x + 12.0, 8.0), MAX(8.0, NSWidth(self.bounds) - width - 8.0));
+  NSSize previewSize = AcaciaSignaturePreviewSize();
+  CGFloat width = previewSize.width;
+  CGFloat height = previewSize.height;
+  CGFloat x = MIN(MAX(localPoint.x + AcaciaSignaturePointerOffsetX, 8.0), MAX(8.0, NSWidth(self.bounds) - width - 8.0));
   CGFloat y = MIN(MAX(localPoint.y - height / 2.0, 8.0), MAX(8.0, NSHeight(self.bounds) - height - 8.0));
   _signaturePreviewLabel.frame = NSMakeRect(x, y, width, height);
   _signaturePreviewLabel.hidden = NO;
@@ -649,6 +753,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 
 - (void)dealloc
 {
+  [[NSNotificationCenter defaultCenter] removeObserver:self];
   [self stopAccessingDocumentURL];
 }
 
@@ -674,6 +779,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   [self updateAnnotationGestureRecognizerState];
 
   if ([_activeTool isEqualToString:@"highlight"]) {
+    [self cacheCurrentSelectionForHighlight];
     [self highlightCurrentSelectionIfPossible];
   }
 }
@@ -724,9 +830,28 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   [self applySearchHighlights];
 }
 
+- (void)pdfSelectionChanged:(NSNotification *)notification
+{
+  [self cacheCurrentSelectionForHighlight];
+}
+
+- (void)cacheCurrentSelectionForHighlight
+{
+  PDFSelection *selection = _pdfView.currentSelection;
+  if (selection == nil || selection.string.length == 0) {
+    return;
+  }
+
+  _pendingTextSelection = [selection copy];
+}
+
 - (BOOL)highlightCurrentSelectionIfPossible
 {
   PDFSelection *selection = _pdfView.currentSelection;
+  if (selection == nil || selection.string.length == 0) {
+    selection = _pendingTextSelection;
+  }
+
   if (selection == nil || selection.string.length == 0 || self.onCanvasPress == nil || _pdfView.document == nil) {
     return NO;
   }
@@ -772,6 +897,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   }
 
   if (emittedHighlight) {
+    _pendingTextSelection = nil;
     [_pdfView clearSelection];
   }
 
@@ -983,9 +1109,14 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     }
   }
 
-  NSRect canonicalBounds = meaningfulDrag
-    ? AcaciaCanonicalBoundsForDrag(startPagePoint, endPagePoint, pageBounds)
-    : AcaciaCanonicalBoundsForPoint(kind, startPagePoint, pageBounds);
+  NSRect canonicalBounds;
+  if ([kind isEqualToString:@"signature"] && !meaningfulDrag) {
+    canonicalBounds = AcaciaCanonicalBoundsForSignatureAtViewPoint(_pdfView, page, startViewPoint, pageBounds);
+  } else if (meaningfulDrag) {
+    canonicalBounds = AcaciaCanonicalBoundsForDrag(startPagePoint, endPagePoint, pageBounds);
+  } else {
+    canonicalBounds = AcaciaCanonicalBoundsForPoint(kind, startPagePoint, pageBounds);
+  }
 
   NSMutableDictionary *payload = [@{
     @"kind": kind,
@@ -1018,6 +1149,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     return;
   }
 
+  _pendingTextSelection = nil;
   [self stopAccessingDocumentURL];
   NSURL *documentURL = [self resolvedDocumentURL];
   if (documentURL == nil) {

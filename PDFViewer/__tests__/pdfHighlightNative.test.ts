@@ -50,6 +50,10 @@ describe('native PDFKit highlight placement', () => {
 
     for (const source of [macCanvas, iosCanvas]) {
       expect(source).toContain('highlightCurrentSelectionIfPossible');
+      expect(source).toContain('PDFViewSelectionChangedNotification');
+      expect(source).toContain('_pendingTextSelection');
+      expect(source).toContain('cacheCurrentSelectionForHighlight');
+      expect(source).toContain('[selection copy]');
       expect(source).toContain('currentSelection');
       expect(source).toContain('selectionsByLine');
       expect(source).toContain('boundsForPage:');
@@ -88,20 +92,26 @@ describe('native PDFKit highlight placement', () => {
     expect(macCanvas).toContain('[self endPDFAnnotationGestureAtPoint:[self pdfViewPointForEvent:event]]');
   });
 
-  it('macOS canvas installs active-tool pan recognizers for PDFKit subviews', () => {
+  it('macOS canvas captures active-tool mouse events above PDFKit selection handling', () => {
     const macCanvas = readFileSync(
       path.join(__dirname, '..', 'macos/PDFViewer-macOS/PdfCanvasViewManager.mm'),
       'utf8',
     );
 
-    expect(macCanvas).toContain('[_pdfView addGestureRecognizer:_annotationClickRecognizer]');
-    expect(macCanvas).toContain('[_pdfView addGestureRecognizer:_highlightPanRecognizer]');
-    expect(macCanvas).toContain('[_pdfView addGestureRecognizer:_drawingPanRecognizer]');
+    expect(macCanvas).toContain('@interface AcaciaPDFAnnotationOverlayView : NSView');
+    expect(macCanvas).toContain('annotationOverlayView');
+    expect(macCanvas).toContain('- (NSView *)hitTest:(NSPoint)point');
+    expect(macCanvas).toContain('[self.annotationHost shouldHandlePDFAnnotationMouseEvents]');
+    expect(macCanvas).toContain('[self.annotationHost beginPDFAnnotationGestureAtPoint:point]');
+    expect(macCanvas).toContain('[self.annotationHost continuePDFAnnotationGestureAtPoint:point]');
+    expect(macCanvas).toContain('[self.annotationHost endPDFAnnotationGestureAtPoint:point]');
     expect(macCanvas).toContain('- (void)updateAnnotationGestureRecognizerState');
-    expect(macCanvas).toContain('_annotationClickRecognizer.enabled =');
-    expect(macCanvas).toContain('_highlightPanRecognizer.enabled = [kind isEqualToString:@"highlight"]');
-    expect(macCanvas).toContain('_drawingPanRecognizer.enabled = [kind isEqualToString:@"drawing"]');
-    expect(macCanvas).toContain('shouldRecognizeSimultaneouslyWithGestureRecognizer');
+    expect(macCanvas).toContain('_annotationClickRecognizer.enabled = NO');
+    expect(macCanvas).toContain('_highlightPanRecognizer.enabled = NO');
+    expect(macCanvas).toContain('_drawingPanRecognizer.enabled = NO');
+    expect(macCanvas).toMatch(
+      /return AcaciaAnnotationKindForTool\(_activeTool\) != nil;/,
+    );
   });
 
   it('macOS canvas shows a pointer-following signature preview before stamping', () => {
@@ -115,6 +125,18 @@ describe('native PDFKit highlight placement', () => {
     expect(macCanvas).toContain('mouseMoved:');
     expect(macCanvas).toContain('updateSignaturePreviewAtPoint');
     expect(macCanvas).toContain('_signaturePreviewLabel.hidden = NO');
+  });
+
+  it('macOS signature preview and stamp use the same pointer-side anchor', () => {
+    const macCanvas = readFileSync(
+      path.join(__dirname, '..', 'macos/PDFViewer-macOS/PdfCanvasViewManager.mm'),
+      'utf8',
+    );
+
+    expect(macCanvas).toContain('AcaciaSignaturePointerOffsetX');
+    expect(macCanvas).toContain('AcaciaCanonicalBoundsForSignatureAtViewPoint');
+    expect(macCanvas).toContain('AcaciaSignaturePreviewSize');
+    expect(macCanvas).toContain('[kind isEqualToString:@"signature"] && !meaningfulDrag');
   });
 
   it('native search returns page-space bounds for transient match highlights', () => {

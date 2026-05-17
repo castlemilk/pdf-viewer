@@ -16,6 +16,7 @@ import {
   annotationBoundsForPageGesture,
   annotationBoundsToFallbackStyle,
   canonicalInkPathForPagePoints,
+  SIGNATURE_POINTER_OFFSET_X,
 } from '../domain/annotationGeometry';
 import type {
   Annotation,
@@ -246,7 +247,7 @@ export function PdfCanvas({
                     {
                       left: Math.min(
                         pageWidth - 190,
-                        Math.max(8, signaturePreview.x + 12),
+                        Math.max(8, signaturePreview.x + SIGNATURE_POINTER_OFFSET_X),
                       ),
                       top: Math.min(
                         pageHeight - 58,
