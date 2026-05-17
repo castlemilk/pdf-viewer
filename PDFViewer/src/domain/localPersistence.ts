@@ -66,13 +66,17 @@ export function createPersistedAppState(
   const libraryState = normalizeLibraryState(
     input.libraryState ?? createInitialLibraryState(),
   );
-  const selectedDocumentId =
+  const requestedSelectedDocumentId =
     input.selectedDocumentId ??
     libraryState.documents[0]?.id ??
     'q4-market-analysis';
   const selectedDocument =
-    libraryState.documents.find(document => document.id === selectedDocumentId) ??
+    libraryState.documents.find(
+      document => document.id === requestedSelectedDocumentId,
+    ) ??
     libraryState.documents[0];
+  const selectedDocumentId =
+    selectedDocument?.id ?? requestedSelectedDocumentId;
   const viewerState =
     input.viewerState ??
     createInitialViewerState(
@@ -183,13 +187,18 @@ function normalizeLibraryState(state: LibraryState): LibraryState {
   const defaults = createInitialLibraryState();
   const tags = mergeById(defaults.tags, state.tags);
   const collections = mergeById(defaults.collections, state.collections);
-  const documents = Array.isArray(state.documents)
-    ? state.documents
+  const documents = (
+    Array.isArray(state.documents)
+      ? state.documents.filter(document => !isTransientTestDocument(document))
+      : defaults.documents
+  );
+  const safeDocuments = documents.length > 0
+    ? documents
     : defaults.documents;
-  const counts = getCollectionCounts(documents, collections);
+  const counts = getCollectionCounts(safeDocuments, collections);
 
   return {
-    documents,
+    documents: safeDocuments,
     tags,
     collections: collections.map(collection => ({
       ...collection,
@@ -202,6 +211,16 @@ function normalizeLibraryState(state: LibraryState): LibraryState {
       ? state.storageLimitGb
       : defaults.storageLimitGb,
   };
+}
+
+function isTransientTestDocument(document: DocumentRecord): boolean {
+  const path = document.path ?? '';
+
+  return (
+    path.includes('.xctrunner/') ||
+    path.includes('/AcaciaUITests/') ||
+    path.includes('/AcaciaUITestFixtures/')
+  );
 }
 
 function sanitizeFilter(filter?: LibraryFilter): LibraryFilter {

@@ -154,6 +154,10 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 + (NSURL *)resolvedURLForPath:(NSString *)path
                      bookmark:(NSString *)bookmark
            didStartAccessing:(BOOL *)didStartAccessing;
++ (NSURL *)acaciaSupportDirectoryURL;
++ (NSURL *)managedImportURLForSourceURL:(NSURL *)sourceURL;
++ (NSURL *)managedCopyURLForSourceURL:(NSURL *)sourceURL error:(NSError **)error;
++ (BOOL)isURLInAcaciaSupportDirectory:(NSURL *)url;
 + (NSURL *)demoPDFDirectoryURL;
 + (BOOL)writeDemoPDFForSpec:(NSDictionary *)spec toURL:(NSURL *)url error:(NSError **)error;
 + (NSURL *)thumbnailURLForDocumentId:(NSString *)documentId pageIndex:(NSNumber *)pageIndex;
@@ -325,7 +329,7 @@ RCT_EXPORT_METHOD(loadDocumentMetadata:(NSString *)path
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 {
-  NSURL *url = [NSURL fileURLWithPath:path];
+  NSURL *url = AcaciaDocumentURLForPath(path);
   NSError *error = nil;
   NSDictionary *metadata = [PdfKitBridge metadataForURL:url error:&error];
 
@@ -830,9 +834,7 @@ RCT_EXPORT_METHOD(writeSidecar:(NSString *)documentId
 
 + (NSURL *)demoPDFDirectoryURL
 {
-  NSURL *supportURL = [[NSFileManager defaultManager] URLsForDirectory:NSApplicationSupportDirectory
-                                                             inDomains:NSUserDomainMask].firstObject;
-  return [supportURL URLByAppendingPathComponent:@"Acacia/DemoPDFs" isDirectory:YES];
+  return [[PdfKitBridge acaciaSupportDirectoryURL] URLByAppendingPathComponent:@"DemoPDFs" isDirectory:YES];
 }
 
 + (BOOL)writeDemoPDFForSpec:(NSDictionary *)spec toURL:(NSURL *)url error:(NSError **)error
@@ -1025,17 +1027,23 @@ RCT_EXPORT_METHOD(writeSidecar:(NSString *)documentId
   NSString *title = document.documentAttributes[PDFDocumentTitleAttribute] ?: url.lastPathComponent.stringByDeletingPathExtension;
   NSString *author = document.documentAttributes[PDFDocumentAuthorAttribute] ?: @"Local Document";
   double sizeMb = fileSize.doubleValue / 1024.0 / 1024.0;
+  NSString *documentId = [PdfKitBridge stableIdForURL:url];
+  NSURL *managedURL = [PdfKitBridge managedCopyURLForSourceURL:url error:nil];
+  NSURL *recordURL = managedURL ?: url;
+  NSString *recordBookmark = managedURL == nil && bookmark != nil
+    ? [bookmark base64EncodedStringWithOptions:0]
+    : @"";
 
   return @{
-    @"id": [PdfKitBridge stableIdForURL:url],
+    @"id": documentId,
     @"title": title,
     @"author": author,
     @"pageCount": @(document.pageCount),
     @"sizeMb": @(sizeMb),
     @"createdAt": [PdfKitBridge isoStringFromDate:createdAt],
     @"modifiedAt": [PdfKitBridge isoStringFromDate:modifiedAt],
-    @"path": url.path,
-    @"bookmark": bookmark == nil ? @"" : [bookmark base64EncodedStringWithOptions:0],
+    @"path": recordURL.path,
+    @"bookmark": recordBookmark,
   };
 }
 
@@ -1082,20 +1090,67 @@ RCT_EXPORT_METHOD(writeSidecar:(NSString *)documentId
 
 + (NSURL *)sidecarURLForDocumentId:(NSString *)documentId
 {
-  NSURL *supportURL = [[NSFileManager defaultManager] URLsForDirectory:NSApplicationSupportDirectory
-                                                             inDomains:NSUserDomainMask].firstObject;
-  return [[supportURL URLByAppendingPathComponent:@"Acacia/Sidecars" isDirectory:YES]
+  BOOL isUITesting =
+      [[[NSProcessInfo processInfo].environment objectForKey:@"PDFVIEWER_UITESTING"] isEqualToString:@"1"];
+  NSString *directoryName = isUITesting ? @"UITestSidecars" : @"Sidecars";
+  return [[[PdfKitBridge acaciaSupportDirectoryURL] URLByAppendingPathComponent:directoryName isDirectory:YES]
           URLByAppendingPathComponent:[NSString stringWithFormat:@"%@.json", documentId]];
 }
 
 + (NSURL *)thumbnailURLForDocumentId:(NSString *)documentId pageIndex:(NSNumber *)pageIndex
 {
-  NSURL *supportURL = [[NSFileManager defaultManager] URLsForDirectory:NSApplicationSupportDirectory
-                                                             inDomains:NSUserDomainMask].firstObject;
   NSString *safeDocumentId = [PdfKitBridge cacheSafeIdentifierForString:documentId ?: @"document"];
-  return [[[supportURL URLByAppendingPathComponent:@"Acacia/ThumbnailCache" isDirectory:YES]
+  return [[[[PdfKitBridge acaciaSupportDirectoryURL] URLByAppendingPathComponent:@"ThumbnailCache" isDirectory:YES]
            URLByAppendingPathComponent:safeDocumentId isDirectory:YES]
           URLByAppendingPathComponent:[NSString stringWithFormat:@"page-%@.png", pageIndex]];
+}
+
++ (NSURL *)acaciaSupportDirectoryURL
+{
+  NSURL *supportURL = [[NSFileManager defaultManager] URLsForDirectory:NSApplicationSupportDirectory
+                                                             inDomains:NSUserDomainMask].firstObject;
+  return [supportURL URLByAppendingPathComponent:@"Acacia" isDirectory:YES];
+}
+
++ (NSURL *)managedImportURLForSourceURL:(NSURL *)sourceURL
+{
+  NSString *documentId = [PdfKitBridge stableIdForURL:sourceURL];
+  NSString *extension = sourceURL.pathExtension.length > 0 ? sourceURL.pathExtension : @"pdf";
+  NSString *fileName = [NSString stringWithFormat:@"%@.%@", documentId, extension.lowercaseString];
+  return [[[PdfKitBridge acaciaSupportDirectoryURL] URLByAppendingPathComponent:@"ImportedPDFs" isDirectory:YES]
+          URLByAppendingPathComponent:fileName];
+}
+
++ (NSURL *)managedCopyURLForSourceURL:(NSURL *)sourceURL error:(NSError **)error
+{
+  if (sourceURL == nil || [PdfKitBridge isURLInAcaciaSupportDirectory:sourceURL]) {
+    return nil;
+  }
+
+  NSURL *destinationURL = [PdfKitBridge managedImportURLForSourceURL:sourceURL];
+  NSFileManager *fileManager = [NSFileManager defaultManager];
+  NSURL *destinationDirectoryURL = destinationURL.URLByDeletingLastPathComponent;
+  if (![fileManager createDirectoryAtURL:destinationDirectoryURL
+             withIntermediateDirectories:YES
+                              attributes:nil
+                                   error:error]) {
+    return nil;
+  }
+
+  [fileManager removeItemAtURL:destinationURL error:nil];
+  if (![fileManager copyItemAtURL:sourceURL toURL:destinationURL error:error]) {
+    return nil;
+  }
+
+  return destinationURL;
+}
+
++ (BOOL)isURLInAcaciaSupportDirectory:(NSURL *)url
+{
+  NSString *acaciaPath = [PdfKitBridge acaciaSupportDirectoryURL].path;
+  NSString *urlPath = url.path;
+  return [urlPath isEqualToString:acaciaPath] ||
+    [urlPath hasPrefix:[acaciaPath stringByAppendingString:@"/"]];
 }
 
 + (NSString *)cacheSafeIdentifierForString:(NSString *)value

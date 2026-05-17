@@ -162,6 +162,44 @@ describe('local app persistence', () => {
     ).toBeGreaterThan(0);
   });
 
+  it('drops transient UI-test imports from restored production state', () => {
+    const persisted = createPersistedAppState();
+    const transientDocument = {
+      ...persisted.libraryState.documents[0],
+      id: 'ui-test-imported-pdf',
+      title: 'UI Test Imported PDF',
+      lastOpenedAt: importedAt,
+      path:
+        '/Users/ben/Library/Containers/org.reactjs.native.PDFViewer-macOSUITests.xctrunner/Data/tmp/AcaciaUITests/imported.pdf',
+      bookmark: '',
+    };
+
+    const restored = createPersistedAppState({
+      ...persisted,
+      libraryState: {
+        ...persisted.libraryState,
+        documents: [transientDocument, ...persisted.libraryState.documents],
+      },
+      selectedDocumentId: transientDocument.id,
+      viewerState: createInitialViewerState(
+        transientDocument.id,
+        transientDocument.pageCount,
+      ),
+    });
+
+    expect(
+      restored.libraryState.documents.some(
+        document => document.id === transientDocument.id,
+      ),
+    ).toBe(false);
+    expect(restored.selectedDocumentId).toBe(
+      restored.libraryState.documents[0].id,
+    );
+    expect(restored.viewerState.documentId).toBe(
+      restored.libraryState.documents[0].id,
+    );
+  });
+
   it('falls back to demo content when stored state is absent or corrupt', () => {
     expect(parsePersistedAppState(undefined)).toBeUndefined();
     expect(parsePersistedAppState('{bad json')).toBeUndefined();

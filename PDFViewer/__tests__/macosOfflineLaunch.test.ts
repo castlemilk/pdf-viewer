@@ -133,6 +133,9 @@ describe('macOS offline launch configuration', () => {
     expect(macBridge).toContain('AcaciaPdfOpenedFromMenu');
     expect(macBridge).toContain('sendEventWithName:@"AcaciaPdfOpenedFromMenu"');
     expect(macBridge).toContain('noteNewRecentDocumentURL:url');
+    expect(macBridge).toContain('managedImportURLForSourceURL');
+    expect(macBridge).toContain('ImportedPDFs');
+    expect(macBridge).toContain('UITestSidecars');
     expect(tsBridge).toContain('NativeEventEmitter');
     expect(tsBridge).toContain('addOpenedPdfListener');
   });
@@ -177,7 +180,7 @@ describe('macOS offline launch configuration', () => {
     for (const source of [macBridge, iosBridge]) {
       expect(source).toContain('seedDemoPdfs');
       expect(source).toContain('AcaciaDemoPDFSpecs');
-      expect(source).toContain('Acacia/DemoPDFs');
+      expect(source).toContain('DemoPDFs');
       expect(source).toContain('q4-market-analysis');
       expect(source).toContain('future-work');
       expect(source).toContain('@"%@.pdf"');

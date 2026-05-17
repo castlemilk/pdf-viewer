@@ -792,6 +792,49 @@
   [self waitForElement:[self nativeCanvasElement] contentContaining:@"Page 1 of 19"];
 }
 
+- (void)testLibraryRecentReopensImportedPdfAfterRelaunch
+{
+  NSString *fixturePath =
+      [NSProcessInfo processInfo].environment[@"PDFVIEWER_REAL_PDF_FIXTURE_PATH"];
+  if (fixturePath.length == 0) {
+    fixturePath = @"/tmp/AcaciaUITestFixtures/2025 Electronic Pack - Ben Ebsworth.pdf";
+  }
+  if (fixturePath.length == 0 ||
+      ![[NSFileManager defaultManager] fileExistsAtPath:fixturePath]) {
+    XCTSkip(@"Real PDF fixture unavailable for persisted Recent validation.");
+    return;
+  }
+
+  NSString *sandboxFixturePath = [self copyFixtureIntoAppSandbox:fixturePath];
+  self.app.launchEnvironment = @{
+    @"PDFVIEWER_UITESTING" : @"1",
+    @"PDFVIEWER_RESET_STATE" : @"1",
+    @"PDFVIEWER_TEST_IMPORT_PATH" : sandboxFixturePath,
+  };
+  [self launchAndWaitForLibrary];
+
+  [self tapIdentifier:@"toolbar-open-file-button"];
+  [self waitForIdentifier:@"viewer-screen"];
+  [self waitForElement:[self nativeCanvasElement] contentContaining:@"Page 1 of 19"];
+  [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.75]];
+
+  [self.app terminate];
+  self.app = [[XCUIApplication alloc] init];
+  self.app.launchArguments = @[@"--uitesting"];
+  self.app.launchEnvironment = @{
+    @"PDFVIEWER_UITESTING" : @"1",
+  };
+  [self launchAndWaitForLibrary];
+
+  [self selectSidebarScope:@"nav-recent"
+              summaryTitle:@"Recently Opened"
+              expectedRows:@[@"doc-card-2025-electronic-pack-ben-ebsworth"]];
+  [self tapIdentifier:@"doc-card-2025-electronic-pack-ben-ebsworth"];
+  [self waitForIdentifier:@"viewer-screen"];
+  [self assertIdentifier:@"viewer-screen" labelContains:@"2025 Electronic Pack - Ben Ebsworth"];
+  [self waitForElement:[self nativeCanvasElement] contentContaining:@"Page 1 of 19"];
+}
+
 - (NSString *)copyFixtureIntoAppSandbox:(NSString *)sourcePath
 {
   NSString *containerDirectory =
