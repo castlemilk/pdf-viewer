@@ -64,6 +64,7 @@ EOF
 }
 
 cleanup_stale_test_processes() {
+  pkill -x "Acacia" >/dev/null 2>&1 || true
   pkill -f "${DERIVED_DATA_PATH}/Build/Products/Release/Acacia.app/Contents/MacOS/Acacia" >/dev/null 2>&1 || true
   pkill -f "${DERIVED_DATA_PATH}/Build/Products/Release/PDFViewer-macOSUITests-Runner.app" >/dev/null 2>&1 || true
   pkill -f "${DERIVED_DATA_PATH}/Build/Products/Release/Acacia-macOSUITests-Runner.app" >/dev/null 2>&1 || true

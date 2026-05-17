@@ -439,6 +439,22 @@
       [candidate forceTerminate];
     }
   }
+
+  deadline = [NSDate dateWithTimeIntervalSinceNow:5];
+  while ([deadline timeIntervalSinceNow] > 0) {
+    BOOL anyStillRunning = NO;
+    for (NSRunningApplication *candidate in runningApps) {
+      if (!candidate.terminated) {
+        anyStillRunning = YES;
+        break;
+      }
+    }
+    if (!anyStillRunning) {
+      return;
+    }
+    [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode
+                             beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+  }
 }
 
 - (void)reopenRunningApplication
