@@ -789,6 +789,7 @@
   [self waitForIdentifier:@"viewer-screen"];
   [self assertIdentifier:@"viewer-screen" labelContains:@"2025 Electronic Pack - Ben Ebsworth"];
   [self assertPageLabelContains:@"Page 1 of 19"];
+  [self waitForElement:[self nativeCanvasElement] contentContaining:@"Page 1 of 19"];
 }
 
 - (NSString *)copyFixtureIntoAppSandbox:(NSString *)sourcePath

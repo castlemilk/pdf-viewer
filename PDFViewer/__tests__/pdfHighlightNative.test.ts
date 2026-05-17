@@ -135,6 +135,36 @@ describe('native PDFKit highlight placement', () => {
     }
   });
 
+  it('native loaders normalize persisted file URLs and do not cache failed PDF loads', () => {
+    const macCanvas = readFileSync(
+      path.join(__dirname, '..', 'macos/PDFViewer-macOS/PdfCanvasViewManager.mm'),
+      'utf8',
+    );
+    const iosCanvas = readFileSync(
+      path.join(__dirname, '..', 'ios/PDFViewer/PdfCanvasViewManager.m'),
+      'utf8',
+    );
+    const macBridge = readFileSync(
+      path.join(__dirname, '..', 'macos/PDFViewer-macOS/PdfKitBridge.mm'),
+      'utf8',
+    );
+    const iosBridge = readFileSync(
+      path.join(__dirname, '..', 'ios/PDFViewer/PdfKitBridge.m'),
+      'utf8',
+    );
+
+    for (const source of [macCanvas, iosCanvas, macBridge, iosBridge]) {
+      expect(source).toContain('AcaciaDocumentURLForPath');
+      expect(source).toContain('url.isFileURL');
+    }
+
+    for (const source of [macCanvas, iosCanvas]) {
+      expect(source).toContain('document == nil || document.pageCount == 0');
+      expect(source).toContain('_loadedPath = nil');
+      expect(source).toContain('_loadedBookmark = nil');
+    }
+  });
+
   it('macOS markdown export invokes the MarkItDown local-file converter', () => {
     const macBridge = readFileSync(
       path.join(__dirname, '..', 'macos/PDFViewer-macOS/PdfKitBridge.mm'),

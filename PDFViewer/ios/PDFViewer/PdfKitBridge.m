@@ -9,6 +9,20 @@
 static const CGFloat AcaciaCanonicalPageWidth = 595.0;
 static const CGFloat AcaciaCanonicalPageHeight = 842.0;
 
+static NSURL *AcaciaDocumentURLForPath(NSString *path)
+{
+  if (path.length == 0) {
+    return nil;
+  }
+
+  NSURL *url = [NSURL URLWithString:path];
+  if (url.isFileURL) {
+    return url;
+  }
+
+  return [NSURL fileURLWithPath:path];
+}
+
 static NSArray<NSDictionary *> *AcaciaDemoPDFSpecs(void)
 {
   return @[
@@ -340,7 +354,7 @@ RCT_EXPORT_METHOD(search:(NSString *)path
     }
   }
 
-  return [NSURL fileURLWithPath:path];
+  return AcaciaDocumentURLForPath(path);
 }
 
 RCT_EXPORT_METHOD(exportPageText:(NSString *)path

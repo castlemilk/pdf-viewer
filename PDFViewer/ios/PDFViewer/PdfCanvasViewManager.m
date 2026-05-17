@@ -44,6 +44,20 @@ static NSString *AcaciaAnnotationSubtypeForKind(NSString *kind)
   return PDFAnnotationSubtypeHighlight;
 }
 
+static NSURL *AcaciaDocumentURLForPath(NSString *path)
+{
+  if (path.length == 0) {
+    return nil;
+  }
+
+  NSURL *url = [NSURL URLWithString:path];
+  if (url.isFileURL) {
+    return url;
+  }
+
+  return [NSURL fileURLWithPath:path];
+}
+
 static CGPoint AcaciaCanonicalPointForPDFPoint(CGPoint pagePoint, CGRect pageBounds)
 {
   return CGPointMake(
@@ -694,6 +708,10 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   [self stopAccessingDocumentURL];
   NSURL *documentURL = [self resolvedDocumentURL];
   if (documentURL == nil) {
+    _pdfView.document = nil;
+    _loadedPath = nil;
+    _loadedBookmark = nil;
+    [self refreshAccessibilityValue];
     return;
   }
   if (_documentBookmark.length > 0) {
@@ -702,6 +720,15 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   }
 
   PDFDocument *document = [[PDFDocument alloc] initWithURL:documentURL];
+  if (document == nil || document.pageCount == 0) {
+    _pdfView.document = nil;
+    _loadedPath = nil;
+    _loadedBookmark = nil;
+    [self stopAccessingDocumentURL];
+    [self refreshAccessibilityValue];
+    return;
+  }
+
   _pdfView.document = document;
   _pdfView.autoScales = YES;
   _loadedPath = [_documentPath copy];
@@ -729,7 +756,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     }
   }
 
-  return [NSURL fileURLWithPath:_documentPath];
+  return AcaciaDocumentURLForPath(_documentPath);
 }
 
 - (void)stopAccessingDocumentURL
