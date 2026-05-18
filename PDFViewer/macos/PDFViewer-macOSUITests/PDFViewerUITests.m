@@ -773,6 +773,56 @@
   [self dismissAlertIfPresent];
 }
 
+- (void)testSelectedRealPdfTextCanBeHighlightedFromToolbar
+{
+  NSString *fixturePath =
+      [NSProcessInfo processInfo].environment[@"PDFVIEWER_REAL_PDF_FIXTURE_PATH"];
+  if (fixturePath.length == 0) {
+    fixturePath = @"/tmp/AcaciaUITestFixtures/2025 Electronic Pack - Ben Ebsworth.pdf";
+  }
+  if (fixturePath.length == 0 ||
+      ![[NSFileManager defaultManager] fileExistsAtPath:fixturePath]) {
+    XCTSkip(@"Real PDF fixture unavailable for selected-text highlight validation.");
+    return;
+  }
+  NSString *sandboxFixturePath = [self copyFixtureIntoAppSandbox:fixturePath];
+
+  self.app.launchEnvironment = @{
+    @"PDFVIEWER_UITESTING" : @"1",
+    @"PDFVIEWER_RESET_STATE" : @"1",
+    @"PDFVIEWER_TEST_IMPORT_PATH" : sandboxFixturePath,
+  };
+  [self launchAndWaitForLibrary];
+
+  [self tapIdentifier:@"toolbar-open-file-button"];
+
+  [self waitForIdentifier:@"viewer-screen"];
+  [self assertIdentifier:@"viewer-screen" labelContains:@"2025 Electronic Pack - Ben Ebsworth"];
+  [self assertPageLabelContains:@"Page 1 of 19"];
+
+  XCUIElement *documentSearch = [self waitForIdentifier:@"document-search-input"];
+  [self clickElement:documentSearch];
+  [documentSearch typeText:@"Taxable income\n"];
+  [self waitForPageNumber:4];
+
+  [self tapIdentifier:@"tool-select"];
+  XCUIElement *selectedText = [self waitForStaticTextContaining:@"Taxable income"];
+  XCUICoordinate *selectionStart =
+      [selectedText coordinateWithNormalizedOffset:CGVectorMake(0.08, 0.5)];
+  XCUICoordinate *selectionEnd =
+      [selectedText coordinateWithNormalizedOffset:CGVectorMake(0.92, 0.5)];
+  [selectionStart pressForDuration:0.35 thenDragToCoordinate:selectionEnd];
+
+  NSInteger annotationsBeforeSelectionHighlight = [self nativeCanvasAnnotationCount];
+  [self scrollIdentifierIntoView:@"quick-action-highlight"];
+  [self tapIdentifier:@"quick-action-highlight"];
+  [self waitForIdentifier:@"pdf-tool-hint" labelContaining:@"Highlighter ready"];
+  [self waitForNativeCanvasAnnotationCountGreaterThan:annotationsBeforeSelectionHighlight];
+  [self waitForIdentifier:@"comments-paywall"];
+  [self tapIdentifier:@"unlock-comments-button"];
+  [self assertIdentifier:@"comment-item-local-highlight" labelContains:@"Local non-destructive highlight"];
+}
+
 - (void)testFileOpenRecentMenuReopensImportedPdf
 {
   NSString *fixturePath =
