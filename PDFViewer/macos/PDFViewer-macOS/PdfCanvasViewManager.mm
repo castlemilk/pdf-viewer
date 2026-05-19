@@ -324,6 +324,9 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 
 @interface AcaciaPDFAnnotationOverlayView : NSView
 @property (nonatomic, weak) id<AcaciaPDFAnnotationEventHandling> annotationHost;
+@property (nonatomic, weak) PDFView *pdfView;
+@property (nonatomic, copy) NSArray *annotations;
+@property (nonatomic, copy) NSArray *searchHighlights;
 @property (nonatomic, strong) NSTrackingArea *acaciaTrackingArea;
 @end
 
@@ -332,6 +335,70 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 - (BOOL)isOpaque
 {
   return NO;
+}
+
+- (void)setAnnotations:(NSArray *)annotations
+{
+  _annotations = [annotations copy];
+  [self setNeedsDisplay:YES];
+}
+
+- (void)setSearchHighlights:(NSArray *)searchHighlights
+{
+  _searchHighlights = [searchHighlights copy];
+  [self setNeedsDisplay:YES];
+}
+
+- (void)drawRect:(NSRect)dirtyRect
+{
+  [super drawRect:dirtyRect];
+
+  [self drawHighlightOverlays:self.searchHighlights alpha:0.46];
+
+  NSMutableArray *highlightAnnotations = [NSMutableArray array];
+  for (NSDictionary *annotationInfo in self.annotations) {
+    NSString *kind = [RCTConvert NSString:annotationInfo[@"kind"]];
+    if ([kind isEqualToString:@"highlight"]) {
+      [highlightAnnotations addObject:annotationInfo];
+    }
+  }
+  [self drawHighlightOverlays:highlightAnnotations alpha:0.62];
+}
+
+- (void)drawHighlightOverlays:(NSArray *)items alpha:(CGFloat)alpha
+{
+  PDFDocument *document = self.pdfView.document;
+  if (document == nil || items.count == 0) {
+    return;
+  }
+
+  NSGraphicsContext *context = NSGraphicsContext.currentContext;
+  [context saveGraphicsState];
+  context.compositingOperation = NSCompositingOperationSourceOver;
+  [[NSColor colorWithCalibratedRed:1.0 green:0.82 blue:0.12 alpha:alpha] setFill];
+
+  for (NSDictionary *itemInfo in items) {
+    NSNumber *pageIndex = [RCTConvert NSNumber:itemInfo[@"pageIndex"]];
+    PDFPage *page = [document pageAtIndex:pageIndex.unsignedIntegerValue];
+    if (page == nil) {
+      continue;
+    }
+
+    NSDictionary *boundsInfo = [RCTConvert NSDictionary:itemInfo[@"bounds"]];
+    NSRect pdfBounds = AcaciaPDFBoundsForAnnotation(boundsInfo, page);
+    NSRect pdfViewBounds = [self.pdfView convertRect:pdfBounds fromPage:page];
+    NSRect overlayBounds = [self convertRect:pdfViewBounds fromView:self.pdfView];
+    if (NSIsEmptyRect(overlayBounds) || !NSIntersectsRect(overlayBounds, self.bounds)) {
+      continue;
+    }
+
+    NSRect paddedBounds = NSInsetRect(overlayBounds, -1.0, -1.0);
+    NSBezierPath *path =
+        [NSBezierPath bezierPathWithRoundedRect:paddedBounds xRadius:2.0 yRadius:2.0];
+    [path fill];
+  }
+
+  [context restoreGraphicsState];
 }
 
 - (NSView *)hitTest:(NSPoint)point
@@ -508,6 +575,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     [self addSubview:_pdfView];
     _annotationOverlayView = [[AcaciaPDFAnnotationOverlayView alloc] initWithFrame:self.bounds];
     _annotationOverlayView.annotationHost = self;
+    _annotationOverlayView.pdfView = _pdfView;
     _annotationOverlayView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     [self addSubview:_annotationOverlayView];
     _annotationClickRecognizer =
@@ -733,7 +801,8 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   [self setAccessibilityElement:YES];
   [_pdfView setAccessibilityElement:YES];
   self.accessibilityIdentifier = _testID;
-  _pdfView.accessibilityIdentifier = _testID;
+  _pdfView.accessibilityIdentifier =
+    _testID.length > 0 ? [_testID stringByAppendingString:@"-document"] : nil;
   [self setAccessibilityLabel:@"PDF canvas"];
   [_pdfView setAccessibilityLabel:@"PDF canvas"];
   [self refreshAccessibilityValue];
@@ -764,6 +833,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   if (page != nil) {
     [_pdfView goToPage:page];
   }
+  [_annotationOverlayView setNeedsDisplay:YES];
   [self refreshAccessibilityValue];
 }
 
@@ -815,18 +885,21 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   _pdfView.minScaleFactor = minScale;
   _pdfView.maxScaleFactor = maxScale;
   _pdfView.scaleFactor = targetScale;
+  [_annotationOverlayView setNeedsDisplay:YES];
   [self refreshAccessibilityValue];
 }
 
 - (void)setAnnotations:(NSArray *)annotations
 {
   _annotations = [annotations copy];
+  _annotationOverlayView.annotations = _annotations;
   [self applyAnnotations];
 }
 
 - (void)setSearchHighlights:(NSArray *)searchHighlights
 {
   _searchHighlights = [searchHighlights copy];
+  _annotationOverlayView.searchHighlights = _searchHighlights;
   [self applySearchHighlights];
 }
 
@@ -1178,6 +1251,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   _pdfView.autoScales = YES;
   _loadedPath = [_documentPath copy];
   _loadedBookmark = [_documentBookmark copy];
+  [_annotationOverlayView setNeedsDisplay:YES];
   [self applyAnnotations];
   [self applyZoom];
   [self setPageIndex:_pageIndex ?: @0];
@@ -1272,6 +1346,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   }
 
   [self applySearchHighlights];
+  [_annotationOverlayView setNeedsDisplay:YES];
   [self refreshAccessibilityValue];
 }
 
@@ -1311,6 +1386,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     [page addAnnotation:annotation];
   }
 
+  [_annotationOverlayView setNeedsDisplay:YES];
   [self refreshAccessibilityValue];
 }
 

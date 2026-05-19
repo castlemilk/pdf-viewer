@@ -187,6 +187,140 @@
           [self contentForElement:element]);
 }
 
+- (NSInteger)yellowPixelCountForElement:(XCUIElement *)element
+{
+  XCUIScreenshot *screenshot = [element screenshot];
+  NSImage *image = screenshot.image;
+  NSBitmapImageRep *bitmap = nil;
+  for (NSImageRep *candidate in image.representations) {
+    if ([candidate isKindOfClass:NSBitmapImageRep.class]) {
+      bitmap = (NSBitmapImageRep *)candidate;
+      break;
+    }
+  }
+  if (bitmap == nil && image.TIFFRepresentation != nil) {
+    bitmap = [[NSBitmapImageRep alloc] initWithData:image.TIFFRepresentation];
+  }
+  XCTAssertNotNil(bitmap, @"Expected a bitmap screenshot for %@", element.identifier);
+  if (bitmap == nil) {
+    return 0;
+  }
+
+  NSInteger yellowPixels = 0;
+  for (NSInteger y = 0; y < bitmap.pixelsHigh; y += 2) {
+    for (NSInteger x = 0; x < bitmap.pixelsWide; x += 2) {
+      NSColor *color =
+          [[bitmap colorAtX:x y:y] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+      if (color == nil) {
+        continue;
+      }
+
+      CGFloat red = 0;
+      CGFloat green = 0;
+      CGFloat blue = 0;
+      CGFloat alpha = 0;
+      [color getRed:&red green:&green blue:&blue alpha:&alpha];
+      if (alpha > 0.6 &&
+          red > 0.74 &&
+          green > 0.62 &&
+          green < 0.99 &&
+          blue < 0.84 &&
+          red > blue + 0.12 &&
+          green > blue + 0.07) {
+        yellowPixels += 1;
+      }
+    }
+  }
+
+  return yellowPixels;
+}
+
+- (NSInteger)yellowPixelSignalForElement:(XCUIElement *)element
+{
+  XCUIScreenshot *screenshot = [element screenshot];
+  NSImage *image = screenshot.image;
+  NSBitmapImageRep *bitmap = nil;
+  for (NSImageRep *candidate in image.representations) {
+    if ([candidate isKindOfClass:NSBitmapImageRep.class]) {
+      bitmap = (NSBitmapImageRep *)candidate;
+      break;
+    }
+  }
+  if (bitmap == nil && image.TIFFRepresentation != nil) {
+    bitmap = [[NSBitmapImageRep alloc] initWithData:image.TIFFRepresentation];
+  }
+  XCTAssertNotNil(bitmap, @"Expected a bitmap screenshot for %@", element.identifier);
+  if (bitmap == nil) {
+    return 0;
+  }
+
+  NSInteger yellowSignal = 0;
+  for (NSInteger y = 0; y < bitmap.pixelsHigh; y += 2) {
+    for (NSInteger x = 0; x < bitmap.pixelsWide; x += 2) {
+      NSColor *color =
+          [[bitmap colorAtX:x y:y] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+      if (color == nil) {
+        continue;
+      }
+
+      CGFloat red = 0;
+      CGFloat green = 0;
+      CGFloat blue = 0;
+      CGFloat alpha = 0;
+      [color getRed:&red green:&green blue:&blue alpha:&alpha];
+      if (alpha > 0.6 &&
+          red > 0.74 &&
+          green > 0.62 &&
+          green < 0.99 &&
+          blue < 0.84 &&
+          red > blue + 0.12 &&
+          green > blue + 0.07) {
+        yellowSignal += (NSInteger)round(((red - blue) + (green - blue)) * 1000.0);
+      }
+    }
+  }
+
+  return yellowSignal;
+}
+
+- (void)waitForElement:(XCUIElement *)element yellowPixelCountGreaterThan:(NSInteger)previousCount
+{
+  NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:10];
+  NSInteger latestCount = 0;
+
+  while ([[NSDate date] compare:deadline] == NSOrderedAscending) {
+    latestCount = [self yellowPixelCountForElement:element];
+    if (latestCount > previousCount) {
+      return;
+    }
+    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.2]];
+  }
+
+  XCTFail(@"Expected visible yellow highlight pixels for %@ to exceed %ld, saw %ld",
+          element.identifier,
+          (long)previousCount,
+          (long)latestCount);
+}
+
+- (void)waitForElement:(XCUIElement *)element yellowPixelSignalGreaterThan:(NSInteger)previousSignal
+{
+  NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:10];
+  NSInteger latestSignal = 0;
+
+  while ([[NSDate date] compare:deadline] == NSOrderedAscending) {
+    latestSignal = [self yellowPixelSignalForElement:element];
+    if (latestSignal > previousSignal) {
+      return;
+    }
+    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.2]];
+  }
+
+  XCTFail(@"Expected visible yellow highlight signal for %@ to exceed %ld, saw %ld",
+          element.identifier,
+          (long)previousSignal,
+          (long)latestSignal);
+}
+
 - (XCUIElement *)waitForIdentifier:(NSString *)identifier labelContaining:(NSString *)expected
 {
   XCUIElement *element = [self waitForIdentifier:identifier];
@@ -722,12 +856,14 @@
     @"pdf-canvas-fallback",
     @"viewer-screen",
   ]];
+  NSInteger yellowPixelsBeforeHighlight = [self yellowPixelCountForElement:canvas];
   XCUICoordinate *highlightStart =
       [canvas coordinateWithNormalizedOffset:CGVectorMake(0.42, 0.34)];
   XCUICoordinate *highlightEnd =
       [canvas coordinateWithNormalizedOffset:CGVectorMake(0.58, 0.37)];
   [highlightStart pressForDuration:0.1 thenDragToCoordinate:highlightEnd];
   [self waitForNativeCanvasAnnotationCountGreaterThan:annotationsBeforeHighlight];
+  [self waitForElement:canvas yellowPixelCountGreaterThan:yellowPixelsBeforeHighlight + 24];
   [self waitForIdentifier:@"comments-paywall"];
   [self tapIdentifier:@"unlock-comments-button"];
   [self assertIdentifier:@"comment-item-local-highlight" labelContains:@"Local non-destructive highlight"];
@@ -805,6 +941,9 @@
   [documentSearch typeText:@"Taxable income\n"];
   [self waitForPageNumber:4];
 
+  XCUIElement *canvas = [self nativeCanvasElement];
+  NSInteger yellowSignalBeforeSelectionHighlight = [self yellowPixelSignalForElement:canvas];
+
   [self tapIdentifier:@"tool-select"];
   XCUIElement *selectedText = [self waitForStaticTextContaining:@"Taxable income"];
   XCUICoordinate *selectionStart =
@@ -818,6 +957,8 @@
   [self tapIdentifier:@"quick-action-highlight"];
   [self waitForIdentifier:@"pdf-tool-hint" labelContaining:@"Highlighter ready"];
   [self waitForNativeCanvasAnnotationCountGreaterThan:annotationsBeforeSelectionHighlight];
+  [self waitForElement:canvas
+      yellowPixelSignalGreaterThan:yellowSignalBeforeSelectionHighlight + 8000];
   [self waitForIdentifier:@"comments-paywall"];
   [self tapIdentifier:@"unlock-comments-button"];
   [self assertIdentifier:@"comment-item-local-highlight" labelContains:@"Local non-destructive highlight"];
@@ -1012,12 +1153,14 @@
   [self tapIdentifier:@"quick-action-highlight"];
   [self waitForIdentifier:@"pdf-tool-hint" labelContaining:@"Highlighter ready"];
   NSInteger annotationsBeforeHighlight = [self nativeCanvasAnnotationCount];
+  NSInteger yellowPixelsBeforeHighlight = [self yellowPixelCountForElement:canvas];
   XCUICoordinate *highlightStart =
       [canvas coordinateWithNormalizedOffset:CGVectorMake(0.42, 0.34)];
   XCUICoordinate *highlightEnd =
       [canvas coordinateWithNormalizedOffset:CGVectorMake(0.58, 0.37)];
   [highlightStart pressForDuration:0.1 thenDragToCoordinate:highlightEnd];
   [self waitForNativeCanvasAnnotationCountGreaterThan:annotationsBeforeHighlight];
+  [self waitForElement:canvas yellowPixelCountGreaterThan:yellowPixelsBeforeHighlight + 24];
   [self waitForIdentifier:@"comments-paywall"];
   [self tapIdentifier:@"unlock-comments-button"];
   [self assertIdentifier:@"comment-item-local-highlight" labelContains:@"Local non-destructive highlight"];

@@ -208,6 +208,40 @@ static NSArray<NSValue *> *AcaciaHighlightQuadPointsForBounds(CGRect bounds)
   ];
 }
 
+static CGRect AcaciaPDFBoundsForRequestedBounds(CGRect requestedBounds, PDFPage *page)
+{
+  CGRect pageBounds = [page boundsForBox:kPDFDisplayBoxCropBox];
+  if (CGRectIsEmpty(pageBounds)) {
+    pageBounds = [page boundsForBox:kPDFDisplayBoxMediaBox];
+  }
+
+  CGFloat margin = 24.0;
+  CGFloat fallbackWidth = MIN(280.0, MAX(80.0, CGRectGetWidth(pageBounds) - margin * 2.0));
+  CGFloat fallbackHeight = 24.0;
+  CGRect fallbackBounds = CGRectMake(
+    CGRectGetMinX(pageBounds) + margin,
+    CGRectGetMaxY(pageBounds) - margin - fallbackHeight,
+    fallbackWidth,
+    fallbackHeight
+  );
+
+  if (CGRectIsEmpty(pageBounds) || CGRectIsEmpty(requestedBounds)) {
+    return fallbackBounds;
+  }
+
+  CGFloat width = CGRectGetWidth(requestedBounds) / AcaciaCanonicalPageWidth * CGRectGetWidth(pageBounds);
+  CGFloat height = CGRectGetHeight(requestedBounds) / AcaciaCanonicalPageHeight * CGRectGetHeight(pageBounds);
+  width = MIN(MAX(width, 4.0), CGRectGetWidth(pageBounds));
+  height = MIN(MAX(height, 4.0), CGRectGetHeight(pageBounds));
+
+  CGFloat x = CGRectGetMinX(pageBounds) + CGRectGetMinX(requestedBounds) / AcaciaCanonicalPageWidth * CGRectGetWidth(pageBounds);
+  CGFloat y = CGRectGetMaxY(pageBounds) - ((CGRectGetMinY(requestedBounds) + CGRectGetHeight(requestedBounds)) / AcaciaCanonicalPageHeight * CGRectGetHeight(pageBounds));
+  x = MIN(MAX(x, CGRectGetMinX(pageBounds)), CGRectGetMaxX(pageBounds) - width);
+  y = MIN(MAX(y, CGRectGetMinY(pageBounds)), CGRectGetMaxY(pageBounds) - height);
+
+  return CGRectMake(x, y, width, height);
+}
+
 static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page)
 {
   if (points.count == 0) {
@@ -238,6 +272,96 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   return path;
 }
 
+@interface AcaciaPDFAnnotationOverlayView : UIView
+@property (nonatomic, weak) PDFView *pdfView;
+@property (nonatomic, copy) NSArray *annotations;
+@property (nonatomic, copy) NSArray *searchHighlights;
+@end
+
+@implementation AcaciaPDFAnnotationOverlayView
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+  self = [super initWithFrame:frame];
+  if (self) {
+    self.backgroundColor = UIColor.clearColor;
+    self.opaque = NO;
+    self.userInteractionEnabled = NO;
+  }
+  return self;
+}
+
+- (void)setAnnotations:(NSArray *)annotations
+{
+  _annotations = [annotations copy];
+  [self setNeedsDisplay];
+}
+
+- (void)setSearchHighlights:(NSArray *)searchHighlights
+{
+  _searchHighlights = [searchHighlights copy];
+  [self setNeedsDisplay];
+}
+
+- (void)drawRect:(CGRect)rect
+{
+  [super drawRect:rect];
+
+  [self drawHighlightOverlays:self.searchHighlights alpha:0.46];
+
+  NSMutableArray *highlightAnnotations = [NSMutableArray array];
+  for (NSDictionary *annotationInfo in self.annotations) {
+    NSString *kind = [RCTConvert NSString:annotationInfo[@"kind"]];
+    if ([kind isEqualToString:@"highlight"]) {
+      [highlightAnnotations addObject:annotationInfo];
+    }
+  }
+  [self drawHighlightOverlays:highlightAnnotations alpha:0.62];
+}
+
+- (void)drawHighlightOverlays:(NSArray *)items alpha:(CGFloat)alpha
+{
+  PDFDocument *document = self.pdfView.document;
+  if (document == nil || items.count == 0) {
+    return;
+  }
+
+  CGContextRef context = UIGraphicsGetCurrentContext();
+  CGContextSaveGState(context);
+  CGContextSetBlendMode(context, kCGBlendModeNormal);
+  [[UIColor colorWithRed:1.0 green:0.82 blue:0.12 alpha:alpha] setFill];
+
+  for (NSDictionary *itemInfo in items) {
+    NSNumber *pageIndex = [RCTConvert NSNumber:itemInfo[@"pageIndex"]];
+    PDFPage *page = [document pageAtIndex:pageIndex.unsignedIntegerValue];
+    if (page == nil) {
+      continue;
+    }
+
+    NSDictionary *boundsInfo = [RCTConvert NSDictionary:itemInfo[@"bounds"]];
+    CGRect requestedBounds = CGRectMake(
+      [RCTConvert CGFloat:boundsInfo[@"x"]],
+      [RCTConvert CGFloat:boundsInfo[@"y"]],
+      [RCTConvert CGFloat:boundsInfo[@"width"]],
+      [RCTConvert CGFloat:boundsInfo[@"height"]]
+    );
+    CGRect pdfBounds = AcaciaPDFBoundsForRequestedBounds(requestedBounds, page);
+    CGRect pdfViewBounds = [self.pdfView convertRect:pdfBounds fromPage:page];
+    CGRect overlayBounds = [self convertRect:pdfViewBounds fromView:self.pdfView];
+    if (CGRectIsEmpty(overlayBounds) || !CGRectIntersectsRect(overlayBounds, self.bounds)) {
+      continue;
+    }
+
+    CGRect paddedBounds = CGRectInset(overlayBounds, -1.0, -1.0);
+    UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:paddedBounds cornerRadius:2.0];
+    [path fill];
+  }
+
+  CGContextRestoreGState(context);
+}
+
+@end
+
 @interface PdfCanvasView : UIView
 @property (nonatomic, copy) NSString *documentPath;
 @property (nonatomic, copy) NSString *documentBookmark;
@@ -255,6 +379,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 
 @implementation PdfCanvasView {
   PDFView *_pdfView;
+  AcaciaPDFAnnotationOverlayView *_annotationOverlayView;
   NSString *_loadedPath;
   NSString *_loadedBookmark;
   NSURL *_securityScopedURL;
@@ -281,6 +406,11 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     _pdfView.maxScaleFactor = 4.0;
     _pdfView.backgroundColor = [UIColor colorWithWhite:0.92 alpha:1.0];
     [self addSubview:_pdfView];
+    _annotationOverlayView = [[AcaciaPDFAnnotationOverlayView alloc] initWithFrame:self.bounds];
+    _annotationOverlayView.pdfView = _pdfView;
+    _annotationOverlayView.autoresizingMask =
+      UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self addSubview:_annotationOverlayView];
     UITapGestureRecognizer *tapRecognizer =
       [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTap:)];
     tapRecognizer.cancelsTouchesInView = NO;
@@ -322,6 +452,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 {
   [super layoutSubviews];
   _pdfView.frame = self.bounds;
+  _annotationOverlayView.frame = self.bounds;
   [self applyZoom];
   [self goToCurrentPage];
 }
@@ -363,6 +494,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   if (page != nil) {
     [_pdfView goToPage:page];
   }
+  [_annotationOverlayView setNeedsDisplay];
   [self refreshAccessibilityValue];
 }
 
@@ -406,18 +538,21 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   _pdfView.minScaleFactor = minScale;
   _pdfView.maxScaleFactor = maxScale;
   _pdfView.scaleFactor = targetScale;
+  [_annotationOverlayView setNeedsDisplay];
   [self refreshAccessibilityValue];
 }
 
 - (void)setAnnotations:(NSArray *)annotations
 {
   _annotations = [annotations copy];
+  _annotationOverlayView.annotations = _annotations;
   [self applyAnnotations];
 }
 
 - (void)setSearchHighlights:(NSArray *)searchHighlights
 {
   _searchHighlights = [searchHighlights copy];
+  _annotationOverlayView.searchHighlights = _searchHighlights;
   [self applySearchHighlights];
 }
 
@@ -761,6 +896,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   _pdfView.autoScales = YES;
   _loadedPath = [_documentPath copy];
   _loadedBookmark = [_documentBookmark copy];
+  [_annotationOverlayView setNeedsDisplay];
   [self applyAnnotations];
   [self applyZoom];
   [self goToCurrentPage];
@@ -861,6 +997,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   }
 
   [self applySearchHighlights];
+  [_annotationOverlayView setNeedsDisplay];
   [self refreshAccessibilityValue];
 }
 
@@ -907,40 +1044,12 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   }
 
   [self refreshAccessibilityValue];
+  [_annotationOverlayView setNeedsDisplay];
 }
 
 - (CGRect)visibleAnnotationBoundsForRequestedBounds:(CGRect)requestedBounds page:(PDFPage *)page
 {
-  CGRect pageBounds = [page boundsForBox:kPDFDisplayBoxCropBox];
-  if (CGRectIsEmpty(pageBounds)) {
-    pageBounds = [page boundsForBox:kPDFDisplayBoxMediaBox];
-  }
-
-  CGFloat margin = 24.0;
-  CGFloat fallbackWidth = MIN(280.0, MAX(80.0, CGRectGetWidth(pageBounds) - margin * 2.0));
-  CGFloat fallbackHeight = 24.0;
-  CGRect fallbackBounds = CGRectMake(
-    CGRectGetMinX(pageBounds) + margin,
-    CGRectGetMaxY(pageBounds) - margin - fallbackHeight,
-    fallbackWidth,
-    fallbackHeight
-  );
-
-  if (CGRectIsEmpty(pageBounds) || CGRectIsEmpty(requestedBounds)) {
-    return fallbackBounds;
-  }
-
-  CGFloat width = CGRectGetWidth(requestedBounds) / AcaciaCanonicalPageWidth * CGRectGetWidth(pageBounds);
-  CGFloat height = CGRectGetHeight(requestedBounds) / AcaciaCanonicalPageHeight * CGRectGetHeight(pageBounds);
-  width = MIN(MAX(width, 4.0), CGRectGetWidth(pageBounds));
-  height = MIN(MAX(height, 4.0), CGRectGetHeight(pageBounds));
-
-  CGFloat x = CGRectGetMinX(pageBounds) + CGRectGetMinX(requestedBounds) / AcaciaCanonicalPageWidth * CGRectGetWidth(pageBounds);
-  CGFloat y = CGRectGetMaxY(pageBounds) - ((CGRectGetMinY(requestedBounds) + CGRectGetHeight(requestedBounds)) / AcaciaCanonicalPageHeight * CGRectGetHeight(pageBounds));
-  x = MIN(MAX(x, CGRectGetMinX(pageBounds)), CGRectGetMaxX(pageBounds) - width);
-  y = MIN(MAX(y, CGRectGetMinY(pageBounds)), CGRectGetMaxY(pageBounds) - height);
-
-  return CGRectMake(x, y, width, height);
+  return AcaciaPDFBoundsForRequestedBounds(requestedBounds, page);
 }
 
 - (void)refreshAccessibilityValue
