@@ -249,7 +249,7 @@ test('fallback PDF canvas previews the active signature at the pointer before st
   expect(preview.props.children.props.children).toBe('Ben Ebsworth');
   expect(StyleSheet.flatten(preview.props.style)).toEqual(
     expect.objectContaining({
-      left: 186,
+      left: 150,
       top: 316,
     }),
   );
@@ -470,7 +470,7 @@ test('fallback PDF canvas creates signature stamps from the clicked page positio
       kind: 'signature',
       pageIndex: 0,
       bounds: {
-        x: 351,
+        x: 242,
         y: 483,
         width: 180,
         height: 48,

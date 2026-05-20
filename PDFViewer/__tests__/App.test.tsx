@@ -334,6 +334,46 @@ test('mobile highlights created in the same tick receive unique keys', async () 
   expect(duplicateKeyWarnings).toHaveLength(0);
 });
 
+test('mobile highlight palette applies the selected color to new highlights', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App forceCompactLayout />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findByProps({testID: 'mobile-doc-row-q4-market-analysis'})
+      .props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'mobile-highlight'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'mobile-highlight-color-blue'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props.onResponderRelease({
+      nativeEvent: {locationX: 150, locationY: 220},
+    });
+  });
+
+  const highlight = renderer!.root.find(
+    instance =>
+      typeof instance.props.testID === 'string' &&
+      instance.props.testID.startsWith('pdf-annotation-highlight-'),
+  );
+
+  expect(StyleSheet.flatten(highlight.props.style)).toEqual(
+    expect.objectContaining({
+      backgroundColor: '#A7BAE8',
+    }),
+  );
+});
+
 test('mobile demo canvas scrolling updates the visible page state', async () => {
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 

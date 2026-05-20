@@ -1,6 +1,6 @@
 # Acacia Screenshots
 
-Captured on 2026-05-12 from the notarized release app.
+Captured on 2026-05-20 from a Release app build produced for screenshot capture.
 
 All App Store screenshots are PNG files at 2880 x 1800, matching Apple's current Mac screenshot specification.
 

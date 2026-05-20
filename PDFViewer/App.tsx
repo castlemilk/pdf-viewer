@@ -105,6 +105,14 @@ const libraryScopeOptions: LibraryScope[] = [
   'shared',
 ];
 
+const highlightColorOptions = [
+  {id: 'yellow', label: 'Yellow highlight', color: '#F7D64A'},
+  {id: 'green', label: 'Green highlight', color: '#8CC79E'},
+  {id: 'blue', label: 'Blue highlight', color: '#A7BAE8'},
+  {id: 'rose', label: 'Rose highlight', color: '#E2A0B7'},
+  {id: 'gray', label: 'Gray highlight', color: '#CFCFCB'},
+] as const;
+
 const initialAnnotations: Annotation[] = [
   createAnnotation({
     id: 'future-work-highlight',
@@ -162,6 +170,9 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
     },
   ]);
   const [activeSignatureId, setActiveSignatureId] = useState('signature-default');
+  const [highlightColor, setHighlightColor] = useState<string>(
+    highlightColorOptions[0].color,
+  );
   const [mobileAnnotationSheetOpen, setMobileAnnotationSheetOpen] =
     useState(false);
   const [accountState, setAccountState] = useState<AccountState>({
@@ -520,7 +531,10 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
       documentId: selectedDocument.id,
       pageIndex: request.pageIndex,
       kind: request.kind,
-      color: annotationColorForKind(request.kind),
+      color:
+        request.kind === 'highlight'
+          ? highlightColor
+          : annotationColorForKind(request.kind),
       bounds: request.bounds,
       points: request.points,
       text: copy,
@@ -851,6 +865,7 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
         compareSummary={compareSummary}
         signatures={signatures}
         activeSignatureId={activeSignatureId}
+        highlightColor={highlightColor}
         onQueryChange={query => setFilter(current => ({...current, query}))}
         onSearchSubmit={submitSearch}
         onFilterChange={patch => setFilter(current => ({...current, ...patch}))}
@@ -866,6 +881,7 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
         onUnlockReviewFeatures={unlockReviewFeatures}
         onSelectSignature={setActiveSignatureId}
         onSaveSignature={saveSignature}
+        onSelectHighlightColor={setHighlightColor}
       />
     );
   }
@@ -988,9 +1004,11 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
           onUnlockReviewFeatures={unlockReviewFeatures}
           signatures={signatures}
           activeSignatureId={activeSignatureId}
+          highlightColor={highlightColor}
           onSelectSignature={setActiveSignatureId}
           onSaveSignature={saveSignature}
           onExport={exportCurrentDocument}
+          onSelectHighlightColor={setHighlightColor}
         />
       )}
     </View>
@@ -1086,6 +1104,7 @@ function MobileExperience({
   compareSummary,
   signatures,
   activeSignatureId,
+  highlightColor,
   onQueryChange,
   onSearchSubmit,
   onFilterChange,
@@ -1101,6 +1120,7 @@ function MobileExperience({
   onUnlockReviewFeatures,
   onSelectSignature,
   onSaveSignature,
+  onSelectHighlightColor,
 }: {
   screenMode: ScreenMode;
   filter: LibraryFilter;
@@ -1118,6 +1138,7 @@ function MobileExperience({
   compareSummary: CompareSummary;
   signatures: SignatureProfile[];
   activeSignatureId: string;
+  highlightColor: string;
   onQueryChange: (query: string) => void;
   onSearchSubmit: (query?: string) => void | Promise<void>;
   onFilterChange: (patch: Partial<LibraryFilter>) => void;
@@ -1133,6 +1154,7 @@ function MobileExperience({
   onUnlockReviewFeatures: () => void;
   onSelectSignature: (signatureId: string) => void;
   onSaveSignature: (value: string) => void;
+  onSelectHighlightColor: (color: string) => void;
 }) {
   const shouldShowContinueReading =
     filter.scope === 'library' &&
@@ -1159,8 +1181,10 @@ function MobileExperience({
         onUnlockReviewFeatures={onUnlockReviewFeatures}
         signatures={signatures}
         activeSignatureId={activeSignatureId}
+        highlightColor={highlightColor}
         onSelectSignature={onSelectSignature}
         onSaveSignature={onSaveSignature}
+        onSelectHighlightColor={onSelectHighlightColor}
       />
     );
   }
@@ -1319,8 +1343,10 @@ function MobileViewer({
   onUnlockReviewFeatures,
   signatures,
   activeSignatureId,
+  highlightColor,
   onSelectSignature,
   onSaveSignature,
+  onSelectHighlightColor,
 }: {
   document: DocumentRecord;
   viewer: ViewerState;
@@ -1337,8 +1363,10 @@ function MobileViewer({
   onUnlockReviewFeatures: () => void;
   signatures: SignatureProfile[];
   activeSignatureId: string;
+  highlightColor: string;
   onSelectSignature: (signatureId: string) => void;
   onSaveSignature: (value: string) => void;
+  onSelectHighlightColor: (color: string) => void;
 }) {
   return (
     <MobileSafeArea>
@@ -1376,26 +1404,34 @@ function MobileViewer({
             style={mobileStyles.viewerToolRail}
             contentContainerStyle={mobileStyles.viewerToolScroller}>
             <MobileButton
-            label="Highlight"
+              label="Highlight"
               icon="highlighter"
               primary
               testID="mobile-highlight"
               onPress={() => onSelectTool('highlight')}
             />
+            {viewer.activeTool === 'highlight' ? (
+              <HighlightPalette
+                selectedColor={highlightColor}
+                onSelectColor={onSelectHighlightColor}
+                testIDPrefix="mobile-highlight-color"
+                compact
+              />
+            ) : null}
             <MobileButton
-            label="Note"
+              label="Note"
               icon="comment"
               testID="mobile-note"
               onPress={() => onSelectTool('comment')}
             />
             <MobileButton
-            label="Draw"
+              label="Draw"
               icon="pen"
               testID="mobile-draw"
               onPress={() => onSelectTool('pen')}
             />
             <MobileButton
-            label="Sign"
+              label="Sign"
               icon="signature"
               testID="mobile-signature"
               onPress={() => onSelectTool('signature')}
@@ -1910,6 +1946,53 @@ function MobileButton({
         {label}
       </Text>
     </Pressable>
+  );
+}
+
+function HighlightPalette({
+  selectedColor,
+  onSelectColor,
+  testIDPrefix,
+  compact = false,
+}: {
+  selectedColor: string;
+  onSelectColor: (color: string) => void;
+  testIDPrefix: string;
+  compact?: boolean;
+}) {
+  return (
+    <View
+      testID={`${testIDPrefix}-palette`}
+      style={[styles.highlightPalette, compact && styles.highlightPaletteCompact]}>
+      {highlightColorOptions.map(option => {
+        const active = option.color === selectedColor;
+        return (
+          <Pressable
+            key={option.id}
+            testID={`${testIDPrefix}-${option.id}`}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={option.label}
+            accessibilityState={{selected: active}}
+            {...tooltipProps(option.label)}
+            style={({pressed}) => [
+              styles.highlightSwatchButton,
+              compact && styles.highlightSwatchButtonCompact,
+              active && styles.highlightSwatchButtonActive,
+              pressed && styles.buttonPressed,
+            ]}
+            onPress={() => onSelectColor(option.color)}>
+            <View
+              style={[
+                styles.highlightSwatch,
+                compact && styles.highlightSwatchCompact,
+                {backgroundColor: option.color},
+              ]}
+            />
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -2476,6 +2559,7 @@ function ViewerScreen({
   canUseReviewFeatures,
   signatures,
   activeSignatureId,
+  highlightColor,
   onBack,
   onCompare,
   onViewerAction,
@@ -2487,6 +2571,7 @@ function ViewerScreen({
   onSelectSignature,
   onSaveSignature,
   onExport,
+  onSelectHighlightColor,
 }: {
   document: DocumentRecord;
   documents: DocumentRecord[];
@@ -2497,6 +2582,7 @@ function ViewerScreen({
   canUseReviewFeatures: boolean;
   signatures: SignatureProfile[];
   activeSignatureId: string;
+  highlightColor: string;
   onBack: () => void;
   onCompare: () => void;
   onViewerAction: (action: Parameters<typeof viewerReducer>[1]) => void;
@@ -2512,6 +2598,7 @@ function ViewerScreen({
   onSelectSignature: (id: string) => void;
   onSaveSignature: (value: string) => void;
   onExport: (format: ExportFormat) => void;
+  onSelectHighlightColor: (color: string) => void;
 }) {
   return (
     <View
@@ -2525,6 +2612,8 @@ function ViewerScreen({
         onCompare={onCompare}
         onAction={onViewerAction}
         onSelectTool={onSelectTool}
+        highlightColor={highlightColor}
+        onSelectHighlightColor={onSelectHighlightColor}
       />
       <View style={styles.readerBody} testID="reader-body">
         {viewer.showThumbnails ? (
@@ -2557,6 +2646,8 @@ function ViewerScreen({
           activeSignatureId={activeSignatureId}
           onAction={onViewerAction}
           onSelectTool={onSelectTool}
+          highlightColor={highlightColor}
+          onSelectHighlightColor={onSelectHighlightColor}
           onAddBookmark={onAddBookmark}
           onUnlockReviewFeatures={onUnlockReviewFeatures}
           onSelectSignature={onSelectSignature}
@@ -3188,12 +3279,16 @@ function ReaderToolbar({
   onCompare,
   onAction,
   onSelectTool,
+  highlightColor,
+  onSelectHighlightColor,
 }: {
   viewer: ViewerState;
   onBack: () => void;
   onCompare: () => void;
   onAction: (action: Parameters<typeof viewerReducer>[1]) => void;
   onSelectTool: (tool: ViewerTool) => void;
+  highlightColor: string;
+  onSelectHighlightColor: (color: string) => void;
 }) {
   const tools: Array<{label: string; icon: string; value: ViewerTool}> = [
     {label: 'Select', icon: 'arrow_up_right', value: 'select'},
@@ -3288,6 +3383,13 @@ function ReaderToolbar({
           />
         ))}
       </View>
+      {viewer.activeTool === 'highlight' ? (
+        <HighlightPalette
+          selectedColor={highlightColor}
+          onSelectColor={onSelectHighlightColor}
+          testIDPrefix="highlight-color"
+        />
+      ) : null}
       <ButtonChrome
         label="Compare"
         icon="compare"
@@ -3487,8 +3589,10 @@ function ViewerInspector({
   canUseReviewFeatures,
   signatures,
   activeSignatureId,
+  highlightColor,
   onAction,
   onSelectTool,
+  onSelectHighlightColor,
   onAddBookmark,
   onUnlockReviewFeatures,
   onSelectSignature,
@@ -3503,8 +3607,10 @@ function ViewerInspector({
   canUseReviewFeatures: boolean;
   signatures: SignatureProfile[];
   activeSignatureId: string;
+  highlightColor: string;
   onAction: (action: Parameters<typeof viewerReducer>[1]) => void;
   onSelectTool: (tool: ViewerTool) => void;
+  onSelectHighlightColor: (color: string) => void;
   onAddBookmark: () => void;
   onUnlockReviewFeatures: () => void;
   onSelectSignature: (id: string) => void;
@@ -3610,6 +3716,13 @@ function ViewerInspector({
             onPress={() => onSelectTool('highlight')}
             testID="quick-action-highlight"
           />
+          {viewer.activeTool === 'highlight' ? (
+            <HighlightPalette
+              selectedColor={highlightColor}
+              onSelectColor={onSelectHighlightColor}
+              testIDPrefix="inspector-highlight-color"
+            />
+          ) : null}
           <ActionRow
             label="Draw"
             icon="pen"
@@ -5762,6 +5875,54 @@ const styles = StyleSheet.create({
   },
   buttonTextActive: {
     color: acacia.color.ink,
+  },
+  highlightPalette: {
+    minHeight: 32,
+    borderColor: acacia.color.hairlineStrong,
+    borderWidth: 1,
+    borderRadius: 999,
+    backgroundColor: acacia.color.paper,
+    paddingHorizontal: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+    flexShrink: 0,
+  },
+  highlightPaletteCompact: {
+    minHeight: 34,
+    paddingHorizontal: 4,
+    marginLeft: 0,
+  },
+  highlightSwatchButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderColor: 'transparent',
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 1,
+  },
+  highlightSwatchButtonCompact: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  highlightSwatchButtonActive: {
+    borderColor: acacia.color.ink,
+    backgroundColor: '#FFFFFF',
+  },
+  highlightSwatch: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderColor: 'rgba(17, 17, 16, 0.18)',
+    borderWidth: 1,
+  },
+  highlightSwatchCompact: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
   },
   segmentedControl: {
     flexDirection: 'row',

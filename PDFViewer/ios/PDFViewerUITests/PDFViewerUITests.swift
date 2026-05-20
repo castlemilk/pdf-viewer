@@ -118,6 +118,13 @@ final class PDFViewerUITests: XCTestCase {
       ],
       named: "Highlight"
     )
+    tapFirstAvailable(
+      [
+        anyElement(app, "mobile-highlight-color-blue"),
+        anyElement(app, "Blue highlight"),
+      ],
+      named: "Blue highlight color"
+    )
     XCTAssertTrue(
       anyElement(app, "pdf-tool-hint").waitForExistence(timeout: 5),
       "Expected the active highlighter hint to appear"

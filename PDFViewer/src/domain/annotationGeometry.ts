@@ -5,8 +5,6 @@ export const PDF_CANONICAL_PAGE = {
   height: 842,
 } as const;
 
-export const SIGNATURE_POINTER_OFFSET_X = 12;
-
 type PagePoint = {
   x: number;
   y: number;
@@ -134,16 +132,10 @@ function centeredAnnotationBounds(
 
 function signatureAnnotationBounds(point: PagePoint, pageSize: PageSize): PdfRect {
   const size = annotationSizeForKind('signature');
-  const canonicalAnchor = pagePointToCanonical(
-    {
-      x: point.x + SIGNATURE_POINTER_OFFSET_X,
-      y: point.y,
-    },
-    pageSize,
-  );
+  const canonicalAnchor = pagePointToCanonical(point, pageSize);
 
   return clampAnnotationBounds({
-    x: Math.round(canonicalAnchor.x),
+    x: Math.round(canonicalAnchor.x - size.width / 2),
     y: Math.round(canonicalAnchor.y - size.height / 2),
     width: size.width,
     height: size.height,

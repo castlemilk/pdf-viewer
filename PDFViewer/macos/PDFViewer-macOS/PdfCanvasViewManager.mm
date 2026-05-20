@@ -7,7 +7,6 @@
 
 static const CGFloat AcaciaCanonicalPageWidth = 595.0;
 static const CGFloat AcaciaCanonicalPageHeight = 842.0;
-static const CGFloat AcaciaSignaturePointerOffsetX = 12.0;
 
 static NSString *AcaciaAnnotationKindForTool(NSString *tool)
 {
@@ -81,6 +80,33 @@ static NSRect AcaciaClampCanonicalBounds(NSRect bounds)
   return NSMakeRect(round(x), round(y), round(width), round(height));
 }
 
+static NSColor *AcaciaColorFromHexString(NSString *hexString, CGFloat alpha, NSColor *fallbackColor)
+{
+  NSString *hex = [RCTConvert NSString:hexString];
+  if (hex.length == 0) {
+    return fallbackColor;
+  }
+
+  if ([hex hasPrefix:@"#"]) {
+    hex = [hex substringFromIndex:1];
+  }
+
+  if (hex.length != 6) {
+    return fallbackColor;
+  }
+
+  unsigned int rgb = 0;
+  NSScanner *scanner = [NSScanner scannerWithString:hex];
+  if (![scanner scanHexInt:&rgb]) {
+    return fallbackColor;
+  }
+
+  return [NSColor colorWithCalibratedRed:((rgb >> 16) & 0xFF) / 255.0
+                                   green:((rgb >> 8) & 0xFF) / 255.0
+                                    blue:(rgb & 0xFF) / 255.0
+                                   alpha:alpha];
+}
+
 static CGFloat AcaciaCenteredMinimumRangeStart(CGFloat first, CGFloat second, CGFloat minimumLength)
 {
   CGFloat length = fabs(second - first);
@@ -109,11 +135,10 @@ static NSRect AcaciaCanonicalBoundsForSignatureAtViewPoint(PDFView *pdfView,
                                                            NSRect pageBounds)
 {
   NSSize annotationSize = AcaciaAnnotationSizeForKind(@"signature");
-  NSPoint anchorViewPoint = NSMakePoint(viewPoint.x + AcaciaSignaturePointerOffsetX, viewPoint.y);
-  NSPoint anchorPagePoint = [pdfView convertPoint:anchorViewPoint toPage:page];
+  NSPoint anchorPagePoint = [pdfView convertPoint:viewPoint toPage:page];
   NSPoint canonicalAnchor = AcaciaCanonicalPointForPDFPoint(anchorPagePoint, pageBounds);
   return AcaciaClampCanonicalBounds(NSMakeRect(
-    canonicalAnchor.x,
+    canonicalAnchor.x - annotationSize.width / 2.0,
     canonicalAnchor.y - annotationSize.height / 2.0,
     annotationSize.width,
     annotationSize.height
@@ -375,7 +400,6 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   NSGraphicsContext *context = NSGraphicsContext.currentContext;
   [context saveGraphicsState];
   context.compositingOperation = NSCompositingOperationSourceOver;
-  [[NSColor colorWithCalibratedRed:1.0 green:0.82 blue:0.12 alpha:alpha] setFill];
 
   for (NSDictionary *itemInfo in items) {
     NSNumber *pageIndex = [RCTConvert NSNumber:itemInfo[@"pageIndex"]];
@@ -395,6 +419,12 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     NSRect paddedBounds = NSInsetRect(overlayBounds, -1.0, -1.0);
     NSBezierPath *path =
         [NSBezierPath bezierPathWithRoundedRect:paddedBounds xRadius:2.0 yRadius:2.0];
+    NSColor *color = AcaciaColorFromHexString(
+      itemInfo[@"color"],
+      alpha,
+      [NSColor colorWithCalibratedRed:1.0 green:0.82 blue:0.12 alpha:alpha]
+    );
+    [color setFill];
     [path fill];
   }
 
@@ -707,7 +737,7 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   NSSize previewSize = AcaciaSignaturePreviewSize();
   CGFloat width = previewSize.width;
   CGFloat height = previewSize.height;
-  CGFloat x = MIN(MAX(localPoint.x + AcaciaSignaturePointerOffsetX, 8.0), MAX(8.0, NSWidth(self.bounds) - width - 8.0));
+  CGFloat x = MIN(MAX(localPoint.x - width / 2.0, 8.0), MAX(8.0, NSWidth(self.bounds) - width - 8.0));
   CGFloat y = MIN(MAX(localPoint.y - height / 2.0, 8.0), MAX(8.0, NSHeight(self.bounds) - height - 8.0));
   _signaturePreviewLabel.frame = NSMakeRect(x, y, width, height);
   _signaturePreviewLabel.hidden = NO;
@@ -1339,7 +1369,11 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
       }
       annotation.contents = [RCTConvert NSString:annotationInfo[@"text"]] ?: @"Local drawing";
     } else {
-      annotation.color = [NSColor colorWithCalibratedRed:1 green:0.82 blue:0.12 alpha:0.42];
+      annotation.color = AcaciaColorFromHexString(
+        annotationInfo[@"color"],
+        0.42,
+        [NSColor colorWithCalibratedRed:1 green:0.82 blue:0.12 alpha:0.42]
+      );
       annotation.quadrilateralPoints = AcaciaHighlightQuadPointsForBounds(bounds);
     }
     [page addAnnotation:annotation];

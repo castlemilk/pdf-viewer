@@ -15,8 +15,8 @@ import {
   annotationBoundsForCanonicalPoints,
   annotationBoundsForPageGesture,
   annotationBoundsToFallbackStyle,
+  annotationSizeForKind,
   canonicalInkPathForPagePoints,
-  SIGNATURE_POINTER_OFFSET_X,
 } from '../domain/annotationGeometry';
 import type {
   Annotation,
@@ -106,6 +106,7 @@ export function PdfCanvas({
   const scaledPageHeight = roundLayout(pageHeight * viewer.zoom);
   const pageGap = compact ? 18 : 26;
   const interactiveKind = canvasAnnotationKindForTool(viewer.activeTool);
+  const signaturePreviewSize = annotationSizeForKind('signature');
   const gestureStartRef = useRef<{
     pageIndex: number;
     x: number;
@@ -246,8 +247,8 @@ export function PdfCanvas({
                     styles.signaturePreview,
                     {
                       left: Math.min(
-                        pageWidth - 190,
-                        Math.max(8, signaturePreview.x + SIGNATURE_POINTER_OFFSET_X),
+                        pageWidth - signaturePreviewSize.width - 10,
+                        Math.max(8, signaturePreview.x - signaturePreviewSize.width / 2),
                       ),
                       top: Math.min(
                         pageHeight - 58,

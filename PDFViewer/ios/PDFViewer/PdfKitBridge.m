@@ -23,6 +23,33 @@ static NSURL *AcaciaDocumentURLForPath(NSString *path)
   return [NSURL fileURLWithPath:path];
 }
 
+static UIColor *AcaciaColorFromHexString(NSString *hexString, CGFloat alpha, UIColor *fallbackColor)
+{
+  NSString *hex = [RCTConvert NSString:hexString];
+  if (hex.length == 0) {
+    return fallbackColor;
+  }
+
+  if ([hex hasPrefix:@"#"]) {
+    hex = [hex substringFromIndex:1];
+  }
+
+  if (hex.length != 6) {
+    return fallbackColor;
+  }
+
+  unsigned int rgb = 0;
+  NSScanner *scanner = [NSScanner scannerWithString:hex];
+  if (![scanner scanHexInt:&rgb]) {
+    return fallbackColor;
+  }
+
+  return [UIColor colorWithRed:((rgb >> 16) & 0xFF) / 255.0
+                         green:((rgb >> 8) & 0xFF) / 255.0
+                          blue:(rgb & 0xFF) / 255.0
+                         alpha:alpha];
+}
+
 static NSArray<NSDictionary *> *AcaciaDemoPDFSpecs(void)
 {
   return @[
@@ -957,7 +984,11 @@ RCT_EXPORT_METHOD(writeSidecar:(NSString *)documentId
     PDFAnnotation *annotation = [[PDFAnnotation alloc] initWithBounds:bounds forType:subtype withProperties:nil];
     annotation.color = [kind isEqualToString:@"signature"]
       ? [UIColor clearColor]
-      : [UIColor colorWithRed:1 green:0.82 blue:0.12 alpha:0.45];
+      : AcaciaColorFromHexString(
+          annotationInfo[@"color"],
+          0.45,
+          [UIColor colorWithRed:1 green:0.82 blue:0.12 alpha:0.45]
+        );
     annotation.userName = @"Acacia";
     annotation.contents = [RCTConvert NSString:annotationInfo[@"text"]] ?: @"Acacia annotation";
     if ([kind isEqualToString:@"signature"]) {

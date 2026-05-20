@@ -75,6 +75,33 @@ static CGRect AcaciaClampCanonicalBounds(CGRect bounds)
   return CGRectMake(round(x), round(y), round(width), round(height));
 }
 
+static UIColor *AcaciaColorFromHexString(NSString *hexString, CGFloat alpha, UIColor *fallbackColor)
+{
+  NSString *hex = [RCTConvert NSString:hexString];
+  if (hex.length == 0) {
+    return fallbackColor;
+  }
+
+  if ([hex hasPrefix:@"#"]) {
+    hex = [hex substringFromIndex:1];
+  }
+
+  if (hex.length != 6) {
+    return fallbackColor;
+  }
+
+  unsigned int rgb = 0;
+  NSScanner *scanner = [NSScanner scannerWithString:hex];
+  if (![scanner scanHexInt:&rgb]) {
+    return fallbackColor;
+  }
+
+  return [UIColor colorWithRed:((rgb >> 16) & 0xFF) / 255.0
+                         green:((rgb >> 8) & 0xFF) / 255.0
+                          blue:(rgb & 0xFF) / 255.0
+                         alpha:alpha];
+}
+
 static CGFloat AcaciaCenteredMinimumRangeStart(CGFloat first, CGFloat second, CGFloat minimumLength)
 {
   CGFloat length = fabs(second - first);
@@ -329,7 +356,6 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   CGContextRef context = UIGraphicsGetCurrentContext();
   CGContextSaveGState(context);
   CGContextSetBlendMode(context, kCGBlendModeNormal);
-  [[UIColor colorWithRed:1.0 green:0.82 blue:0.12 alpha:alpha] setFill];
 
   for (NSDictionary *itemInfo in items) {
     NSNumber *pageIndex = [RCTConvert NSNumber:itemInfo[@"pageIndex"]];
@@ -354,6 +380,12 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 
     CGRect paddedBounds = CGRectInset(overlayBounds, -1.0, -1.0);
     UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:paddedBounds cornerRadius:2.0];
+    UIColor *color = AcaciaColorFromHexString(
+      itemInfo[@"color"],
+      alpha,
+      [UIColor colorWithRed:1.0 green:0.82 blue:0.12 alpha:alpha]
+    );
+    [color setFill];
     [path fill];
   }
 
@@ -990,7 +1022,11 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
       }
       annotation.contents = [RCTConvert NSString:annotationInfo[@"text"]] ?: @"Local drawing";
     } else {
-      annotation.color = [UIColor colorWithRed:1 green:0.82 blue:0.12 alpha:0.42];
+      annotation.color = AcaciaColorFromHexString(
+        annotationInfo[@"color"],
+        0.42,
+        [UIColor colorWithRed:1 green:0.82 blue:0.12 alpha:0.42]
+      );
       annotation.quadrilateralPoints = AcaciaHighlightQuadPointsForBounds(bounds);
     }
     [page addAnnotation:annotation];

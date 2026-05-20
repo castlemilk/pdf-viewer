@@ -127,17 +127,31 @@ describe('native PDFKit highlight placement', () => {
     expect(macCanvas).toContain('_signaturePreviewLabel.hidden = NO');
   });
 
-  it('macOS signature preview and stamp use the same pointer-side anchor', () => {
+  it('macOS signature preview and stamp center on the pointer', () => {
     const macCanvas = readFileSync(
       path.join(__dirname, '..', 'macos/PDFViewer-macOS/PdfCanvasViewManager.mm'),
       'utf8',
     );
 
-    expect(macCanvas).toContain('AcaciaSignaturePointerOffsetX');
     expect(macCanvas).toContain('AcaciaCanonicalBoundsForSignatureAtViewPoint');
     expect(macCanvas).toContain('AcaciaSignaturePreviewSize');
+    expect(macCanvas).toContain('annotationSize.width / 2.0');
+    expect(macCanvas).toContain('localPoint.x - width / 2.0');
     expect(macCanvas).toContain('[kind isEqualToString:@"signature"] && !meaningfulDrag');
   });
+
+  it.each(nativeHighlightSources)(
+    '%s reads sidecar highlight colors for rendering and export',
+    (_label, sourcePath) => {
+      const source = readFileSync(
+        path.join(__dirname, '..', sourcePath),
+        'utf8',
+      );
+
+      expect(source).toContain('AcaciaColorFromHexString');
+      expect(source).toContain('annotationInfo[@"color"]');
+    },
+  );
 
   it('native search returns page-space bounds for transient match highlights', () => {
     const macBridge = readFileSync(

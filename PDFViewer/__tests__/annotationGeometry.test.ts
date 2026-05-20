@@ -66,7 +66,7 @@ test('horizontal drag highlight bounds are centered on the pointer path', () => 
   });
 });
 
-test('signature stamps anchor beside the pointer like the live preview', () => {
+test('signature stamps center on the clicked pointer position', () => {
   expect(
     annotationBoundsForPageGesture({
       kind: 'signature',
@@ -74,7 +74,7 @@ test('signature stamps anchor beside the pointer like the live preview', () => {
       start: {x: 310, y: 350},
     }),
   ).toEqual({
-    x: 309,
+    x: 208,
     y: 312,
     width: 180,
     height: 48,
