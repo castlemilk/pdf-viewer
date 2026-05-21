@@ -29,6 +29,7 @@ gcloud services enable \
   run.googleapis.com \
   cloudbuild.googleapis.com \
   artifactregistry.googleapis.com \
+  secretmanager.googleapis.com \
   storage.googleapis.com \
   --project "${GCP_PROJECT_ID}" >/dev/null
 
@@ -44,6 +45,13 @@ gcloud storage buckets add-iam-policy-binding "gs://${ACACIA_ENTITLEMENTS_BUCKET
   --member "serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" \
   --role roles/storage.objectAdmin \
   --project "${GCP_PROJECT_ID}" >/dev/null
+
+if [[ -n "${ACACIA_ADMIN_TOKEN_SECRET:-}" ]]; then
+  gcloud secrets add-iam-policy-binding "${ACACIA_ADMIN_TOKEN_SECRET}" \
+    --member "serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" \
+    --role roles/secretmanager.secretAccessor \
+    --project "${GCP_PROJECT_ID}" >/dev/null
+fi
 
 gcloud run deploy "${SERVICE_NAME}" \
   --project "${GCP_PROJECT_ID}" \
