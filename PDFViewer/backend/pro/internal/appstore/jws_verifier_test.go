@@ -68,6 +68,45 @@ func TestSignedTransactionVerifierRejectsTamperedPayload(t *testing.T) {
 	}
 }
 
+func TestSignedNotificationVerifierVerifiesJWSAndDecodesPayload(t *testing.T) {
+	key, cert, roots := generateSigningCert(t)
+	signedTransaction := signTransaction(t, key, cert, map[string]any{
+		"bundleId":              "com.benebsworth.acacia",
+		"productId":             "com.benebsworth.acacia.pro.monthly",
+		"transactionId":         "tx_123",
+		"originalTransactionId": "original_tx_123",
+		"appAccountToken":       "5cd16a20-ccf1-4b28-98db-163337e35ca2",
+		"expiresDate":           int64(1780000000000),
+	})
+	signedNotification := signTransaction(t, key, cert, map[string]any{
+		"notificationType": "DID_RENEW",
+		"subtype":          "BILLING_RECOVERY",
+		"signedDate":       int64(1770000000000),
+		"data": map[string]any{
+			"signedTransactionInfo": signedTransaction,
+		},
+	})
+	verifier := NewSignedNotificationVerifier(roots)
+
+	notification, err := verifier.VerifySignedNotification(t.Context(), signedNotification)
+
+	if err != nil {
+		t.Fatalf("expected notification to verify: %v", err)
+	}
+	if notification.NotificationType != "DID_RENEW" {
+		t.Fatalf("unexpected notification type %q", notification.NotificationType)
+	}
+	if notification.Subtype != "BILLING_RECOVERY" {
+		t.Fatalf("unexpected subtype %q", notification.Subtype)
+	}
+	if notification.SignedTransactionInfo != signedTransaction {
+		t.Fatalf("unexpected signed transaction info")
+	}
+	if notification.SignedDate.UnixMilli() != 1770000000000 {
+		t.Fatalf("unexpected signed date %s", notification.SignedDate)
+	}
+}
+
 func generateSigningCert(t *testing.T) (*ecdsa.PrivateKey, *x509.Certificate, *x509.CertPool) {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

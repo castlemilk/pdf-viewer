@@ -20,6 +20,17 @@ All protobuf endpoints return `application/x-protobuf`.
   - Body: `acacia.pro.v1.GetAccountRequest`.
   - Response: `acacia.pro.v1.GetAccountResponse`.
   - Missing stored entitlement returns an active signed-in free account.
+- `POST /v1/account:purchaseContext`
+  - Requires `Authorization: Bearer <firebase-id-token>`.
+  - Returns StoreKit product ids and the stable `appAccountToken` to pass into the native purchase call.
+- `POST /v1/app_store/transactions:sync`
+  - Requires `Authorization: Bearer <firebase-id-token>`.
+  - Body: `acacia.pro.v1.SyncAppStoreTransactionRequest`.
+  - Verifies the signed StoreKit transaction JWS and stores the Pro entitlement.
+- `POST /v1/app_store/notifications`
+  - App Store Server Notifications V2 endpoint.
+  - Body: JSON `{ "signedPayload": "<signedPayload>" }`.
+  - Verifies the notification JWS, verifies the nested transaction JWS, then renews or downgrades the stored entitlement.
 - `POST /v1/admin/entitlements:upsert`
   - Disabled unless `ACACIA_ADMIN_TOKEN` is configured.
   - Requires `Authorization: Bearer <admin-token>`.
@@ -66,3 +77,9 @@ scripts/deploy-cloud-run.sh
 The service is deployed with `--allow-unauthenticated` because Firebase token verification happens inside the service. Do not expose privileged admin behavior without `ACACIA_ADMIN_TOKEN` provided from Secret Manager.
 
 The deploy script enables the required Cloud Run, Cloud Build, Artifact Registry, and Storage APIs, creates the entitlement bucket if it is missing, grants the Cloud Run runtime service account object access, and deploys with minimum instances set to `0`.
+
+After deploy, configure the App Store Server Notifications V2 production URL in App Store Connect as:
+
+```text
+https://<cloud-run-host>/v1/app_store/notifications
+```

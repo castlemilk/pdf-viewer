@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -37,6 +38,7 @@ type Config struct {
 	ProStorageQuotaBytes  int64
 	AppAccountTokenSecret []byte
 	TransactionVerifier   appstore.TransactionVerifier
+	NotificationVerifier  appstore.NotificationVerifier
 }
 
 type Server struct {
@@ -49,6 +51,7 @@ type Server struct {
 	proStorageQuotaBytes  int64
 	appAccountTokenSecret []byte
 	transactionVerifier   appstore.TransactionVerifier
+	notificationVerifier  appstore.NotificationVerifier
 }
 
 func New(config Config) http.Handler {
@@ -79,6 +82,7 @@ func New(config Config) http.Handler {
 		proStorageQuotaBytes:  proStorageQuotaBytes,
 		appAccountTokenSecret: append([]byte(nil), config.AppAccountTokenSecret...),
 		transactionVerifier:   config.TransactionVerifier,
+		notificationVerifier:  config.NotificationVerifier,
 	}
 }
 
@@ -93,11 +97,59 @@ func (server *Server) ServeHTTP(response http.ResponseWriter, request *http.Requ
 		server.handlePurchaseContext(response, request)
 	case request.Method == http.MethodPost && request.URL.Path == "/v1/app_store/transactions:sync":
 		server.handleSyncAppStoreTransaction(response, request)
+	case request.Method == http.MethodPost && request.URL.Path == "/v1/app_store/notifications":
+		server.handleAppStoreNotification(response, request)
 	case request.Method == http.MethodPost && request.URL.Path == "/v1/admin/entitlements:upsert":
 		server.handleAdminUpsert(response, request)
 	default:
 		writeError(response, http.StatusNotFound, "not_found", "route not found")
 	}
+}
+
+func (server *Server) handleAppStoreNotification(response http.ResponseWriter, request *http.Request) {
+	if server.notificationVerifier == nil || server.transactionVerifier == nil {
+		writeError(response, http.StatusServiceUnavailable, "not_configured", "app store notification verification is not configured")
+		return
+	}
+
+	var requestBody appStoreNotificationRequest
+	if err := json.NewDecoder(io.LimitReader(request.Body, 1<<20)).Decode(&requestBody); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_request", "could not decode app store notification")
+		return
+	}
+	if requestBody.SignedPayload == "" {
+		writeError(response, http.StatusBadRequest, "invalid_argument", "signedPayload is required")
+		return
+	}
+
+	notification, err := server.notificationVerifier.VerifySignedNotification(request.Context(), requestBody.SignedPayload)
+	if err != nil {
+		writeError(response, http.StatusUnauthorized, "invalid_notification", "app store notification could not be verified")
+		return
+	}
+	transaction, err := server.transactionVerifier.VerifySignedTransaction(request.Context(), notification.SignedTransactionInfo)
+	if err != nil {
+		writeError(response, http.StatusUnauthorized, "invalid_transaction", "notification transaction could not be verified")
+		return
+	}
+	if transaction.BundleID != server.bundleID || !server.isProProduct(transaction.ProductID) {
+		writeError(response, http.StatusBadRequest, "invalid_transaction", "notification transaction does not match Acacia Pro")
+		return
+	}
+
+	existing, err := server.store.GetByAppAccountToken(request.Context(), transaction.AppAccountToken)
+	if err != nil {
+		writeError(response, http.StatusNotFound, "account_not_found", "notification account token is not known")
+		return
+	}
+
+	account := server.accountForNotification(existing, transaction, notification)
+	if err := server.store.Put(request.Context(), account); err != nil {
+		writeError(response, http.StatusInternalServerError, "store_error", "could not persist notification entitlement")
+		return
+	}
+
+	writeProto(response, http.StatusOK, &prov1.SyncAppStoreTransactionResponse{Account: account})
 }
 
 func (server *Server) handleGetAccount(response http.ResponseWriter, request *http.Request) {
@@ -188,6 +240,7 @@ func (server *Server) handleSyncAppStoreTransaction(response http.ResponseWriter
 		StorageQuotaBytes:             server.proStorageQuotaBytes,
 		CustomerId:                    transaction.AppAccountToken,
 		AppStoreOriginalTransactionId: transaction.OriginalTransactionID,
+		AppAccountToken:               transaction.AppAccountToken,
 		Source:                        prov1.EntitlementSource_ENTITLEMENT_SOURCE_APP_STORE,
 		UpdatedAt:                     timestamppb.New(server.now()),
 		ExpiresAt:                     timestamppb.New(transaction.ExpiresAt),
@@ -199,6 +252,38 @@ func (server *Server) handleSyncAppStoreTransaction(response http.ResponseWriter
 	}
 
 	writeProto(response, http.StatusOK, &prov1.SyncAppStoreTransactionResponse{Account: account})
+}
+
+func (server *Server) accountForNotification(existing *prov1.AccountEntitlement, transaction *appstore.Transaction, notification *appstore.Notification) *prov1.AccountEntitlement {
+	account := proto.Clone(existing).(*prov1.AccountEntitlement)
+	account.AppAccountToken = transaction.AppAccountToken
+	account.AppStoreOriginalTransactionId = transaction.OriginalTransactionID
+	account.Source = prov1.EntitlementSource_ENTITLEMENT_SOURCE_APP_STORE
+	account.UpdatedAt = timestamppb.New(server.now())
+	account.ExpiresAt = timestamppb.New(transaction.ExpiresAt)
+
+	if notificationDowngrades(notification.NotificationType) || !transaction.RevokedAt.IsZero() || transaction.ExpiresAt.IsZero() || !transaction.ExpiresAt.After(server.now()) {
+		account.Plan = prov1.Plan_PLAN_FREE
+		account.Active = true
+		account.StorageQuotaBytes = 0
+		account.Features = []string{"local_pdf_library", "local_annotations"}
+		return account
+	}
+
+	account.Plan = prov1.Plan_PLAN_PRO
+	account.Active = true
+	account.StorageQuotaBytes = server.proStorageQuotaBytes
+	account.Features = []string{"review_threads", "cloud_storage"}
+	return account
+}
+
+func notificationDowngrades(notificationType string) bool {
+	switch notificationType {
+	case "EXPIRED", "REFUND", "REVOKE", "DID_FAIL_TO_RENEW", "GRACE_PERIOD_EXPIRED":
+		return true
+	default:
+		return false
+	}
 }
 
 func (server *Server) handleAdminUpsert(response http.ResponseWriter, request *http.Request) {
@@ -355,4 +440,8 @@ func appAccountTokenForUID(firebaseUID string, secret []byte) string {
 
 func AppAccountTokenForTest(firebaseUID string, secret []byte) string {
 	return appAccountTokenForUID(firebaseUID, secret)
+}
+
+type appStoreNotificationRequest struct {
+	SignedPayload string `json:"signedPayload"`
 }

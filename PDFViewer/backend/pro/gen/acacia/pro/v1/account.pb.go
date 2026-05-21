@@ -137,6 +137,7 @@ type AccountEntitlement struct {
 	UpdatedAt                     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	ExpiresAt                     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	Features                      []string               `protobuf:"bytes,12,rep,name=features,proto3" json:"features,omitempty"`
+	AppAccountToken               string                 `protobuf:"bytes,13,opt,name=app_account_token,json=appAccountToken,proto3" json:"app_account_token,omitempty"`
 	unknownFields                 protoimpl.UnknownFields
 	sizeCache                     protoimpl.SizeCache
 }
@@ -253,6 +254,13 @@ func (x *AccountEntitlement) GetFeatures() []string {
 		return x.Features
 	}
 	return nil
+}
+
+func (x *AccountEntitlement) GetAppAccountToken() string {
+	if x != nil {
+		return x.AppAccountToken
+	}
+	return ""
 }
 
 type GetAccountRequest struct {
@@ -663,7 +671,7 @@ var File_acacia_pro_v1_account_proto protoreflect.FileDescriptor
 
 const file_acacia_pro_v1_account_proto_rawDesc = "" +
 	"\n" +
-	"\x1bacacia/pro/v1/account.proto\x12\racacia.pro.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa3\x04\n" +
+	"\x1bacacia/pro/v1/account.proto\x12\racacia.pro.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xcf\x04\n" +
 	"\x12AccountEntitlement\x12!\n" +
 	"\ffirebase_uid\x18\x01 \x01(\tR\vfirebaseUid\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12'\n" +
@@ -680,7 +688,8 @@ const file_acacia_pro_v1_account_proto_rawDesc = "" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x129\n" +
 	"\n" +
 	"expires_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x1a\n" +
-	"\bfeatures\x18\f \x03(\tR\bfeatures\"\x13\n" +
+	"\bfeatures\x18\f \x03(\tR\bfeatures\x12*\n" +
+	"\x11app_account_token\x18\r \x01(\tR\x0fappAccountToken\"\x13\n" +
 	"\x11GetAccountRequest\"Q\n" +
 	"\x12GetAccountResponse\x12;\n" +
 	"\aaccount\x18\x01 \x01(\v2!.acacia.pro.v1.AccountEntitlementR\aaccount\"\x1b\n" +

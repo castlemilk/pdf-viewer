@@ -59,6 +59,7 @@ func run(ctx context.Context) error {
 		ProStorageQuotaBytes:  config.ProStorageQuotaBytes,
 		AppAccountTokenSecret: []byte(config.AppAccountTokenSecret),
 		TransactionVerifier:   appstore.NewSignedTransactionVerifier(nil),
+		NotificationVerifier:  appstore.NewSignedNotificationVerifier(nil),
 	})
 
 	httpServer := &http.Server{

@@ -32,6 +32,7 @@ message AccountEntitlement {
   google.protobuf.Timestamp updated_at = 10;
   google.protobuf.Timestamp expires_at = 11;
   repeated string features = 12;
+  string app_account_token = 13;
 }
 
 message GetAccountRequest {}

@@ -18,12 +18,60 @@ type SignedTransactionVerifier struct {
 	roots *x509.CertPool
 }
 
+type SignedNotificationVerifier struct {
+	roots *x509.CertPool
+}
+
 func NewSignedTransactionVerifier(roots *x509.CertPool) *SignedTransactionVerifier {
 	return &SignedTransactionVerifier{roots: roots}
 }
 
+func NewSignedNotificationVerifier(roots *x509.CertPool) *SignedNotificationVerifier {
+	return &SignedNotificationVerifier{roots: roots}
+}
+
 func (verifier *SignedTransactionVerifier) VerifySignedTransaction(_ context.Context, signedTransaction string) (*Transaction, error) {
-	parts := strings.Split(signedTransaction, ".")
+	payloadBytes, err := verifyCompactJWS(signedTransaction, verifier.roots)
+	if err != nil {
+		return nil, err
+	}
+
+	var payload jwsTransactionPayload
+	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
+		return nil, fmt.Errorf("parse jws payload: %w", err)
+	}
+
+	return &Transaction{
+		BundleID:              payload.BundleID,
+		ProductID:             payload.ProductID,
+		TransactionID:         payload.TransactionID,
+		OriginalTransactionID: payload.OriginalTransactionID,
+		AppAccountToken:       payload.AppAccountToken,
+		ExpiresAt:             unixMillisTime(payload.ExpiresDate),
+		RevokedAt:             unixMillisTime(payload.RevocationDate),
+	}, nil
+}
+
+func (verifier *SignedNotificationVerifier) VerifySignedNotification(_ context.Context, signedPayload string) (*Notification, error) {
+	payloadBytes, err := verifyCompactJWS(signedPayload, verifier.roots)
+	if err != nil {
+		return nil, err
+	}
+
+	var payload jwsNotificationPayload
+	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
+		return nil, fmt.Errorf("parse notification payload: %w", err)
+	}
+	return &Notification{
+		NotificationType:      payload.NotificationType,
+		Subtype:               payload.Subtype,
+		SignedDate:            unixMillisTime(payload.SignedDate),
+		SignedTransactionInfo: payload.Data.SignedTransactionInfo,
+	}, nil
+}
+
+func verifyCompactJWS(signedValue string, roots *x509.CertPool) ([]byte, error) {
+	parts := strings.Split(signedValue, ".")
 	if len(parts) != 3 {
 		return nil, errors.New("signed transaction must use compact JWS serialization")
 	}
@@ -45,7 +93,7 @@ func (verifier *SignedTransactionVerifier) VerifySignedTransaction(_ context.Con
 		return nil, err
 	}
 	leaf := certs[0]
-	if err := verifier.verifyCertificateChain(certs); err != nil {
+	if err := verifyCertificateChain(certs, roots); err != nil {
 		return nil, err
 	}
 
@@ -68,28 +116,10 @@ func (verifier *SignedTransactionVerifier) VerifySignedTransaction(_ context.Con
 		return nil, errors.New("jws signature verification failed")
 	}
 
-	payloadBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return nil, fmt.Errorf("decode jws payload: %w", err)
-	}
-	var payload jwsTransactionPayload
-	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
-		return nil, fmt.Errorf("parse jws payload: %w", err)
-	}
-
-	return &Transaction{
-		BundleID:              payload.BundleID,
-		ProductID:             payload.ProductID,
-		TransactionID:         payload.TransactionID,
-		OriginalTransactionID: payload.OriginalTransactionID,
-		AppAccountToken:       payload.AppAccountToken,
-		ExpiresAt:             unixMillisTime(payload.ExpiresDate),
-		RevokedAt:             unixMillisTime(payload.RevocationDate),
-	}, nil
+	return base64.RawURLEncoding.DecodeString(parts[1])
 }
 
-func (verifier *SignedTransactionVerifier) verifyCertificateChain(certs []*x509.Certificate) error {
-	roots := verifier.roots
+func verifyCertificateChain(certs []*x509.Certificate, roots *x509.CertPool) error {
 	if roots == nil {
 		systemRoots, err := x509.SystemCertPool()
 		if err != nil {
@@ -151,4 +181,13 @@ type jwsTransactionPayload struct {
 	AppAccountToken       string `json:"appAccountToken"`
 	ExpiresDate           int64  `json:"expiresDate"`
 	RevocationDate        int64  `json:"revocationDate"`
+}
+
+type jwsNotificationPayload struct {
+	NotificationType string `json:"notificationType"`
+	Subtype          string `json:"subtype"`
+	SignedDate       int64  `json:"signedDate"`
+	Data             struct {
+		SignedTransactionInfo string `json:"signedTransactionInfo"`
+	} `json:"data"`
 }

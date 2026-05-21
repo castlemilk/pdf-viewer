@@ -42,6 +42,18 @@ func (verifier fakeTransactionVerifier) VerifySignedTransaction(_ context.Contex
 	return transaction, nil
 }
 
+type fakeNotificationVerifier struct {
+	notifications map[string]*appstore.Notification
+}
+
+func (verifier fakeNotificationVerifier) VerifySignedNotification(_ context.Context, signedPayload string) (*appstore.Notification, error) {
+	notification, ok := verifier.notifications[signedPayload]
+	if !ok {
+		return nil, errors.New("invalid app store notification")
+	}
+	return notification, nil
+}
+
 func TestGetAccountRequiresFirebaseBearerToken(t *testing.T) {
 	handler := newTestHandler()
 	request := newProtoRequest(http.MethodPost, "/v1/account:get", &prov1.GetAccountRequest{})
@@ -220,6 +232,56 @@ func TestSyncAppStoreTransactionPersistsProEntitlement(t *testing.T) {
 	}
 }
 
+func TestAppStoreNotificationRenewalExtendsStoredEntitlement(t *testing.T) {
+	store := entitlements.NewMemoryStore()
+	handler := newTestHandlerWithStore(store)
+	syncProEntitlement(t, handler)
+	notificationRequest := newJSONRequest("/v1/app_store/notifications", `{"signedPayload":"renewal-notification"}`)
+	notificationResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(notificationResponse, notificationRequest)
+
+	if notificationResponse.Code != http.StatusOK {
+		t.Fatalf("expected notification 200, got %d: %s", notificationResponse.Code, notificationResponse.Body.String())
+	}
+
+	account, err := store.Get(context.Background(), "user_pro")
+	if err != nil {
+		t.Fatalf("load stored entitlement: %v", err)
+	}
+	if account.GetPlan() != prov1.Plan_PLAN_PRO {
+		t.Fatalf("expected renewed pro plan, got %v", account.GetPlan())
+	}
+	if account.GetExpiresAt().AsTime() != fixedNow().Add(60*24*time.Hour) {
+		t.Fatalf("expected renewed expiry, got %s", account.GetExpiresAt().AsTime())
+	}
+}
+
+func TestAppStoreNotificationExpirationDowngradesStoredEntitlement(t *testing.T) {
+	store := entitlements.NewMemoryStore()
+	handler := newTestHandlerWithStore(store)
+	syncProEntitlement(t, handler)
+	notificationRequest := newJSONRequest("/v1/app_store/notifications", `{"signedPayload":"expired-notification"}`)
+	notificationResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(notificationResponse, notificationRequest)
+
+	if notificationResponse.Code != http.StatusOK {
+		t.Fatalf("expected notification 200, got %d: %s", notificationResponse.Code, notificationResponse.Body.String())
+	}
+
+	account, err := store.Get(context.Background(), "user_pro")
+	if err != nil {
+		t.Fatalf("load stored entitlement: %v", err)
+	}
+	if account.GetPlan() != prov1.Plan_PLAN_FREE {
+		t.Fatalf("expected expired notification to downgrade to free, got %v", account.GetPlan())
+	}
+	if account.GetStorageQuotaBytes() != 0 {
+		t.Fatalf("expected expired quota to be cleared, got %d", account.GetStorageQuotaBytes())
+	}
+}
+
 func TestSyncAppStoreTransactionRejectsMismatchedAppAccountToken(t *testing.T) {
 	handler := newTestHandler()
 	syncRequest := newProtoRequest(http.MethodPost, "/v1/app_store/transactions:sync", &prov1.SyncAppStoreTransactionRequest{
@@ -296,15 +358,64 @@ func newTestHandlerWithStore(store entitlements.Store) http.Handler {
 					AppAccountToken:       appAccountToken,
 					ExpiresAt:             fixedNow().Add(-time.Hour),
 				},
+				"renewed-pro-transaction": {
+					BundleID:              "com.benebsworth.acacia",
+					ProductID:             "com.benebsworth.acacia.pro.monthly",
+					OriginalTransactionID: "original_tx_123",
+					TransactionID:         "tx_renewed",
+					AppAccountToken:       appAccountToken,
+					ExpiresAt:             fixedNow().Add(60 * 24 * time.Hour),
+				},
+			},
+		},
+		NotificationVerifier: fakeNotificationVerifier{
+			notifications: map[string]*appstore.Notification{
+				"renewal-notification": {
+					NotificationType:      "DID_RENEW",
+					SignedTransactionInfo: "renewed-pro-transaction",
+					SignedDate:            fixedNow(),
+				},
+				"expired-notification": {
+					NotificationType:      "EXPIRED",
+					SignedTransactionInfo: "expired-transaction",
+					SignedDate:            fixedNow(),
+				},
 			},
 		},
 	})
+}
+
+func syncProEntitlement(t *testing.T, handler http.Handler) {
+	t.Helper()
+	contextRequest := newProtoRequest(http.MethodPost, "/v1/account:purchaseContext", &prov1.GetPurchaseContextRequest{})
+	contextRequest.Header.Set("Authorization", "Bearer valid-pro-user")
+	contextResponse := httptest.NewRecorder()
+	handler.ServeHTTP(contextResponse, contextRequest)
+	if contextResponse.Code != http.StatusOK {
+		t.Fatalf("seed purchase context failed with %d", contextResponse.Code)
+	}
+
+	syncRequest := newProtoRequest(http.MethodPost, "/v1/app_store/transactions:sync", &prov1.SyncAppStoreTransactionRequest{
+		SignedTransactionJws: "valid-pro-transaction",
+	})
+	syncRequest.Header.Set("Authorization", "Bearer valid-pro-user")
+	syncResponse := httptest.NewRecorder()
+	handler.ServeHTTP(syncResponse, syncRequest)
+	if syncResponse.Code != http.StatusOK {
+		t.Fatalf("seed transaction sync failed with %d", syncResponse.Code)
+	}
 }
 
 func newProtoRequest(method string, path string, message proto.Message) *http.Request {
 	body := bytes.NewReader(marshalProto(message))
 	request := httptest.NewRequest(method, path, body)
 	request.Header.Set("Content-Type", server.ProtobufContentType)
+	return request
+}
+
+func newJSONRequest(path string, body string) *http.Request {
+	request := httptest.NewRequest(http.MethodPost, path, bytes.NewReader([]byte(body)))
+	request.Header.Set("Content-Type", "application/json")
 	return request
 }
 
