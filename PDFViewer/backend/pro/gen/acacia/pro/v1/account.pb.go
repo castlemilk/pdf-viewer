@@ -335,6 +335,190 @@ func (x *GetAccountResponse) GetAccount() *AccountEntitlement {
 	return nil
 }
 
+type GetPurchaseContextRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPurchaseContextRequest) Reset() {
+	*x = GetPurchaseContextRequest{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPurchaseContextRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPurchaseContextRequest) ProtoMessage() {}
+
+func (x *GetPurchaseContextRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPurchaseContextRequest.ProtoReflect.Descriptor instead.
+func (*GetPurchaseContextRequest) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{3}
+}
+
+type GetPurchaseContextResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	AppAccountToken string                 `protobuf:"bytes,1,opt,name=app_account_token,json=appAccountToken,proto3" json:"app_account_token,omitempty"`
+	ProductIds      []string               `protobuf:"bytes,2,rep,name=product_ids,json=productIds,proto3" json:"product_ids,omitempty"`
+	BundleId        string                 `protobuf:"bytes,3,opt,name=bundle_id,json=bundleId,proto3" json:"bundle_id,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GetPurchaseContextResponse) Reset() {
+	*x = GetPurchaseContextResponse{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPurchaseContextResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPurchaseContextResponse) ProtoMessage() {}
+
+func (x *GetPurchaseContextResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPurchaseContextResponse.ProtoReflect.Descriptor instead.
+func (*GetPurchaseContextResponse) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *GetPurchaseContextResponse) GetAppAccountToken() string {
+	if x != nil {
+		return x.AppAccountToken
+	}
+	return ""
+}
+
+func (x *GetPurchaseContextResponse) GetProductIds() []string {
+	if x != nil {
+		return x.ProductIds
+	}
+	return nil
+}
+
+func (x *GetPurchaseContextResponse) GetBundleId() string {
+	if x != nil {
+		return x.BundleId
+	}
+	return ""
+}
+
+type SyncAppStoreTransactionRequest struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	SignedTransactionJws string                 `protobuf:"bytes,1,opt,name=signed_transaction_jws,json=signedTransactionJws,proto3" json:"signed_transaction_jws,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *SyncAppStoreTransactionRequest) Reset() {
+	*x = SyncAppStoreTransactionRequest{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SyncAppStoreTransactionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SyncAppStoreTransactionRequest) ProtoMessage() {}
+
+func (x *SyncAppStoreTransactionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SyncAppStoreTransactionRequest.ProtoReflect.Descriptor instead.
+func (*SyncAppStoreTransactionRequest) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *SyncAppStoreTransactionRequest) GetSignedTransactionJws() string {
+	if x != nil {
+		return x.SignedTransactionJws
+	}
+	return ""
+}
+
+type SyncAppStoreTransactionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Account       *AccountEntitlement    `protobuf:"bytes,1,opt,name=account,proto3" json:"account,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SyncAppStoreTransactionResponse) Reset() {
+	*x = SyncAppStoreTransactionResponse{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SyncAppStoreTransactionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SyncAppStoreTransactionResponse) ProtoMessage() {}
+
+func (x *SyncAppStoreTransactionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SyncAppStoreTransactionResponse.ProtoReflect.Descriptor instead.
+func (*SyncAppStoreTransactionResponse) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SyncAppStoreTransactionResponse) GetAccount() *AccountEntitlement {
+	if x != nil {
+		return x.Account
+	}
+	return nil
+}
+
 type UpsertEntitlementRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Account       *AccountEntitlement    `protobuf:"bytes,1,opt,name=account,proto3" json:"account,omitempty"`
@@ -344,7 +528,7 @@ type UpsertEntitlementRequest struct {
 
 func (x *UpsertEntitlementRequest) Reset() {
 	*x = UpsertEntitlementRequest{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[3]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -356,7 +540,7 @@ func (x *UpsertEntitlementRequest) String() string {
 func (*UpsertEntitlementRequest) ProtoMessage() {}
 
 func (x *UpsertEntitlementRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[3]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -369,7 +553,7 @@ func (x *UpsertEntitlementRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertEntitlementRequest.ProtoReflect.Descriptor instead.
 func (*UpsertEntitlementRequest) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{3}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *UpsertEntitlementRequest) GetAccount() *AccountEntitlement {
@@ -388,7 +572,7 @@ type UpsertEntitlementResponse struct {
 
 func (x *UpsertEntitlementResponse) Reset() {
 	*x = UpsertEntitlementResponse{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[4]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -400,7 +584,7 @@ func (x *UpsertEntitlementResponse) String() string {
 func (*UpsertEntitlementResponse) ProtoMessage() {}
 
 func (x *UpsertEntitlementResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[4]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -413,7 +597,7 @@ func (x *UpsertEntitlementResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertEntitlementResponse.ProtoReflect.Descriptor instead.
 func (*UpsertEntitlementResponse) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{4}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *UpsertEntitlementResponse) GetAccount() *AccountEntitlement {
@@ -433,7 +617,7 @@ type ErrorResponse struct {
 
 func (x *ErrorResponse) Reset() {
 	*x = ErrorResponse{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[5]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -445,7 +629,7 @@ func (x *ErrorResponse) String() string {
 func (*ErrorResponse) ProtoMessage() {}
 
 func (x *ErrorResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[5]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -458,7 +642,7 @@ func (x *ErrorResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ErrorResponse.ProtoReflect.Descriptor instead.
 func (*ErrorResponse) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{5}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ErrorResponse) GetCode() string {
@@ -499,6 +683,16 @@ const file_acacia_pro_v1_account_proto_rawDesc = "" +
 	"\bfeatures\x18\f \x03(\tR\bfeatures\"\x13\n" +
 	"\x11GetAccountRequest\"Q\n" +
 	"\x12GetAccountResponse\x12;\n" +
+	"\aaccount\x18\x01 \x01(\v2!.acacia.pro.v1.AccountEntitlementR\aaccount\"\x1b\n" +
+	"\x19GetPurchaseContextRequest\"\x86\x01\n" +
+	"\x1aGetPurchaseContextResponse\x12*\n" +
+	"\x11app_account_token\x18\x01 \x01(\tR\x0fappAccountToken\x12\x1f\n" +
+	"\vproduct_ids\x18\x02 \x03(\tR\n" +
+	"productIds\x12\x1b\n" +
+	"\tbundle_id\x18\x03 \x01(\tR\bbundleId\"V\n" +
+	"\x1eSyncAppStoreTransactionRequest\x124\n" +
+	"\x16signed_transaction_jws\x18\x01 \x01(\tR\x14signedTransactionJws\"^\n" +
+	"\x1fSyncAppStoreTransactionResponse\x12;\n" +
 	"\aaccount\x18\x01 \x01(\v2!.acacia.pro.v1.AccountEntitlementR\aaccount\"W\n" +
 	"\x18UpsertEntitlementRequest\x12;\n" +
 	"\aaccount\x18\x01 \x01(\v2!.acacia.pro.v1.AccountEntitlementR\aaccount\"X\n" +
@@ -530,31 +724,36 @@ func file_acacia_pro_v1_account_proto_rawDescGZIP() []byte {
 }
 
 var file_acacia_pro_v1_account_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_acacia_pro_v1_account_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_acacia_pro_v1_account_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_acacia_pro_v1_account_proto_goTypes = []any{
-	(Plan)(0),                         // 0: acacia.pro.v1.Plan
-	(EntitlementSource)(0),            // 1: acacia.pro.v1.EntitlementSource
-	(*AccountEntitlement)(nil),        // 2: acacia.pro.v1.AccountEntitlement
-	(*GetAccountRequest)(nil),         // 3: acacia.pro.v1.GetAccountRequest
-	(*GetAccountResponse)(nil),        // 4: acacia.pro.v1.GetAccountResponse
-	(*UpsertEntitlementRequest)(nil),  // 5: acacia.pro.v1.UpsertEntitlementRequest
-	(*UpsertEntitlementResponse)(nil), // 6: acacia.pro.v1.UpsertEntitlementResponse
-	(*ErrorResponse)(nil),             // 7: acacia.pro.v1.ErrorResponse
-	(*timestamppb.Timestamp)(nil),     // 8: google.protobuf.Timestamp
+	(Plan)(0),                               // 0: acacia.pro.v1.Plan
+	(EntitlementSource)(0),                  // 1: acacia.pro.v1.EntitlementSource
+	(*AccountEntitlement)(nil),              // 2: acacia.pro.v1.AccountEntitlement
+	(*GetAccountRequest)(nil),               // 3: acacia.pro.v1.GetAccountRequest
+	(*GetAccountResponse)(nil),              // 4: acacia.pro.v1.GetAccountResponse
+	(*GetPurchaseContextRequest)(nil),       // 5: acacia.pro.v1.GetPurchaseContextRequest
+	(*GetPurchaseContextResponse)(nil),      // 6: acacia.pro.v1.GetPurchaseContextResponse
+	(*SyncAppStoreTransactionRequest)(nil),  // 7: acacia.pro.v1.SyncAppStoreTransactionRequest
+	(*SyncAppStoreTransactionResponse)(nil), // 8: acacia.pro.v1.SyncAppStoreTransactionResponse
+	(*UpsertEntitlementRequest)(nil),        // 9: acacia.pro.v1.UpsertEntitlementRequest
+	(*UpsertEntitlementResponse)(nil),       // 10: acacia.pro.v1.UpsertEntitlementResponse
+	(*ErrorResponse)(nil),                   // 11: acacia.pro.v1.ErrorResponse
+	(*timestamppb.Timestamp)(nil),           // 12: google.protobuf.Timestamp
 }
 var file_acacia_pro_v1_account_proto_depIdxs = []int32{
-	0, // 0: acacia.pro.v1.AccountEntitlement.plan:type_name -> acacia.pro.v1.Plan
-	1, // 1: acacia.pro.v1.AccountEntitlement.source:type_name -> acacia.pro.v1.EntitlementSource
-	8, // 2: acacia.pro.v1.AccountEntitlement.updated_at:type_name -> google.protobuf.Timestamp
-	8, // 3: acacia.pro.v1.AccountEntitlement.expires_at:type_name -> google.protobuf.Timestamp
-	2, // 4: acacia.pro.v1.GetAccountResponse.account:type_name -> acacia.pro.v1.AccountEntitlement
-	2, // 5: acacia.pro.v1.UpsertEntitlementRequest.account:type_name -> acacia.pro.v1.AccountEntitlement
-	2, // 6: acacia.pro.v1.UpsertEntitlementResponse.account:type_name -> acacia.pro.v1.AccountEntitlement
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	0,  // 0: acacia.pro.v1.AccountEntitlement.plan:type_name -> acacia.pro.v1.Plan
+	1,  // 1: acacia.pro.v1.AccountEntitlement.source:type_name -> acacia.pro.v1.EntitlementSource
+	12, // 2: acacia.pro.v1.AccountEntitlement.updated_at:type_name -> google.protobuf.Timestamp
+	12, // 3: acacia.pro.v1.AccountEntitlement.expires_at:type_name -> google.protobuf.Timestamp
+	2,  // 4: acacia.pro.v1.GetAccountResponse.account:type_name -> acacia.pro.v1.AccountEntitlement
+	2,  // 5: acacia.pro.v1.SyncAppStoreTransactionResponse.account:type_name -> acacia.pro.v1.AccountEntitlement
+	2,  // 6: acacia.pro.v1.UpsertEntitlementRequest.account:type_name -> acacia.pro.v1.AccountEntitlement
+	2,  // 7: acacia.pro.v1.UpsertEntitlementResponse.account:type_name -> acacia.pro.v1.AccountEntitlement
+	8,  // [8:8] is the sub-list for method output_type
+	8,  // [8:8] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_acacia_pro_v1_account_proto_init() }
@@ -568,7 +767,7 @@ func file_acacia_pro_v1_account_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_acacia_pro_v1_account_proto_rawDesc), len(file_acacia_pro_v1_account_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   6,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

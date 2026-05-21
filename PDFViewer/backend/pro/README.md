@@ -32,6 +32,10 @@ All protobuf endpoints return `application/x-protobuf`.
 - `FIREBASE_PROJECT_ID`: Firebase project used to verify ID tokens.
 - `ACACIA_ENTITLEMENTS_BUCKET`: GCS bucket for entitlement protobuf objects.
 - `ACACIA_ENTITLEMENTS_PREFIX`: object prefix. Defaults to `pro`.
+- `ACACIA_APP_ACCOUNT_TOKEN_SECRET`: required HMAC secret for stable StoreKit `appAccountToken` values.
+- `ACACIA_BUNDLE_ID`: App Store bundle id. Defaults to `com.benebsworth.acacia`.
+- `ACACIA_PRO_PRODUCT_IDS`: comma-separated App Store product ids. Defaults to monthly and yearly Acacia Pro ids.
+- `ACACIA_PRO_STORAGE_QUOTA_BYTES`: Pro cloud quota. Defaults to `21474836480`.
 - `ACACIA_ADMIN_TOKEN`: optional admin token for manual entitlement provisioning.
 
 The Cloud Run service account needs permission to read/write objects in the entitlement bucket.
@@ -54,6 +58,7 @@ protoc -I proto --go_out=. --go_opt=module=github.com/benebsworth/acacia/backend
 GCP_PROJECT_ID=acacia-prod \
 FIREBASE_PROJECT_ID=acacia-prod \
 ACACIA_ENTITLEMENTS_BUCKET=acacia-prod-entitlements \
+ACACIA_APP_ACCOUNT_TOKEN_SECRET_SECRET=acacia-pro-app-account-token-secret \
 ACACIA_ADMIN_TOKEN_SECRET=acacia-pro-admin-token \
 scripts/deploy-cloud-run.sh
 ```

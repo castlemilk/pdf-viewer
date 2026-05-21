@@ -1,13 +1,18 @@
 package server
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
 	prov1 "github.com/benebsworth/acacia/backend/pro/gen/acacia/pro/v1"
+	"github.com/benebsworth/acacia/backend/pro/internal/appstore"
 	accountauth "github.com/benebsworth/acacia/backend/pro/internal/auth"
 	"github.com/benebsworth/acacia/backend/pro/internal/entitlements"
 	"google.golang.org/protobuf/proto"
@@ -16,18 +21,34 @@ import (
 
 const ProtobufContentType = "application/x-protobuf"
 
+var defaultProProductIDs = []string{
+	"com.benebsworth.acacia.pro.monthly",
+	"com.benebsworth.acacia.pro.yearly",
+}
+
 type Config struct {
 	Verifier   accountauth.Verifier
 	Store      entitlements.Store
 	AdminToken string
 	Now        func() time.Time
+
+	BundleID              string
+	ProProductIDs         []string
+	ProStorageQuotaBytes  int64
+	AppAccountTokenSecret []byte
+	TransactionVerifier   appstore.TransactionVerifier
 }
 
 type Server struct {
-	verifier   accountauth.Verifier
-	store      entitlements.Store
-	adminToken string
-	now        func() time.Time
+	verifier              accountauth.Verifier
+	store                 entitlements.Store
+	adminToken            string
+	now                   func() time.Time
+	bundleID              string
+	proProductIDs         []string
+	proStorageQuotaBytes  int64
+	appAccountTokenSecret []byte
+	transactionVerifier   appstore.TransactionVerifier
 }
 
 func New(config Config) http.Handler {
@@ -35,12 +56,29 @@ func New(config Config) http.Handler {
 	if now == nil {
 		now = time.Now
 	}
+	proProductIDs := config.ProProductIDs
+	if len(proProductIDs) == 0 {
+		proProductIDs = defaultProProductIDs
+	}
+	bundleID := config.BundleID
+	if bundleID == "" {
+		bundleID = "com.benebsworth.acacia"
+	}
+	proStorageQuotaBytes := config.ProStorageQuotaBytes
+	if proStorageQuotaBytes == 0 {
+		proStorageQuotaBytes = 20 * 1024 * 1024 * 1024
+	}
 
 	return &Server{
-		verifier:   config.Verifier,
-		store:      config.Store,
-		adminToken: config.AdminToken,
-		now:        now,
+		verifier:              config.Verifier,
+		store:                 config.Store,
+		adminToken:            config.AdminToken,
+		now:                   now,
+		bundleID:              bundleID,
+		proProductIDs:         append([]string(nil), proProductIDs...),
+		proStorageQuotaBytes:  proStorageQuotaBytes,
+		appAccountTokenSecret: append([]byte(nil), config.AppAccountTokenSecret...),
+		transactionVerifier:   config.TransactionVerifier,
 	}
 }
 
@@ -51,6 +89,10 @@ func (server *Server) ServeHTTP(response http.ResponseWriter, request *http.Requ
 		_, _ = response.Write([]byte("ok"))
 	case request.Method == http.MethodPost && request.URL.Path == "/v1/account:get":
 		server.handleGetAccount(response, request)
+	case request.Method == http.MethodPost && request.URL.Path == "/v1/account:purchaseContext":
+		server.handlePurchaseContext(response, request)
+	case request.Method == http.MethodPost && request.URL.Path == "/v1/app_store/transactions:sync":
+		server.handleSyncAppStoreTransaction(response, request)
 	case request.Method == http.MethodPost && request.URL.Path == "/v1/admin/entitlements:upsert":
 		server.handleAdminUpsert(response, request)
 	default:
@@ -74,6 +116,89 @@ func (server *Server) handleGetAccount(response http.ResponseWriter, request *ht
 
 	account = normalizeAccount(account, token.Email, server.now())
 	writeProto(response, http.StatusOK, &prov1.GetAccountResponse{Account: account})
+}
+
+func (server *Server) handlePurchaseContext(response http.ResponseWriter, request *http.Request) {
+	token, ok := server.authenticate(response, request)
+	if !ok {
+		return
+	}
+	if len(server.appAccountTokenSecret) == 0 {
+		writeError(response, http.StatusServiceUnavailable, "not_configured", "app account token secret is not configured")
+		return
+	}
+
+	writeProto(response, http.StatusOK, &prov1.GetPurchaseContextResponse{
+		AppAccountToken: appAccountTokenForUID(token.UID, server.appAccountTokenSecret),
+		ProductIds:      append([]string(nil), server.proProductIDs...),
+		BundleId:        server.bundleID,
+	})
+}
+
+func (server *Server) handleSyncAppStoreTransaction(response http.ResponseWriter, request *http.Request) {
+	token, ok := server.authenticate(response, request)
+	if !ok {
+		return
+	}
+	if server.transactionVerifier == nil || len(server.appAccountTokenSecret) == 0 {
+		writeError(response, http.StatusServiceUnavailable, "not_configured", "app store transaction verification is not configured")
+		return
+	}
+
+	var requestBody prov1.SyncAppStoreTransactionRequest
+	if !readProto(response, request, &requestBody) {
+		return
+	}
+	if requestBody.GetSignedTransactionJws() == "" {
+		writeError(response, http.StatusBadRequest, "invalid_argument", "signed_transaction_jws is required")
+		return
+	}
+
+	transaction, err := server.transactionVerifier.VerifySignedTransaction(request.Context(), requestBody.GetSignedTransactionJws())
+	if err != nil {
+		writeError(response, http.StatusUnauthorized, "invalid_transaction", "app store transaction could not be verified")
+		return
+	}
+	if transaction.BundleID != server.bundleID {
+		writeError(response, http.StatusBadRequest, "invalid_transaction", "transaction bundle id does not match this app")
+		return
+	}
+	if !server.isProProduct(transaction.ProductID) {
+		writeError(response, http.StatusBadRequest, "invalid_product", "transaction product is not an Acacia Pro product")
+		return
+	}
+	if transaction.AppAccountToken != appAccountTokenForUID(token.UID, server.appAccountTokenSecret) {
+		writeError(response, http.StatusForbidden, "account_mismatch", "transaction app account token does not match this user")
+		return
+	}
+	if !transaction.RevokedAt.IsZero() {
+		writeError(response, http.StatusPaymentRequired, "revoked", "app store transaction has been revoked")
+		return
+	}
+	if transaction.ExpiresAt.IsZero() || !transaction.ExpiresAt.After(server.now()) {
+		writeError(response, http.StatusPaymentRequired, "expired", "app store transaction is expired")
+		return
+	}
+
+	account := &prov1.AccountEntitlement{
+		FirebaseUid:                   token.UID,
+		Email:                         token.Email,
+		Plan:                          prov1.Plan_PLAN_PRO,
+		Active:                        true,
+		StorageQuotaBytes:             server.proStorageQuotaBytes,
+		CustomerId:                    transaction.AppAccountToken,
+		AppStoreOriginalTransactionId: transaction.OriginalTransactionID,
+		Source:                        prov1.EntitlementSource_ENTITLEMENT_SOURCE_APP_STORE,
+		UpdatedAt:                     timestamppb.New(server.now()),
+		ExpiresAt:                     timestamppb.New(transaction.ExpiresAt),
+		Features:                      []string{"review_threads", "cloud_storage"},
+	}
+	if err := server.store.Put(request.Context(), account); err != nil {
+		writeError(response, http.StatusInternalServerError, "store_error", "could not persist entitlement")
+		return
+	}
+
+	writeProto(response, http.StatusOK, &prov1.SyncAppStoreTransactionResponse{Account: account})
 }
 
 func (server *Server) handleAdminUpsert(response http.ResponseWriter, request *http.Request) {
@@ -111,6 +236,15 @@ func (server *Server) handleAdminUpsert(response http.ResponseWriter, request *h
 	}
 
 	writeProto(response, http.StatusOK, &prov1.UpsertEntitlementResponse{Account: account})
+}
+
+func (server *Server) isProProduct(productID string) bool {
+	for _, candidate := range server.proProductIDs {
+		if productID == candidate {
+			return true
+		}
+	}
+	return false
 }
 
 func (server *Server) authenticate(response http.ResponseWriter, request *http.Request) (*accountauth.Token, bool) {
@@ -199,4 +333,26 @@ func normalizeAccount(account *prov1.AccountEntitlement, fallbackEmail string, n
 		account.UpdatedAt = timestamppb.New(now)
 	}
 	return account
+}
+
+func appAccountTokenForUID(firebaseUID string, secret []byte) string {
+	mac := hmac.New(sha256.New, secret)
+	_, _ = mac.Write([]byte(firebaseUID))
+	sum := mac.Sum(nil)
+	uuidBytes := append([]byte(nil), sum[:16]...)
+	uuidBytes[6] = (uuidBytes[6] & 0x0f) | 0x40
+	uuidBytes[8] = (uuidBytes[8] & 0x3f) | 0x80
+	encoded := hex.EncodeToString(uuidBytes)
+	return fmt.Sprintf(
+		"%s-%s-%s-%s-%s",
+		encoded[0:8],
+		encoded[8:12],
+		encoded[12:16],
+		encoded[16:20],
+		encoded[20:32],
+	)
+}
+
+func AppAccountTokenForTest(firebaseUID string, secret []byte) string {
+	return appAccountTokenForUID(firebaseUID, secret)
 }

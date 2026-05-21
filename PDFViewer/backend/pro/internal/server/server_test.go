@@ -6,10 +6,12 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"testing"
 	"time"
 
 	prov1 "github.com/benebsworth/acacia/backend/pro/gen/acacia/pro/v1"
+	"github.com/benebsworth/acacia/backend/pro/internal/appstore"
 	accountauth "github.com/benebsworth/acacia/backend/pro/internal/auth"
 	"github.com/benebsworth/acacia/backend/pro/internal/entitlements"
 	"github.com/benebsworth/acacia/backend/pro/internal/server"
@@ -26,6 +28,18 @@ func (verifier fakeVerifier) VerifyIDToken(_ context.Context, idToken string) (*
 		return nil, errors.New("invalid token")
 	}
 	return token, nil
+}
+
+type fakeTransactionVerifier struct {
+	transactions map[string]*appstore.Transaction
+}
+
+func (verifier fakeTransactionVerifier) VerifySignedTransaction(_ context.Context, signedTransaction string) (*appstore.Transaction, error) {
+	transaction, ok := verifier.transactions[signedTransaction]
+	if !ok {
+		return nil, errors.New("invalid app store transaction")
+	}
+	return transaction, nil
 }
 
 func TestGetAccountRequiresFirebaseBearerToken(t *testing.T) {
@@ -130,11 +144,118 @@ func TestAdminUpsertPersistsProEntitlementForAuthenticatedAccount(t *testing.T) 
 	}
 }
 
+func TestPurchaseContextReturnsStableAppAccountTokenAndProducts(t *testing.T) {
+	handler := newTestHandler()
+	firstRequest := newProtoRequest(http.MethodPost, "/v1/account:purchaseContext", &prov1.GetPurchaseContextRequest{})
+	firstRequest.Header.Set("Authorization", "Bearer valid-free-user")
+	firstResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(firstResponse, firstRequest)
+
+	if firstResponse.Code != http.StatusOK {
+		t.Fatalf("expected purchase context 200, got %d", firstResponse.Code)
+	}
+
+	var firstBody prov1.GetPurchaseContextResponse
+	unmarshalProto(t, firstResponse.Body.Bytes(), &firstBody)
+	assertUUID(t, firstBody.GetAppAccountToken())
+	if len(firstBody.GetProductIds()) != 2 {
+		t.Fatalf("expected two pro products, got %v", firstBody.GetProductIds())
+	}
+
+	secondRequest := newProtoRequest(http.MethodPost, "/v1/account:purchaseContext", &prov1.GetPurchaseContextRequest{})
+	secondRequest.Header.Set("Authorization", "Bearer valid-free-user")
+	secondResponse := httptest.NewRecorder()
+	handler.ServeHTTP(secondResponse, secondRequest)
+
+	var secondBody prov1.GetPurchaseContextResponse
+	unmarshalProto(t, secondResponse.Body.Bytes(), &secondBody)
+	if secondBody.GetAppAccountToken() != firstBody.GetAppAccountToken() {
+		t.Fatalf("expected stable app account token, got %q then %q", firstBody.GetAppAccountToken(), secondBody.GetAppAccountToken())
+	}
+}
+
+func TestSyncAppStoreTransactionPersistsProEntitlement(t *testing.T) {
+	store := entitlements.NewMemoryStore()
+	handler := newTestHandlerWithStore(store)
+	contextRequest := newProtoRequest(http.MethodPost, "/v1/account:purchaseContext", &prov1.GetPurchaseContextRequest{})
+	contextRequest.Header.Set("Authorization", "Bearer valid-pro-user")
+	contextResponse := httptest.NewRecorder()
+	handler.ServeHTTP(contextResponse, contextRequest)
+	var contextBody prov1.GetPurchaseContextResponse
+	unmarshalProto(t, contextResponse.Body.Bytes(), &contextBody)
+
+	syncRequest := newProtoRequest(http.MethodPost, "/v1/app_store/transactions:sync", &prov1.SyncAppStoreTransactionRequest{
+		SignedTransactionJws: "valid-pro-transaction",
+	})
+	syncRequest.Header.Set("Authorization", "Bearer valid-pro-user")
+	syncResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(syncResponse, syncRequest)
+
+	if syncResponse.Code != http.StatusOK {
+		t.Fatalf("expected sync 200, got %d: %s", syncResponse.Code, syncResponse.Body.String())
+	}
+
+	var syncBody prov1.SyncAppStoreTransactionResponse
+	unmarshalProto(t, syncResponse.Body.Bytes(), &syncBody)
+	account := syncBody.GetAccount()
+	if account.GetPlan() != prov1.Plan_PLAN_PRO {
+		t.Fatalf("expected pro plan, got %v", account.GetPlan())
+	}
+	if account.GetSource() != prov1.EntitlementSource_ENTITLEMENT_SOURCE_APP_STORE {
+		t.Fatalf("expected app store source, got %v", account.GetSource())
+	}
+	if account.GetAppStoreOriginalTransactionId() != "original_tx_123" {
+		t.Fatalf("expected original transaction id, got %q", account.GetAppStoreOriginalTransactionId())
+	}
+	if account.GetExpiresAt().AsTime() != fixedNow().Add(30*24*time.Hour) {
+		t.Fatalf("expected expiry from app store transaction, got %s", account.GetExpiresAt().AsTime())
+	}
+	if account.GetStorageQuotaBytes() != 20*1024*1024*1024 {
+		t.Fatalf("expected pro storage quota, got %d", account.GetStorageQuotaBytes())
+	}
+	if contextBody.GetAppAccountToken() == "" {
+		t.Fatal("expected purchase context to provide app account token before syncing")
+	}
+}
+
+func TestSyncAppStoreTransactionRejectsMismatchedAppAccountToken(t *testing.T) {
+	handler := newTestHandler()
+	syncRequest := newProtoRequest(http.MethodPost, "/v1/app_store/transactions:sync", &prov1.SyncAppStoreTransactionRequest{
+		SignedTransactionJws: "wrong-account-token-transaction",
+	})
+	syncRequest.Header.Set("Authorization", "Bearer valid-pro-user")
+	syncResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(syncResponse, syncRequest)
+
+	if syncResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected forbidden mismatched token, got %d", syncResponse.Code)
+	}
+}
+
+func TestSyncAppStoreTransactionRejectsExpiredSubscription(t *testing.T) {
+	handler := newTestHandler()
+	syncRequest := newProtoRequest(http.MethodPost, "/v1/app_store/transactions:sync", &prov1.SyncAppStoreTransactionRequest{
+		SignedTransactionJws: "expired-transaction",
+	})
+	syncRequest.Header.Set("Authorization", "Bearer valid-pro-user")
+	syncResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(syncResponse, syncRequest)
+
+	if syncResponse.Code != http.StatusPaymentRequired {
+		t.Fatalf("expected payment required for expired subscription, got %d", syncResponse.Code)
+	}
+}
+
 func newTestHandler() http.Handler {
 	return newTestHandlerWithStore(entitlements.NewMemoryStore())
 }
 
 func newTestHandlerWithStore(store entitlements.Store) http.Handler {
+	appAccountToken := server.AppAccountTokenForTest("user_pro", []byte("test-secret"))
 	return server.New(server.Config{
 		Verifier: fakeVerifier{
 			tokens: map[string]*accountauth.Token{
@@ -142,9 +263,41 @@ func newTestHandlerWithStore(store entitlements.Store) http.Handler {
 				"valid-pro-user":  {UID: "user_pro", Email: "pro@example.com"},
 			},
 		},
-		Store:      store,
-		AdminToken: "admin-secret",
-		Now:        fixedNow,
+		Store:                 store,
+		AdminToken:            "admin-secret",
+		Now:                   fixedNow,
+		BundleID:              "com.benebsworth.acacia",
+		ProProductIDs:         []string{"com.benebsworth.acacia.pro.monthly", "com.benebsworth.acacia.pro.yearly"},
+		AppAccountTokenSecret: []byte("test-secret"),
+		ProStorageQuotaBytes:  20 * 1024 * 1024 * 1024,
+		TransactionVerifier: fakeTransactionVerifier{
+			transactions: map[string]*appstore.Transaction{
+				"valid-pro-transaction": {
+					BundleID:              "com.benebsworth.acacia",
+					ProductID:             "com.benebsworth.acacia.pro.monthly",
+					OriginalTransactionID: "original_tx_123",
+					TransactionID:         "tx_123",
+					AppAccountToken:       appAccountToken,
+					ExpiresAt:             fixedNow().Add(30 * 24 * time.Hour),
+				},
+				"wrong-account-token-transaction": {
+					BundleID:              "com.benebsworth.acacia",
+					ProductID:             "com.benebsworth.acacia.pro.monthly",
+					OriginalTransactionID: "original_tx_456",
+					TransactionID:         "tx_456",
+					AppAccountToken:       "00000000-0000-4000-8000-000000000000",
+					ExpiresAt:             fixedNow().Add(30 * 24 * time.Hour),
+				},
+				"expired-transaction": {
+					BundleID:              "com.benebsworth.acacia",
+					ProductID:             "com.benebsworth.acacia.pro.monthly",
+					OriginalTransactionID: "original_tx_789",
+					TransactionID:         "tx_789",
+					AppAccountToken:       appAccountToken,
+					ExpiresAt:             fixedNow().Add(-time.Hour),
+				},
+			},
+		},
 	})
 }
 
@@ -172,4 +325,12 @@ func unmarshalProto(t *testing.T, body []byte, message proto.Message) {
 
 func fixedNow() time.Time {
 	return time.Date(2026, 5, 21, 12, 30, 0, 0, time.UTC)
+}
+
+func assertUUID(t *testing.T, value string) {
+	t.Helper()
+	pattern := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+	if !pattern.MatchString(value) {
+		t.Fatalf("expected UUID, got %q", value)
+	}
 }

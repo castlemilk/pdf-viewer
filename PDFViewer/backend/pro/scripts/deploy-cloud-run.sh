@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 : "${GCP_PROJECT_ID:?Set GCP_PROJECT_ID}"
 : "${FIREBASE_PROJECT_ID:=$GCP_PROJECT_ID}"
 : "${ACACIA_ENTITLEMENTS_BUCKET:?Set ACACIA_ENTITLEMENTS_BUCKET}"
+: "${ACACIA_APP_ACCOUNT_TOKEN_SECRET_SECRET:?Set ACACIA_APP_ACCOUNT_TOKEN_SECRET_SECRET to the Secret Manager secret containing the app account token HMAC secret}"
 
 SERVICE_NAME="${SERVICE_NAME:-acacia-pro}"
 REGION="${REGION:-australia-southeast1}"
@@ -21,6 +22,7 @@ ENV_VARS=(
 )
 
 SECRET_ARGS=()
+SECRET_ARGS+=(--update-secrets "ACACIA_APP_ACCOUNT_TOKEN_SECRET=${ACACIA_APP_ACCOUNT_TOKEN_SECRET_SECRET}:latest")
 if [[ -n "${ACACIA_ADMIN_TOKEN_SECRET:-}" ]]; then
   SECRET_ARGS+=(--update-secrets "ACACIA_ADMIN_TOKEN=${ACACIA_ADMIN_TOKEN_SECRET}:latest")
 fi
@@ -44,6 +46,11 @@ fi
 gcloud storage buckets add-iam-policy-binding "gs://${ACACIA_ENTITLEMENTS_BUCKET}" \
   --member "serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" \
   --role roles/storage.objectAdmin \
+  --project "${GCP_PROJECT_ID}" >/dev/null
+
+gcloud secrets add-iam-policy-binding "${ACACIA_APP_ACCOUNT_TOKEN_SECRET_SECRET}" \
+  --member "serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" \
+  --role roles/secretmanager.secretAccessor \
   --project "${GCP_PROJECT_ID}" >/dev/null
 
 if [[ -n "${ACACIA_ADMIN_TOKEN_SECRET:-}" ]]; then

@@ -40,6 +40,22 @@ message GetAccountResponse {
   AccountEntitlement account = 1;
 }
 
+message GetPurchaseContextRequest {}
+
+message GetPurchaseContextResponse {
+  string app_account_token = 1;
+  repeated string product_ids = 2;
+  string bundle_id = 3;
+}
+
+message SyncAppStoreTransactionRequest {
+  string signed_transaction_jws = 1;
+}
+
+message SyncAppStoreTransactionResponse {
+  AccountEntitlement account = 1;
+}
+
 message UpsertEntitlementRequest {
   AccountEntitlement account = 1;
 }
