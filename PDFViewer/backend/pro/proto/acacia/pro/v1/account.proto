@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package acacia.pro.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/benebsworth/acacia/backend/pro/gen/acacia/pro/v1;prov1";
+
+enum Plan {
+  PLAN_UNSPECIFIED = 0;
+  PLAN_FREE = 1;
+  PLAN_PRO = 2;
+}
+
+enum EntitlementSource {
+  ENTITLEMENT_SOURCE_UNSPECIFIED = 0;
+  ENTITLEMENT_SOURCE_DEFAULT = 1;
+  ENTITLEMENT_SOURCE_ADMIN = 2;
+  ENTITLEMENT_SOURCE_APP_STORE = 3;
+}
+
+message AccountEntitlement {
+  string firebase_uid = 1;
+  string email = 2;
+  Plan plan = 3;
+  bool active = 4;
+  int64 storage_quota_bytes = 5;
+  int64 storage_used_bytes = 6;
+  string customer_id = 7;
+  string app_store_original_transaction_id = 8;
+  EntitlementSource source = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  google.protobuf.Timestamp expires_at = 11;
+  repeated string features = 12;
+}
+
+message GetAccountRequest {}
+
+message GetAccountResponse {
+  AccountEntitlement account = 1;
+}
+
+message UpsertEntitlementRequest {
+  AccountEntitlement account = 1;
+}
+
+message UpsertEntitlementResponse {
+  AccountEntitlement account = 1;
+}
+
+message ErrorResponse {
+  string code = 1;
+  string message = 2;
+}

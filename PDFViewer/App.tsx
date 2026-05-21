@@ -34,6 +34,7 @@ import {
   mergeSeededDemoPdfsIntoPersistedState,
   parsePersistedAppState,
   serializePersistedAppState,
+  shouldAllowLocalProUnlock,
   viewerReducer,
 } from './src/domain';
 import type {
@@ -573,7 +574,20 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
   }
 
   function unlockReviewFeatures() {
-    setAccountState({signedIn: true, plan: 'pro'});
+    if (
+      shouldAllowLocalProUnlock({
+        isJestRuntime: isJestRuntime(),
+        isScreenshotLaunch,
+      })
+    ) {
+      setAccountState({signedIn: true, plan: 'pro'});
+      return;
+    }
+
+    Alert.alert(
+      'Acacia Pro',
+      'Pro sign-in is being connected to Acacia accounts. This build will not grant Pro access locally.',
+    );
   }
 
   function toggleFavorite(document: DocumentRecord) {

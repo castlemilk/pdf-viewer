@@ -1,0 +1,63 @@
+# Acacia Pro Backend
+
+Lightweight entitlement service for Acacia Pro.
+
+## Shape
+
+- Cloud Run HTTP service, scale-to-zero by default.
+- Firebase Auth ID token verification at the application layer.
+- GCS object storage for entitlement records.
+- Protocol Buffers for request and response payloads.
+- No Firestore polling, workers, heartbeats, or warm minimum instances.
+
+## Endpoints
+
+All protobuf endpoints return `application/x-protobuf`.
+
+- `GET /healthz`
+- `POST /v1/account:get`
+  - Requires `Authorization: Bearer <firebase-id-token>`.
+  - Body: `acacia.pro.v1.GetAccountRequest`.
+  - Response: `acacia.pro.v1.GetAccountResponse`.
+  - Missing stored entitlement returns an active signed-in free account.
+- `POST /v1/admin/entitlements:upsert`
+  - Disabled unless `ACACIA_ADMIN_TOKEN` is configured.
+  - Requires `Authorization: Bearer <admin-token>`.
+  - Body: `acacia.pro.v1.UpsertEntitlementRequest`.
+  - Response: `acacia.pro.v1.UpsertEntitlementResponse`.
+
+## Environment
+
+- `PORT`: Cloud Run sets this automatically. Defaults to `8080`.
+- `FIREBASE_PROJECT_ID`: Firebase project used to verify ID tokens.
+- `ACACIA_ENTITLEMENTS_BUCKET`: GCS bucket for entitlement protobuf objects.
+- `ACACIA_ENTITLEMENTS_PREFIX`: object prefix. Defaults to `pro`.
+- `ACACIA_ADMIN_TOKEN`: optional admin token for manual entitlement provisioning.
+
+The Cloud Run service account needs permission to read/write objects in the entitlement bucket.
+
+## Local Validation
+
+```bash
+go test ./...
+```
+
+Regenerate Go protobuf bindings after editing `proto/acacia/pro/v1/account.proto`:
+
+```bash
+protoc -I proto --go_out=. --go_opt=module=github.com/benebsworth/acacia/backend/pro proto/acacia/pro/v1/account.proto
+```
+
+## Deploy
+
+```bash
+GCP_PROJECT_ID=acacia-prod \
+FIREBASE_PROJECT_ID=acacia-prod \
+ACACIA_ENTITLEMENTS_BUCKET=acacia-prod-entitlements \
+ACACIA_ADMIN_TOKEN_SECRET=acacia-pro-admin-token \
+scripts/deploy-cloud-run.sh
+```
+
+The service is deployed with `--allow-unauthenticated` because Firebase token verification happens inside the service. Do not expose privileged admin behavior without `ACACIA_ADMIN_TOKEN` provided from Secret Manager.
+
+The deploy script enables the required Cloud Run, Cloud Build, Artifact Registry, and Storage APIs, creates the entitlement bucket if it is missing, grants the Cloud Run runtime service account object access, and deploys with minimum instances set to `0`.
