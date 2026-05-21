@@ -59,6 +59,11 @@ import {
   importedPdfToDocument,
   PdfKitBridge,
 } from './src/native/PdfKitBridge';
+import {
+  createDefaultProPurchaseCoordinator,
+  ProBackendError,
+  ProPurchaseUnavailableError,
+} from './src/pro';
 
 type ScreenMode = 'library' | 'viewer' | 'compare';
 type ScreenshotMode =
@@ -180,6 +185,7 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
     signedIn: false,
     plan: 'free',
   });
+  const [proUnlocking, setProUnlocking] = useState(false);
   const [compareSynced, setCompareSynced] = useState(true);
   const windowMetrics = useWindowDimensions();
   const menuOpenHandlerRef = useRef<(imported: ImportedPdf) => void>(() => {});
@@ -573,7 +579,7 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
     updateViewer({type: 'setInspectorTab', tab: 'comments'});
   }
 
-  function unlockReviewFeatures() {
+  async function unlockReviewFeatures() {
     if (
       shouldAllowLocalProUnlock({
         isJestRuntime: isJestRuntime(),
@@ -584,10 +590,29 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
       return;
     }
 
-    Alert.alert(
-      'Acacia Pro',
-      'Pro sign-in is being connected to Acacia accounts. This build will not grant Pro access locally.',
-    );
+    if (proUnlocking) {
+      return;
+    }
+
+    setProUnlocking(true);
+
+    try {
+      const result = await createDefaultProPurchaseCoordinator().purchasePro();
+      setAccountState(result.accountState);
+
+      if (result.storageLimitGb !== undefined) {
+        dispatchLibrary({
+          type: 'setStorageQuota',
+          storageLimitGb: result.storageLimitGb,
+        });
+      }
+
+      Alert.alert('Acacia Pro', 'Pro is active on this account.');
+    } catch (error) {
+      Alert.alert('Acacia Pro', proPurchaseFailureMessage(error));
+    } finally {
+      setProUnlocking(false);
+    }
   }
 
   function toggleFavorite(document: DocumentRecord) {
@@ -5013,6 +5038,26 @@ function isJestRuntime() {
   const globals = globalThis as {it?: unknown; jest?: unknown};
 
   return typeof globals.it === 'function' || globals.jest !== undefined;
+}
+
+function proPurchaseFailureMessage(error: unknown) {
+  if (error instanceof ProPurchaseUnavailableError) {
+    return error.message;
+  }
+  if (error instanceof ProBackendError) {
+    return error.message;
+  }
+
+  const bridgedError = error as {code?: string; message?: string};
+  if (bridgedError.code === 'purchase_cancelled') {
+    return 'The App Store purchase was cancelled.';
+  }
+
+  if (bridgedError.message) {
+    return bridgedError.message;
+  }
+
+  return 'Acacia Pro could not be activated. Try again in a moment.';
 }
 
 const styles = StyleSheet.create({

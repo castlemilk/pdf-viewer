@@ -16,6 +16,8 @@
 		B10000000000000000000003 /* PdfCanvasViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* PdfCanvasViewManager.m */; };
 		B10000000000000000000005 /* PDFKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* PDFKit.framework */; };
 		C0A000000000000000000001 /* PDFViewerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A000000000000000000002 /* PDFViewerUITests.swift */; };
+		D10000000000000000000001 /* AcaciaStoreKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000002 /* AcaciaStoreKit.swift */; };
+		D10000000000000000000003 /* AcaciaStoreKitBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000004 /* AcaciaStoreKitBridge.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,6 +45,8 @@
 		B10000000000000000000006 /* PDFKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PDFKit.framework; path = System/Library/Frameworks/PDFKit.framework; sourceTree = SDKROOT; };
 		C0A000000000000000000002 /* PDFViewerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFViewerUITests.swift; sourceTree = "<group>"; };
 		C0A000000000000000000003 /* PDFViewerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PDFViewerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D10000000000000000000002 /* AcaciaStoreKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AcaciaStoreKit.swift; path = PDFViewer/AcaciaStoreKit.swift; sourceTree = "<group>"; };
+		D10000000000000000000004 /* AcaciaStoreKitBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = AcaciaStoreKitBridge.m; path = PDFViewer/AcaciaStoreKitBridge.m; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -71,6 +75,8 @@
 			children = (
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
+				D10000000000000000000002 /* AcaciaStoreKit.swift */,
+				D10000000000000000000004 /* AcaciaStoreKitBridge.m */,
 				B10000000000000000000002 /* PdfKitBridge.m */,
 				B10000000000000000000004 /* PdfCanvasViewManager.m */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
@@ -317,6 +323,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				D10000000000000000000001 /* AcaciaStoreKit.swift in Sources */,
+				D10000000000000000000003 /* AcaciaStoreKitBridge.m in Sources */,
 				B10000000000000000000001 /* PdfKitBridge.m in Sources */,
 				B10000000000000000000003 /* PdfCanvasViewManager.m in Sources */,
 			);

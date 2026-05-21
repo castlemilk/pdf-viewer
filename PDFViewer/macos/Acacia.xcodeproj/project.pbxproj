@@ -19,6 +19,8 @@
 		A10000000000000000000003 /* PdfCanvasViewManager.mm in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* PdfCanvasViewManager.mm */; };
 		A20000000000000000000001 /* PdfKitSmokeTests.m in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* PdfKitSmokeTests.m */; };
 		A30000000000000000000001 /* PDFViewerUITests.m in Sources */ = {isa = PBXBuildFile; fileRef = A30000000000000000000002 /* PDFViewerUITests.m */; };
+		D20000000000000000000001 /* AcaciaStoreKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000002 /* AcaciaStoreKit.swift */; };
+		D20000000000000000000003 /* AcaciaStoreKitBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000004 /* AcaciaStoreKitBridge.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -55,6 +57,8 @@
 		AF64789DE074C74F3D925D89 /* Pods-Acacia-macOS.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Acacia-macOS.debug.xcconfig"; path = "Target Support Files/Pods-Acacia-macOS/Pods-Acacia-macOS.debug.xcconfig"; sourceTree = "<group>"; };
 		C3FA98074FC4EA524C3584CD /* Pods-PDFViewer-macOS.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PDFViewer-macOS.debug.xcconfig"; path = "Target Support Files/Pods-PDFViewer-macOS/Pods-PDFViewer-macOS.debug.xcconfig"; sourceTree = "<group>"; };
 		C576218D4E89CA42B385CB2E /* Pods-PDFViewer-macOS.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PDFViewer-macOS.release.xcconfig"; path = "Target Support Files/Pods-PDFViewer-macOS/Pods-PDFViewer-macOS.release.xcconfig"; sourceTree = "<group>"; };
+		D20000000000000000000002 /* AcaciaStoreKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcaciaStoreKit.swift; sourceTree = "<group>"; };
+		D20000000000000000000004 /* AcaciaStoreKitBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AcaciaStoreKitBridge.m; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		FDF97E0D884ED3588EFDAA13 /* libPods-Acacia-macOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Acacia-macOS.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -119,6 +123,8 @@
 			children = (
 				5142014B2437B4B30078DB4F /* AppDelegate.h */,
 				5142014C2437B4B30078DB4F /* AppDelegate.mm */,
+				D20000000000000000000002 /* AcaciaStoreKit.swift */,
+				D20000000000000000000004 /* AcaciaStoreKitBridge.m */,
 				A10000000000000000000004 /* PdfKitBridge.h */,
 				A10000000000000000000005 /* PdfKitBridge.mm */,
 				A10000000000000000000006 /* PdfCanvasViewManager.h */,
@@ -457,6 +463,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D20000000000000000000001 /* AcaciaStoreKit.swift in Sources */,
+				D20000000000000000000003 /* AcaciaStoreKitBridge.m in Sources */,
 				A10000000000000000000003 /* PdfCanvasViewManager.mm in Sources */,
 				A10000000000000000000002 /* PdfKitBridge.mm in Sources */,
 				514201582437B4B40078DB4F /* main.m in Sources */,

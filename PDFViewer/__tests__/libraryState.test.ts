@@ -146,4 +146,16 @@ describe('library state', () => {
       count: 0,
     });
   });
+
+  it('updates storage quota after Pro entitlement sync', () => {
+    const state = createInitialLibraryState();
+
+    const updated = libraryReducer(state, {
+      type: 'setStorageQuota',
+      storageLimitGb: 20,
+    });
+
+    expect(updated.storageLimitGb).toBe(20);
+    expect(updated.storageUsedGb).toBe(state.storageUsedGb);
+  });
 });

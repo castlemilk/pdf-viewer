@@ -1,0 +1,91 @@
+import Foundation
+import React
+import StoreKit
+
+@objc(AcaciaStoreKit)
+final class AcaciaStoreKit: NSObject {
+  @objc
+  static func requiresMainQueueSetup() -> Bool {
+    false
+  }
+
+  @objc(purchasePro:appAccountToken:resolver:rejecter:)
+  func purchasePro(
+    _ productId: String,
+    appAccountToken: String,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    guard let appAccountUUID = UUID(uuidString: appAccountToken) else {
+      reject("invalid_app_account_token", "Backend app account token is not a UUID.", nil)
+      return
+    }
+
+    Task {
+      do {
+        let products = try await Product.products(for: [productId])
+        guard let product = products.first else {
+          rejectOnMain(reject, "product_unavailable", "Acacia Pro product is not available.", nil)
+          return
+        }
+
+        let options: Set<Product.PurchaseOption> = [
+          Product.PurchaseOption.appAccountToken(appAccountUUID)
+        ]
+        let result = try await product.purchase(options: options)
+
+        switch result {
+        case .success(let verification):
+          let signedTransactionJws = verification.jwsRepresentation
+          let transaction = try verifiedTransaction(from: verification)
+          let payload: [String: Any] = [
+            "productId": transaction.productID,
+            "originalTransactionId": String(transaction.originalID),
+            "signedTransactionJws": signedTransactionJws,
+          ]
+          await transaction.finish()
+          resolveOnMain(resolve, payload)
+        case .userCancelled:
+          rejectOnMain(reject, "purchase_cancelled", "The App Store purchase was cancelled.", nil)
+        case .pending:
+          rejectOnMain(reject, "purchase_pending", "The App Store purchase is pending approval.", nil)
+        @unknown default:
+          rejectOnMain(reject, "purchase_unknown", "The App Store purchase did not complete.", nil)
+        }
+      } catch {
+        rejectOnMain(reject, "purchase_failed", error.localizedDescription, error)
+      }
+    }
+  }
+}
+
+private func verifiedTransaction(
+  from result: VerificationResult<Transaction>
+) throws -> Transaction {
+  switch result {
+  case .verified(let transaction):
+    return transaction
+  case .unverified(_, let error):
+    throw error
+  }
+}
+
+private func resolveOnMain(
+  _ resolve: @escaping RCTPromiseResolveBlock,
+  _ value: Any
+) {
+  DispatchQueue.main.async {
+    resolve(value)
+  }
+}
+
+private func rejectOnMain(
+  _ reject: @escaping RCTPromiseRejectBlock,
+  _ code: String,
+  _ message: String,
+  _ error: Error?
+) {
+  DispatchQueue.main.async {
+    reject(code, message, error)
+  }
+}

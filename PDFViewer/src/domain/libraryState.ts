@@ -15,7 +15,8 @@ export type LibraryAction =
       patch: Partial<DocumentRecord>;
     }
   | {type: 'addCollection'; label: string}
-  | {type: 'addTagToDocument'; documentId: string; tagId: string};
+  | {type: 'addTagToDocument'; documentId: string; tagId: string}
+  | {type: 'setStorageQuota'; storageLimitGb: number};
 
 export function createInitialLibraryState(): LibraryState {
   return {
@@ -90,6 +91,11 @@ export function libraryReducer(
         documents,
       };
     }
+    case 'setStorageQuota':
+      return {
+        ...state,
+        storageLimitGb: action.storageLimitGb,
+      };
     default:
       return state;
   }
