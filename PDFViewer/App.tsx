@@ -78,6 +78,7 @@ type ScreenshotMode =
 type AppProps = {
   screenshotMode?: ScreenshotMode;
   forceCompactLayout?: boolean;
+  isUiTestingLaunch?: boolean;
 };
 
 declare const require: (assetPath: string) => number;
@@ -142,7 +143,11 @@ const initialAnnotations: Annotation[] = [
   }),
 ];
 
-function App({screenshotMode, forceCompactLayout = false}: AppProps) {
+function App({
+  screenshotMode,
+  forceCompactLayout = false,
+  isUiTestingLaunch = false,
+}: AppProps) {
   const isScreenshotLaunch = screenshotMode !== undefined;
   const initialScreenshotMode = screenshotMode ?? 'library';
   const [libraryState, dispatchLibrary] = useReducer(
@@ -584,6 +589,7 @@ function App({screenshotMode, forceCompactLayout = false}: AppProps) {
       shouldAllowLocalProUnlock({
         isJestRuntime: isJestRuntime(),
         isScreenshotLaunch,
+        isUiTestingLaunch,
       })
     ) {
       setAccountState({signedIn: true, plan: 'pro'});

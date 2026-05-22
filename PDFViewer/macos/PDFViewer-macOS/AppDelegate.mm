@@ -36,6 +36,13 @@ static NSString *const AcaciaPDFMenuOpenURLNotification = @"AcaciaPDFMenuOpenURL
   if (screenshotMode.length > 0) {
     initialProps[@"screenshotMode"] = screenshotMode;
   }
+  BOOL isUITestingLaunch =
+      [[[NSProcessInfo processInfo].environment objectForKey:@"PDFVIEWER_UITESTING"]
+          isEqualToString:@"1"] ||
+      [[NSProcessInfo processInfo].arguments containsObject:@"--uitesting"];
+  if (isUITestingLaunch) {
+    initialProps[@"isUiTestingLaunch"] = @YES;
+  }
   self.initialProps = initialProps;
   self.dependencyProvider = [RCTAppDependencyProvider new];
   self.automaticallyLoadReactNativeWindow = YES;

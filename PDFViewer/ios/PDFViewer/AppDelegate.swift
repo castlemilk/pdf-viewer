@@ -23,9 +23,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     window = UIWindow(frame: UIScreen.main.bounds)
 
+    let isUITestingLaunch =
+      ProcessInfo.processInfo.environment["PDFVIEWER_UITESTING"] == "1" ||
+      ProcessInfo.processInfo.arguments.contains("--uitesting")
+
     factory.startReactNative(
       withModuleName: "Acacia",
       in: window,
+      initialProperties: isUITestingLaunch ? ["isUiTestingLaunch": true] : nil,
       launchOptions: launchOptions
     )
 
