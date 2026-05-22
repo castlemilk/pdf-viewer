@@ -60,8 +60,10 @@ import {
   PdfKitBridge,
 } from './src/native/PdfKitBridge';
 import {
+  createDefaultProAccountSynchronizer,
   createDefaultProPurchaseCoordinator,
   ProBackendError,
+  type ProAccountSynchronizer,
   ProPurchaseUnavailableError,
 } from './src/pro';
 
@@ -79,6 +81,7 @@ type AppProps = {
   screenshotMode?: ScreenshotMode;
   forceCompactLayout?: boolean;
   isUiTestingLaunch?: boolean;
+  proAccountSynchronizer?: ProAccountSynchronizer;
 };
 
 declare const require: (assetPath: string) => number;
@@ -147,6 +150,7 @@ function App({
   screenshotMode,
   forceCompactLayout = false,
   isUiTestingLaunch = false,
+  proAccountSynchronizer,
 }: AppProps) {
   const isScreenshotLaunch = screenshotMode !== undefined;
   const initialScreenshotMode = screenshotMode ?? 'library';
@@ -192,6 +196,10 @@ function App({
   });
   const [proUnlocking, setProUnlocking] = useState(false);
   const [compareSynced, setCompareSynced] = useState(true);
+  const accountSynchronizer = useMemo(
+    () => proAccountSynchronizer ?? createDefaultProAccountSynchronizer(),
+    [proAccountSynchronizer],
+  );
   const windowMetrics = useWindowDimensions();
   const menuOpenHandlerRef = useRef<(imported: ImportedPdf) => void>(() => {});
   const persistenceHydratedRef = useRef(false);
@@ -428,6 +436,30 @@ function App({
       } finally {
         if (!isCancelled) {
           persistenceHydratedRef.current = true;
+          if (!isScreenshotLaunch) {
+            accountSynchronizer
+              .syncAccount()
+              .then(result => {
+                if (isCancelled || !result) {
+                  return;
+                }
+
+                setAccountState(result.accountState);
+                if (result.storageLimitGb !== undefined) {
+                  dispatchLibrary({
+                    type: 'setStorageQuota',
+                    storageLimitGb: result.storageLimitGb,
+                  });
+                }
+                if (result.storageUsedGb !== undefined) {
+                  dispatchLibrary({
+                    type: 'setStorageUsage',
+                    storageUsedGb: result.storageUsedGb,
+                  });
+                }
+              })
+              .catch(() => {});
+          }
         }
       }
     }
@@ -437,7 +469,7 @@ function App({
     return () => {
       isCancelled = true;
     };
-  }, [isScreenshotLaunch]);
+  }, [accountSynchronizer, isScreenshotLaunch]);
 
   useEffect(() => {
     if (!persistenceHydratedRef.current) {

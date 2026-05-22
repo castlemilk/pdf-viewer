@@ -63,6 +63,29 @@ Regenerate Go protobuf bindings after editing `proto/acacia/pro/v1/account.proto
 protoc -I proto --go_out=. --go_opt=module=github.com/benebsworth/acacia/backend/pro proto/acacia/pro/v1/account.proto
 ```
 
+## Staging Smoke
+
+After deploying a staging service, run protobuf-level smoke checks against the real Cloud Run URL:
+
+```bash
+ACACIA_PRO_BASE_URL=https://<cloud-run-host> \
+ACACIA_FIREBASE_ID_TOKEN=<firebase-id-token> \
+scripts/smoke-cloud-run.sh
+```
+
+To also verify the admin provisioning path, use a smoke Firebase token whose UID matches `ACACIA_SMOKE_FIREBASE_UID`:
+
+```bash
+ACACIA_PRO_BASE_URL=https://<cloud-run-host> \
+ACACIA_FIREBASE_ID_TOKEN=<firebase-id-token> \
+ACACIA_ADMIN_TOKEN=<admin-token> \
+ACACIA_SMOKE_FIREBASE_UID=<firebase-uid> \
+ACACIA_SMOKE_EMAIL=smoke@example.com \
+scripts/smoke-cloud-run.sh
+```
+
+The smoke command covers `/healthz`, unauthorized auth guarding, purchase context, account refresh, and optional admin entitlement upsert. Real App Store purchase and transaction-JWS sync still need a sandbox StoreKit run from macOS/iOS.
+
 ## Deploy
 
 ```bash

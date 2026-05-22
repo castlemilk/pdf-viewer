@@ -1,6 +1,7 @@
 /* eslint-disable no-bitwise */
 import {ProBackendClient, ProBackendError} from '../src/pro/proBackendClient';
 import {
+  encodeGetAccountRequest,
   encodeSyncAppStoreTransactionRequest,
   type ProAccountEntitlement,
 } from '../src/pro/protobuf';
@@ -91,6 +92,48 @@ test('requests purchase context using protobuf and Firebase bearer auth', async 
   expect(
     Array.from(fetchMock.mock.calls[0][1].body ?? new Uint8Array()),
   ).toEqual([]);
+});
+
+test('fetches account entitlement using protobuf and Firebase bearer auth', async () => {
+  const quotaBytes = 20 * 1024 * 1024 * 1024;
+  const accountBody: number[] = [
+    ...stringField(1, 'firebase-user-1'),
+    ...stringField(2, 'eshe@example.com'),
+    ...varintField(3, 2),
+    ...varintField(4, 1),
+    ...varintField(5, quotaBytes),
+    ...varintField(6, 1073741824),
+    ...varintField(9, 3),
+    ...stringField(12, 'cloud_storage'),
+  ];
+  const fetchMock: TestFetch = jest.fn(async (_url, _init) =>
+    createResponse(200, Uint8Array.from(messageField(1, accountBody))),
+  );
+  const client = new ProBackendClient({
+    baseUrl: 'https://pro.acacia.test/',
+    fetchImpl: fetchMock as unknown as typeof fetch,
+  });
+
+  await expect(client.getAccount('firebase-token')).resolves.toEqual({
+    account: expect.objectContaining({
+      firebaseUid: 'firebase-user-1',
+      email: 'eshe@example.com',
+      plan: 'pro',
+      active: true,
+      storageQuotaBytes: quotaBytes,
+      storageUsedBytes: 1073741824,
+      source: 'app_store',
+      features: ['cloud_storage'],
+    }),
+  });
+
+  expect(fetchMock).toHaveBeenCalledWith(
+    'https://pro.acacia.test/v1/account:get',
+    expect.objectContaining({
+      method: 'POST',
+      body: encodeGetAccountRequest(),
+    }),
+  );
 });
 
 test('syncs signed StoreKit JWS and decodes Pro entitlement', async () => {

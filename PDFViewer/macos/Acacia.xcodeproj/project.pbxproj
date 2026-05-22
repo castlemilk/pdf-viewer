@@ -21,6 +21,10 @@
 		A30000000000000000000001 /* PDFViewerUITests.m in Sources */ = {isa = PBXBuildFile; fileRef = A30000000000000000000002 /* PDFViewerUITests.m */; };
 		D20000000000000000000001 /* AcaciaStoreKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000002 /* AcaciaStoreKit.swift */; };
 		D20000000000000000000003 /* AcaciaStoreKitBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000004 /* AcaciaStoreKitBridge.m */; };
+		E20000000000000000000001 /* AcaciaConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000002 /* AcaciaConfig.swift */; };
+		E20000000000000000000003 /* AcaciaConfigBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000004 /* AcaciaConfigBridge.m */; };
+		E20000000000000000000005 /* AcaciaAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000006 /* AcaciaAuth.swift */; };
+		E20000000000000000000007 /* AcaciaAuthBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000008 /* AcaciaAuthBridge.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +63,10 @@
 		C576218D4E89CA42B385CB2E /* Pods-PDFViewer-macOS.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PDFViewer-macOS.release.xcconfig"; path = "Target Support Files/Pods-PDFViewer-macOS/Pods-PDFViewer-macOS.release.xcconfig"; sourceTree = "<group>"; };
 		D20000000000000000000002 /* AcaciaStoreKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcaciaStoreKit.swift; sourceTree = "<group>"; };
 		D20000000000000000000004 /* AcaciaStoreKitBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AcaciaStoreKitBridge.m; sourceTree = "<group>"; };
+		E20000000000000000000002 /* AcaciaConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcaciaConfig.swift; sourceTree = "<group>"; };
+		E20000000000000000000004 /* AcaciaConfigBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AcaciaConfigBridge.m; sourceTree = "<group>"; };
+		E20000000000000000000006 /* AcaciaAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcaciaAuth.swift; sourceTree = "<group>"; };
+		E20000000000000000000008 /* AcaciaAuthBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AcaciaAuthBridge.m; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		FDF97E0D884ED3588EFDAA13 /* libPods-Acacia-macOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Acacia-macOS.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -125,6 +133,10 @@
 				5142014C2437B4B30078DB4F /* AppDelegate.mm */,
 				D20000000000000000000002 /* AcaciaStoreKit.swift */,
 				D20000000000000000000004 /* AcaciaStoreKitBridge.m */,
+				E20000000000000000000002 /* AcaciaConfig.swift */,
+				E20000000000000000000004 /* AcaciaConfigBridge.m */,
+				E20000000000000000000006 /* AcaciaAuth.swift */,
+				E20000000000000000000008 /* AcaciaAuthBridge.m */,
 				A10000000000000000000004 /* PdfKitBridge.h */,
 				A10000000000000000000005 /* PdfKitBridge.mm */,
 				A10000000000000000000006 /* PdfCanvasViewManager.h */,
@@ -465,6 +477,10 @@
 			files = (
 				D20000000000000000000001 /* AcaciaStoreKit.swift in Sources */,
 				D20000000000000000000003 /* AcaciaStoreKitBridge.m in Sources */,
+				E20000000000000000000001 /* AcaciaConfig.swift in Sources */,
+				E20000000000000000000003 /* AcaciaConfigBridge.m in Sources */,
+				E20000000000000000000005 /* AcaciaAuth.swift in Sources */,
+				E20000000000000000000007 /* AcaciaAuthBridge.m in Sources */,
 				A10000000000000000000003 /* PdfCanvasViewManager.mm in Sources */,
 				A10000000000000000000002 /* PdfKitBridge.mm in Sources */,
 				514201582437B4B40078DB4F /* main.m in Sources */,

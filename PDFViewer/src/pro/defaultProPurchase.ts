@@ -1,5 +1,9 @@
 import {NativeModules} from 'react-native';
 import {StoreKitBridge} from '../native/StoreKitBridge';
+import {
+  createProAccountSynchronizer,
+  type ProAccountSynchronizer,
+} from './proAccountSynchronizer';
 import {ProBackendClient} from './proBackendClient';
 import {
   createProPurchaseCoordinator,
@@ -26,6 +30,15 @@ export function createDefaultProPurchaseCoordinator(): ProPurchaseCoordinator {
     authTokenProvider: getNativeFirebaseAuthTokenProvider(),
     backendClient: baseUrl ? new ProBackendClient({baseUrl}) : undefined,
     storeKit: StoreKitBridge.isAvailable() ? StoreKitBridge : undefined,
+  });
+}
+
+export function createDefaultProAccountSynchronizer(): ProAccountSynchronizer {
+  const baseUrl = getDefaultProApiBaseUrl();
+
+  return createProAccountSynchronizer({
+    authTokenProvider: getNativeFirebaseAuthTokenProvider(),
+    backendClient: baseUrl ? new ProBackendClient({baseUrl}) : undefined,
   });
 }
 

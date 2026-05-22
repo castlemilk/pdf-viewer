@@ -1,8 +1,10 @@
 /* eslint-disable no-bitwise */
 import {
   decodeErrorResponse,
+  decodeGetAccountResponse,
   decodeGetPurchaseContextResponse,
   decodeSyncAppStoreTransactionResponse,
+  encodeGetAccountRequest,
   encodeGetPurchaseContextRequest,
   encodeSyncAppStoreTransactionRequest,
 } from '../src/pro/protobuf';
@@ -54,6 +56,42 @@ test('decodes purchase context response fields needed for StoreKit purchase', ()
       'com.benebsworth.acacia.pro.yearly',
     ],
     bundleId: 'com.benebsworth.acacia',
+  });
+});
+
+test('encodes empty get account request and decodes account entitlement', () => {
+  const quotaBytes = 20 * 1024 * 1024 * 1024;
+  const account: number[] = [
+    ...stringField(1, 'firebase-user-1'),
+    ...stringField(2, 'eshe@example.com'),
+    ...varintField(3, 2),
+    ...varintField(4, 1),
+    ...varintField(5, quotaBytes),
+    ...varintField(6, 1073741824),
+    ...stringField(7, 'customer-token'),
+    ...stringField(8, '1000001234567890'),
+    ...varintField(9, 3),
+    ...stringField(12, 'review_threads'),
+    ...stringField(13, '2d6825b7-9df2-4ff8-a06f-401bd0696fc4'),
+  ];
+
+  expect(Array.from(encodeGetAccountRequest())).toEqual([]);
+  expect(
+    decodeGetAccountResponse(Uint8Array.from(messageField(1, account))),
+  ).toEqual({
+    account: {
+      firebaseUid: 'firebase-user-1',
+      email: 'eshe@example.com',
+      plan: 'pro',
+      active: true,
+      storageQuotaBytes: quotaBytes,
+      storageUsedBytes: 1073741824,
+      customerId: 'customer-token',
+      appStoreOriginalTransactionId: '1000001234567890',
+      source: 'app_store',
+      features: ['review_threads'],
+      appAccountToken: '2d6825b7-9df2-4ff8-a06f-401bd0696fc4',
+    },
   });
 });
 

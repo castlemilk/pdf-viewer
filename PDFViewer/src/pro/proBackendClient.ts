@@ -1,10 +1,13 @@
 import {
   decodeErrorResponse,
+  decodeGetAccountResponse,
   decodeGetPurchaseContextResponse,
   decodeSyncAppStoreTransactionResponse,
+  encodeGetAccountRequest,
   encodeGetPurchaseContextRequest,
   encodeSyncAppStoreTransactionRequest,
   PROTOBUF_CONTENT_TYPE,
+  type GetAccountResponse,
   type GetPurchaseContextResponse,
   type SyncAppStoreTransactionResponse,
 } from './protobuf';
@@ -35,6 +38,15 @@ export class ProBackendClient {
   constructor(config: ProBackendClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/+$/, '');
     this.fetchImpl = config.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  }
+
+  async getAccount(firebaseIDToken: string): Promise<GetAccountResponse> {
+    return this.postProtobuf(
+      '/v1/account:get',
+      firebaseIDToken,
+      encodeGetAccountRequest(),
+      decodeGetAccountResponse,
+    );
   }
 
   async getPurchaseContext(

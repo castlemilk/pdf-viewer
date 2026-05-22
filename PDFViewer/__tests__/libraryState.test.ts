@@ -158,4 +158,16 @@ describe('library state', () => {
     expect(updated.storageLimitGb).toBe(20);
     expect(updated.storageUsedGb).toBe(state.storageUsedGb);
   });
+
+  it('updates storage usage after account entitlement refresh', () => {
+    const state = createInitialLibraryState();
+
+    const updated = libraryReducer(state, {
+      type: 'setStorageUsage',
+      storageUsedGb: 1.5,
+    });
+
+    expect(updated.storageUsedGb).toBe(1.5);
+    expect(updated.storageLimitGb).toBe(state.storageLimitGb);
+  });
 });

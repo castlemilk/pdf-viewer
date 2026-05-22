@@ -44,3 +44,43 @@ test('macOS StoreKit bridge is included in the app target', () => {
   expect(project).toContain('AcaciaStoreKit.swift');
   expect(project).toContain('AcaciaStoreKitBridge.m');
 });
+
+test('iOS Pro config and auth bridges expose backend URL and validation ID token without keychain', () => {
+  const configSwift = read('ios/PDFViewer/AcaciaConfig.swift');
+  const configBridge = read('ios/PDFViewer/AcaciaConfigBridge.m');
+  const authSwift = read('ios/PDFViewer/AcaciaAuth.swift');
+  const authBridge = read('ios/PDFViewer/AcaciaAuthBridge.m');
+  const project = read('ios/PDFViewer.xcodeproj/project.pbxproj');
+
+  expect(configSwift).toContain('ACACIA_PRO_API_BASE_URL');
+  expect(configSwift).toContain('AcaciaProAPIBaseURL');
+  expect(authSwift).toContain('ACACIA_FIREBASE_ID_TOKEN');
+  expect(authSwift).toContain('AcaciaFirebaseIDToken');
+  expect(authSwift).toContain('NSNull()');
+  expect(configBridge).toContain('RCT_EXTERN_MODULE(AcaciaConfig, NSObject)');
+  expect(authBridge).toContain('RCT_EXTERN_MODULE(AcaciaAuth, NSObject)');
+  expect(project).toContain('AcaciaConfig.swift');
+  expect(project).toContain('AcaciaConfigBridge.m');
+  expect(project).toContain('AcaciaAuth.swift');
+  expect(project).toContain('AcaciaAuthBridge.m');
+});
+
+test('macOS Pro config and auth bridges expose backend URL and validation ID token without keychain', () => {
+  const configSwift = read('macos/PDFViewer-macOS/AcaciaConfig.swift');
+  const configBridge = read('macos/PDFViewer-macOS/AcaciaConfigBridge.m');
+  const authSwift = read('macos/PDFViewer-macOS/AcaciaAuth.swift');
+  const authBridge = read('macos/PDFViewer-macOS/AcaciaAuthBridge.m');
+  const project = read('macos/Acacia.xcodeproj/project.pbxproj');
+
+  expect(configSwift).toContain('ACACIA_PRO_API_BASE_URL');
+  expect(configSwift).toContain('AcaciaProAPIBaseURL');
+  expect(authSwift).toContain('ACACIA_FIREBASE_ID_TOKEN');
+  expect(authSwift).toContain('AcaciaFirebaseIDToken');
+  expect(authSwift).toContain('NSNull()');
+  expect(configBridge).toContain('RCT_EXTERN_MODULE(AcaciaConfig, NSObject)');
+  expect(authBridge).toContain('RCT_EXTERN_MODULE(AcaciaAuth, NSObject)');
+  expect(project).toContain('AcaciaConfig.swift');
+  expect(project).toContain('AcaciaConfigBridge.m');
+  expect(project).toContain('AcaciaAuth.swift');
+  expect(project).toContain('AcaciaAuthBridge.m');
+});

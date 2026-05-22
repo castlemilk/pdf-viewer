@@ -1,4 +1,5 @@
 export * from './defaultProPurchase';
+export * from './proAccountSynchronizer';
 export * from './proBackendClient';
 export * from './protobuf';
 export * from './proPurchaseCoordinator';

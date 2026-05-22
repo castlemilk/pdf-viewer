@@ -16,7 +16,8 @@ export type LibraryAction =
     }
   | {type: 'addCollection'; label: string}
   | {type: 'addTagToDocument'; documentId: string; tagId: string}
-  | {type: 'setStorageQuota'; storageLimitGb: number};
+  | {type: 'setStorageQuota'; storageLimitGb: number}
+  | {type: 'setStorageUsage'; storageUsedGb: number};
 
 export function createInitialLibraryState(): LibraryState {
   return {
@@ -95,6 +96,11 @@ export function libraryReducer(
       return {
         ...state,
         storageLimitGb: action.storageLimitGb,
+      };
+    case 'setStorageUsage':
+      return {
+        ...state,
+        storageUsedGb: action.storageUsedGb,
       };
     default:
       return state;

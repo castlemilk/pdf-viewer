@@ -170,6 +170,37 @@ test('hides account storage quota for signed-in free accounts', async () => {
   expect(JSON.stringify(renderer?.toJSON())).not.toContain('GB of');
 });
 
+test('refreshes Pro account entitlement from backend on launch', async () => {
+  const syncAccount = jest.fn(async () => ({
+    accountState: {signedIn: true, plan: 'pro' as const},
+    storageLimitGb: 20,
+    storageUsedGb: 1.5,
+  }));
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(async () => {
+    renderer = ReactTestRenderer.create(
+      <App proAccountSynchronizer={{syncAccount}} />,
+    );
+    await Promise.resolve();
+  });
+  await ReactTestRenderer.act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(syncAccount).toHaveBeenCalledTimes(1);
+  expect(
+    renderer!.root.findByProps({testID: 'account-storage-usage'}),
+  ).toBeTruthy();
+  expect(
+    renderer!.root.findAll(
+      instance =>
+        Array.isArray(instance.props.children) &&
+        instance.props.children.join('') === '1.5 GB of 20 GB used',
+    ),
+  ).not.toHaveLength(0);
+});
+
 test('library brand uses the Acacia logo image instead of a letter mark', async () => {
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 

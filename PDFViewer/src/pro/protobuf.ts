@@ -28,6 +28,10 @@ export type GetPurchaseContextResponse = {
   bundleId: string;
 };
 
+export type GetAccountResponse = {
+  account?: ProAccountEntitlement;
+};
+
 export type SyncAppStoreTransactionResponse = {
   account?: ProAccountEntitlement;
 };
@@ -44,6 +48,10 @@ type Field = {
 };
 
 export function encodeGetPurchaseContextRequest(): Uint8Array {
+  return new Uint8Array();
+}
+
+export function encodeGetAccountRequest(): Uint8Array {
   return new Uint8Array();
 }
 
@@ -81,6 +89,20 @@ export function decodeGetPurchaseContextResponse(
   }
 
   return response;
+}
+
+export function decodeGetAccountResponse(body: Uint8Array): GetAccountResponse {
+  for (const field of decodeFields(body)) {
+    if (
+      field.fieldNumber === 1 &&
+      field.wireType === 2 &&
+      typeof field.value !== 'number'
+    ) {
+      return {account: decodeAccountEntitlement(field.value)};
+    }
+  }
+
+  return {};
 }
 
 export function decodeSyncAppStoreTransactionResponse(
