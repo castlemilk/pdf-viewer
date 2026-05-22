@@ -25,6 +25,16 @@ private func configuredValue(environmentKey: String, infoKey: String) -> String?
     return environmentValue
   }
 
-  return Bundle.main.object(forInfoDictionaryKey: infoKey) as? String
+  let infoValue = Bundle.main.object(forInfoDictionaryKey: infoKey) as? String
+  if placeholderBuildSetting(infoValue) {
+    return nil
+  }
+  return infoValue?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? infoValue : nil
 }
 
+private func placeholderBuildSetting(_ value: String?) -> Bool {
+  guard let value else {
+    return false
+  }
+  return value.hasPrefix("$(") && value.hasSuffix(")")
+}

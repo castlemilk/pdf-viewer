@@ -62,6 +62,42 @@ final class AcaciaStoreKit: NSObject {
       }
     }
   }
+
+  @objc(restorePro:resolver:rejecter:)
+  func restorePro(
+    _ productIds: [String],
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    if let testPayload = storeKitTestPayload(productId: productIds.first ?? "") {
+      resolve(testPayload)
+      return
+    }
+
+    Task {
+      do {
+        let allowedProductIds = Set(productIds)
+        for await verification in Transaction.currentEntitlements {
+          let signedTransactionJws = verification.jwsRepresentation
+          let transaction = try verifiedTransaction(from: verification)
+          guard allowedProductIds.contains(transaction.productID) else {
+            continue
+          }
+
+          resolveOnMain(resolve, [
+            "productId": transaction.productID,
+            "originalTransactionId": String(transaction.originalID),
+            "signedTransactionJws": signedTransactionJws,
+          ])
+          return
+        }
+
+        rejectOnMain(reject, "restore_not_found", "No active Acacia Pro purchase was found for this Apple ID.", nil)
+      } catch {
+        rejectOnMain(reject, "restore_failed", error.localizedDescription, error)
+      }
+    }
+  }
 }
 
 private func storeKitTestPayload(productId: String) -> [String: Any]? {

@@ -310,6 +310,7 @@ test('mobile viewer controls page, zoom, and highlight state', async () => {
   expect(output).toContain('Comments');
   expect(output).toContain('Sign in to unlock comments');
   expect(output).toContain('comments-paywall');
+  expect(output).toContain('restore-purchases-button');
   expect(output).not.toContain('comment-item-local-highlight');
 
   await ReactTestRenderer.act(() => {

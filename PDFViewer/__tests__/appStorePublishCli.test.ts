@@ -106,6 +106,8 @@ describe('App Store CLI publishing pipeline', () => {
     expect(buildScript).toContain('APP_STORE_EXPORT_USE_XCODE_ACCOUNT');
     expect(buildScript).toContain('prepare-apple-build-keychain.sh');
     expect(buildScript).toContain('OTHER_CODE_SIGN_FLAGS=--keychain $APPLE_BUILD_KEYCHAIN_PATH');
+    expect(buildScript).toContain('ACACIA_PRO_API_BASE_URL=${ACACIA_PRO_API_BASE_URL:-}');
+    expect(buildScript).toContain('ACACIA_FIREBASE_WEB_API_KEY=${ACACIA_FIREBASE_WEB_API_KEY:-}');
     expect(buildScript).toContain('AUTHENTICATION_ARGS=()');
     expect(buildScript).toContain('Signing:');
     expect(buildScript).toContain('Xcode account');
@@ -158,6 +160,8 @@ describe('App Store CLI publishing pipeline', () => {
     expect(iosBuildScript).toContain('prepare-apple-build-keychain.sh');
     expect(iosBuildScript).toContain('OTHER_CODE_SIGN_FLAGS=--keychain $APPLE_BUILD_KEYCHAIN_PATH');
     expect(iosBuildScript).toContain('PRODUCT_BUNDLE_IDENTIFIER=$BUNDLE_ID');
+    expect(iosBuildScript).toContain('ACACIA_PRO_API_BASE_URL=${ACACIA_PRO_API_BASE_URL:-}');
+    expect(iosBuildScript).toContain('ACACIA_FIREBASE_WEB_API_KEY=${ACACIA_FIREBASE_WEB_API_KEY:-}');
     expect(iosBuildScript).toContain("platform: 'IOS'");
     expect(iosBuildScript).toContain('Acacia-iOS-${VERSION}-${BUILD_NUMBER}.xcarchive');
   });

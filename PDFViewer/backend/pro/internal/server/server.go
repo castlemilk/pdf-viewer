@@ -219,9 +219,14 @@ func (server *Server) handleSyncAppStoreTransaction(response http.ResponseWriter
 		writeError(response, http.StatusBadRequest, "invalid_product", "transaction product is not an Acacia Pro product")
 		return
 	}
-	if transaction.AppAccountToken != appAccountTokenForUID(token.UID, server.appAccountTokenSecret) {
-		writeError(response, http.StatusForbidden, "account_mismatch", "transaction app account token does not match this user")
-		return
+	expectedAppAccountToken := appAccountTokenForUID(token.UID, server.appAccountTokenSecret)
+	appAccountToken := expectedAppAccountToken
+	if transaction.AppAccountToken != expectedAppAccountToken {
+		if !server.canRestoreKnownTransactionToCurrentUser(request, transaction) {
+			writeError(response, http.StatusForbidden, "account_mismatch", "transaction app account token does not match this user")
+			return
+		}
+		appAccountToken = transaction.AppAccountToken
 	}
 	if !transaction.RevokedAt.IsZero() {
 		writeError(response, http.StatusPaymentRequired, "revoked", "app store transaction has been revoked")
@@ -238,9 +243,9 @@ func (server *Server) handleSyncAppStoreTransaction(response http.ResponseWriter
 		Plan:                          prov1.Plan_PLAN_PRO,
 		Active:                        true,
 		StorageQuotaBytes:             server.proStorageQuotaBytes,
-		CustomerId:                    transaction.AppAccountToken,
+		CustomerId:                    appAccountToken,
 		AppStoreOriginalTransactionId: transaction.OriginalTransactionID,
-		AppAccountToken:               transaction.AppAccountToken,
+		AppAccountToken:               appAccountToken,
 		Source:                        prov1.EntitlementSource_ENTITLEMENT_SOURCE_APP_STORE,
 		UpdatedAt:                     timestamppb.New(server.now()),
 		ExpiresAt:                     timestamppb.New(transaction.ExpiresAt),
@@ -252,6 +257,17 @@ func (server *Server) handleSyncAppStoreTransaction(response http.ResponseWriter
 	}
 
 	writeProto(response, http.StatusOK, &prov1.SyncAppStoreTransactionResponse{Account: account})
+}
+
+func (server *Server) canRestoreKnownTransactionToCurrentUser(request *http.Request, transaction *appstore.Transaction) bool {
+	if transaction.AppAccountToken == "" || transaction.OriginalTransactionID == "" {
+		return false
+	}
+	existing, err := server.store.GetByAppAccountToken(request.Context(), transaction.AppAccountToken)
+	if err != nil {
+		return false
+	}
+	return existing.GetAppStoreOriginalTransactionId() == transaction.OriginalTransactionID
 }
 
 func (server *Server) accountForNotification(existing *prov1.AccountEntitlement, transaction *appstore.Transaction, notification *appstore.Notification) *prov1.AccountEntitlement {

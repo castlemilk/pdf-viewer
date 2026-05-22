@@ -446,17 +446,17 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     UITapGestureRecognizer *tapRecognizer =
       [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTap:)];
     tapRecognizer.cancelsTouchesInView = NO;
-    [_pdfView addGestureRecognizer:tapRecognizer];
+    [self addGestureRecognizer:tapRecognizer];
     _highlightPanRecognizer =
       [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleHighlightPan:)];
     _highlightPanRecognizer.delegate = self;
-    _highlightPanRecognizer.cancelsTouchesInView = NO;
-    [_pdfView addGestureRecognizer:_highlightPanRecognizer];
+    _highlightPanRecognizer.cancelsTouchesInView = YES;
+    [self addGestureRecognizer:_highlightPanRecognizer];
     _drawingPanRecognizer =
       [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleDrawingPan:)];
     _drawingPanRecognizer.delegate = self;
-    _drawingPanRecognizer.cancelsTouchesInView = NO;
-    [_pdfView addGestureRecognizer:_drawingPanRecognizer];
+    _drawingPanRecognizer.cancelsTouchesInView = YES;
+    [self addGestureRecognizer:_drawingPanRecognizer];
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(pdfSelectionChanged:)
                                                  name:PDFViewSelectionChangedNotification

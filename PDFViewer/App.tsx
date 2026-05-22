@@ -618,7 +618,7 @@ function App({
     updateViewer({type: 'setInspectorTab', tab: 'comments'});
   }
 
-  async function unlockReviewFeatures() {
+  async function activateReviewFeatures(action: 'purchase' | 'restore') {
     if (
       shouldAllowLocalProUnlock({
         isJestRuntime: isJestRuntime(),
@@ -638,7 +638,11 @@ function App({
     setProUnlocking(true);
 
     try {
-      const result = await createDefaultProPurchaseCoordinator().purchasePro();
+      const coordinator = createDefaultProPurchaseCoordinator();
+      const result =
+        action === 'restore'
+          ? await coordinator.restorePro()
+          : await coordinator.purchasePro();
       setAccountState(result.accountState);
 
       if (result.storageLimitGb !== undefined) {
@@ -648,12 +652,25 @@ function App({
         });
       }
 
-      Alert.alert('Acacia Pro', 'Pro is active on this account.');
+      Alert.alert(
+        'Acacia Pro',
+        action === 'restore'
+          ? 'Pro has been restored on this account.'
+          : 'Pro is active on this account.',
+      );
     } catch (error) {
       Alert.alert('Acacia Pro', proPurchaseFailureMessage(error));
     } finally {
       setProUnlocking(false);
     }
+  }
+
+  async function unlockReviewFeatures() {
+    await activateReviewFeatures('purchase');
+  }
+
+  async function restoreReviewFeatures() {
+    await activateReviewFeatures('restore');
   }
 
   function toggleFavorite(document: DocumentRecord) {
@@ -959,6 +976,7 @@ function App({
         onCanvasAnnotation={addCanvasAnnotation}
         onDismissAnnotationSheet={() => setMobileAnnotationSheetOpen(false)}
         onUnlockReviewFeatures={unlockReviewFeatures}
+        onRestoreReviewFeatures={restoreReviewFeatures}
         onSelectSignature={setActiveSignatureId}
         onSaveSignature={saveSignature}
         onSelectHighlightColor={setHighlightColor}
@@ -1082,6 +1100,7 @@ function App({
           onAddBookmark={addBookmark}
           onPageThumbnail={cachePageThumbnail}
           onUnlockReviewFeatures={unlockReviewFeatures}
+          onRestoreReviewFeatures={restoreReviewFeatures}
           signatures={signatures}
           activeSignatureId={activeSignatureId}
           highlightColor={highlightColor}
@@ -1198,6 +1217,7 @@ function MobileExperience({
   onCanvasAnnotation,
   onDismissAnnotationSheet,
   onUnlockReviewFeatures,
+  onRestoreReviewFeatures,
   onSelectSignature,
   onSaveSignature,
   onSelectHighlightColor,
@@ -1232,6 +1252,7 @@ function MobileExperience({
   onCanvasAnnotation: (request: CanvasAnnotationRequest) => void;
   onDismissAnnotationSheet: () => void;
   onUnlockReviewFeatures: () => void;
+  onRestoreReviewFeatures: () => void;
   onSelectSignature: (signatureId: string) => void;
   onSaveSignature: (value: string) => void;
   onSelectHighlightColor: (color: string) => void;
@@ -1259,6 +1280,7 @@ function MobileExperience({
         onCanvasAnnotation={onCanvasAnnotation}
         onDismissAnnotationSheet={onDismissAnnotationSheet}
         onUnlockReviewFeatures={onUnlockReviewFeatures}
+        onRestoreReviewFeatures={onRestoreReviewFeatures}
         signatures={signatures}
         activeSignatureId={activeSignatureId}
         highlightColor={highlightColor}
@@ -1421,6 +1443,7 @@ function MobileViewer({
   onCanvasAnnotation,
   onDismissAnnotationSheet,
   onUnlockReviewFeatures,
+  onRestoreReviewFeatures,
   signatures,
   activeSignatureId,
   highlightColor,
@@ -1441,6 +1464,7 @@ function MobileViewer({
   onCanvasAnnotation: (request: CanvasAnnotationRequest) => void;
   onDismissAnnotationSheet: () => void;
   onUnlockReviewFeatures: () => void;
+  onRestoreReviewFeatures: () => void;
   signatures: SignatureProfile[];
   activeSignatureId: string;
   highlightColor: string;
@@ -1597,6 +1621,7 @@ function MobileViewer({
             <ReviewFeatureGate
               annotationsCount={annotations.length}
               onUnlock={onUnlockReviewFeatures}
+              onRestore={onRestoreReviewFeatures}
               mobile
             />
           )}
@@ -2648,6 +2673,7 @@ function ViewerScreen({
   onAddBookmark,
   onPageThumbnail,
   onUnlockReviewFeatures,
+  onRestoreReviewFeatures,
   onSelectSignature,
   onSaveSignature,
   onExport,
@@ -2675,6 +2701,7 @@ function ViewerScreen({
     thumbnailPath: string,
   ) => void;
   onUnlockReviewFeatures: () => void;
+  onRestoreReviewFeatures: () => void;
   onSelectSignature: (id: string) => void;
   onSaveSignature: (value: string) => void;
   onExport: (format: ExportFormat) => void;
@@ -2730,6 +2757,7 @@ function ViewerScreen({
           onSelectHighlightColor={onSelectHighlightColor}
           onAddBookmark={onAddBookmark}
           onUnlockReviewFeatures={onUnlockReviewFeatures}
+          onRestoreReviewFeatures={onRestoreReviewFeatures}
           onSelectSignature={onSelectSignature}
           onSaveSignature={onSaveSignature}
           onExport={onExport}
@@ -3675,6 +3703,7 @@ function ViewerInspector({
   onSelectHighlightColor,
   onAddBookmark,
   onUnlockReviewFeatures,
+  onRestoreReviewFeatures,
   onSelectSignature,
   onSaveSignature,
   onExport,
@@ -3693,6 +3722,7 @@ function ViewerInspector({
   onSelectHighlightColor: (color: string) => void;
   onAddBookmark: () => void;
   onUnlockReviewFeatures: () => void;
+  onRestoreReviewFeatures: () => void;
   onSelectSignature: (id: string) => void;
   onSaveSignature: (value: string) => void;
   onExport: (format: ExportFormat) => void;
@@ -3760,6 +3790,7 @@ function ViewerInspector({
             <ReviewFeatureGate
               annotationsCount={annotations.length}
               onUnlock={onUnlockReviewFeatures}
+              onRestore={onRestoreReviewFeatures}
             />
           )}
         </ScrollView>
@@ -4013,10 +4044,12 @@ function ChangesPanel({
 function ReviewFeatureGate({
   annotationsCount,
   onUnlock,
+  onRestore,
   mobile = false,
 }: {
   annotationsCount: number;
   onUnlock: () => void;
+  onRestore: () => void;
   mobile?: boolean;
 }) {
   return (
@@ -4036,22 +4069,39 @@ function ReviewFeatureGate({
           : ''}
       </Text>
       {mobile ? (
-        <MobileButton
-          label="Sign in"
-          icon="↗"
-          primary
-          onPress={onUnlock}
-          testID="unlock-comments-button"
-        />
+        <>
+          <MobileButton
+            label="Start Pro"
+            icon="↗"
+            primary
+            onPress={onUnlock}
+            testID="unlock-comments-button"
+          />
+          <MobileButton
+            label="Restore"
+            icon="↺"
+            onPress={onRestore}
+            testID="restore-purchases-button"
+          />
+        </>
       ) : (
-        <ButtonChrome
-          label="Sign in"
-          icon="↗"
-          primary
-          flush
-          onPress={onUnlock}
-          testID="unlock-comments-button"
-        />
+        <View style={styles.paywallActions}>
+          <ButtonChrome
+            label="Start Pro"
+            icon="↗"
+            primary
+            flush
+            onPress={onUnlock}
+            testID="unlock-comments-button"
+          />
+          <ButtonChrome
+            label="Restore"
+            icon="↺"
+            flush
+            onPress={onRestore}
+            testID="restore-purchases-button"
+          />
+        </View>
       )}
     </Pressable>
   );
@@ -6370,6 +6420,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     marginBottom: 14,
+  },
+  paywallActions: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
   },
   commentFilterRow: {
     flexDirection: 'row',

@@ -9,6 +9,7 @@ type NativeStoreKitBridge = {
     productId: string,
     appAccountToken: string,
   ) => Promise<ProStoreKitPurchaseResult>;
+  restorePro?: (productIds: string[]) => Promise<ProStoreKitPurchaseResult>;
 };
 
 function getNativeBridge() {
@@ -20,7 +21,8 @@ export const StoreKitBridge = {
     const nativeBridge = getNativeBridge();
     return (
       (Platform.OS === 'ios' || Platform.OS === 'macos') &&
-      typeof nativeBridge?.purchasePro === 'function'
+      typeof nativeBridge?.purchasePro === 'function' &&
+      typeof nativeBridge?.restorePro === 'function'
     );
   },
 
@@ -34,5 +36,14 @@ export const StoreKitBridge = {
     }
 
     return nativeBridge.purchasePro(productId, appAccountToken);
+  },
+
+  async restorePro(productIds: string[]): Promise<ProStoreKitPurchaseResult> {
+    const nativeBridge = getNativeBridge();
+    if (!nativeBridge?.restorePro) {
+      throw new Error('AcaciaStoreKit native module is not available');
+    }
+
+    return nativeBridge.restorePro(productIds);
   },
 };

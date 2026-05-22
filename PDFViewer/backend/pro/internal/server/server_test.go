@@ -16,6 +16,7 @@ import (
 	"github.com/benebsworth/acacia/backend/pro/internal/entitlements"
 	"github.com/benebsworth/acacia/backend/pro/internal/server"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type fakeVerifier struct {
@@ -294,6 +295,49 @@ func TestSyncAppStoreTransactionRejectsMismatchedAppAccountToken(t *testing.T) {
 
 	if syncResponse.Code != http.StatusForbidden {
 		t.Fatalf("expected forbidden mismatched token, got %d", syncResponse.Code)
+	}
+}
+
+func TestSyncAppStoreTransactionRestoresKnownOriginalTransactionForNewAuthUID(t *testing.T) {
+	store := entitlements.NewMemoryStore()
+	oldAppAccountToken := server.AppAccountTokenForTest("user_pro", []byte("test-secret"))
+	if err := store.Put(context.Background(), &prov1.AccountEntitlement{
+		FirebaseUid:                   "user_pro",
+		Email:                         "old@example.com",
+		Plan:                          prov1.Plan_PLAN_PRO,
+		Active:                        true,
+		StorageQuotaBytes:             20 * 1024 * 1024 * 1024,
+		AppAccountToken:               oldAppAccountToken,
+		AppStoreOriginalTransactionId: "original_tx_123",
+		Source:                        prov1.EntitlementSource_ENTITLEMENT_SOURCE_APP_STORE,
+		UpdatedAt:                     timestamppb.New(fixedNow()),
+		ExpiresAt:                     timestamppb.New(fixedNow().Add(30 * 24 * time.Hour)),
+	}); err != nil {
+		t.Fatalf("seed original entitlement: %v", err)
+	}
+	handler := newTestHandlerWithStore(store)
+	syncRequest := newProtoRequest(http.MethodPost, "/v1/app_store/transactions:sync", &prov1.SyncAppStoreTransactionRequest{
+		SignedTransactionJws: "valid-pro-transaction",
+	})
+	syncRequest.Header.Set("Authorization", "Bearer valid-free-user")
+	syncResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(syncResponse, syncRequest)
+
+	if syncResponse.Code != http.StatusOK {
+		t.Fatalf("expected restore sync 200, got %d: %s", syncResponse.Code, syncResponse.Body.String())
+	}
+	var syncBody prov1.SyncAppStoreTransactionResponse
+	unmarshalProto(t, syncResponse.Body.Bytes(), &syncBody)
+	account := syncBody.GetAccount()
+	if account.GetFirebaseUid() != "user_free" {
+		t.Fatalf("expected entitlement to move to new auth uid, got %q", account.GetFirebaseUid())
+	}
+	if account.GetPlan() != prov1.Plan_PLAN_PRO {
+		t.Fatalf("expected restored pro plan, got %v", account.GetPlan())
+	}
+	if account.GetAppAccountToken() != oldAppAccountToken {
+		t.Fatalf("expected restored notification token %q, got %q", oldAppAccountToken, account.GetAppAccountToken())
 	}
 }
 

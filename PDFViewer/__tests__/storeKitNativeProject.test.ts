@@ -28,9 +28,12 @@ test('iOS StoreKit bridge passes backend appAccountToken and returns signed tran
 
   expect(swift).toContain('Product.PurchaseOption.appAccountToken');
   expect(swift).toContain('verification.jwsRepresentation');
+  expect(swift).toContain('Transaction.currentEntitlements');
+  expect(swift).toContain('restorePro');
   expect(swift).toContain('ACACIA_STOREKIT_TEST_SIGNED_JWS');
   expect(swift).toContain('PDFVIEWER_PRO_PURCHASE_TESTING');
   expect(bridge).toContain('RCT_EXTERN_MODULE(AcaciaStoreKit, NSObject)');
+  expect(bridge).toContain('RCT_EXTERN_METHOD(restorePro');
   expect(project).toContain('AcaciaStoreKit.swift');
   expect(project).toContain('AcaciaStoreKitBridge.m');
 });
@@ -42,9 +45,12 @@ test('macOS StoreKit bridge is included in the app target', () => {
 
   expect(swift).toContain('Product.PurchaseOption.appAccountToken');
   expect(swift).toContain('verification.jwsRepresentation');
+  expect(swift).toContain('Transaction.currentEntitlements');
+  expect(swift).toContain('restorePro');
   expect(swift).toContain('ACACIA_STOREKIT_TEST_SIGNED_JWS');
   expect(swift).toContain('PDFVIEWER_PRO_PURCHASE_TESTING');
   expect(bridge).toContain('RCT_EXTERN_MODULE(AcaciaStoreKit, NSObject)');
+  expect(bridge).toContain('RCT_EXTERN_METHOD(restorePro');
   expect(project).toContain('AcaciaStoreKit.swift');
   expect(project).toContain('AcaciaStoreKitBridge.m');
 });
@@ -58,8 +64,15 @@ test('iOS Pro config and auth bridges expose backend URL and validation ID token
 
   expect(configSwift).toContain('ACACIA_PRO_API_BASE_URL');
   expect(configSwift).toContain('AcaciaProAPIBaseURL');
+  expect(configSwift).toContain('placeholderBuildSetting');
   expect(authSwift).toContain('ACACIA_FIREBASE_ID_TOKEN');
   expect(authSwift).toContain('AcaciaFirebaseIDToken');
+  expect(authSwift).toContain('AcaciaFirebaseWebAPIKey');
+  expect(authSwift).toContain('identitytoolkit.googleapis.com');
+  expect(authSwift).toContain('securetoken.googleapis.com');
+  expect(authSwift).toContain('UserDefaults.standard');
+  expect(authSwift).toContain('CharacterSet.alphanumerics');
+  expect(authSwift).not.toContain('.urlQueryAllowed');
   expect(authSwift).toContain('NSNull()');
   expect(configBridge).toContain('RCT_EXTERN_MODULE(AcaciaConfig, NSObject)');
   expect(authBridge).toContain('RCT_EXTERN_MODULE(AcaciaAuth, NSObject)');
@@ -78,8 +91,15 @@ test('macOS Pro config and auth bridges expose backend URL and validation ID tok
 
   expect(configSwift).toContain('ACACIA_PRO_API_BASE_URL');
   expect(configSwift).toContain('AcaciaProAPIBaseURL');
+  expect(configSwift).toContain('placeholderBuildSetting');
   expect(authSwift).toContain('ACACIA_FIREBASE_ID_TOKEN');
   expect(authSwift).toContain('AcaciaFirebaseIDToken');
+  expect(authSwift).toContain('AcaciaFirebaseWebAPIKey');
+  expect(authSwift).toContain('identitytoolkit.googleapis.com');
+  expect(authSwift).toContain('securetoken.googleapis.com');
+  expect(authSwift).toContain('UserDefaults.standard');
+  expect(authSwift).toContain('CharacterSet.alphanumerics');
+  expect(authSwift).not.toContain('.urlQueryAllowed');
   expect(authSwift).toContain('NSNull()');
   expect(configBridge).toContain('RCT_EXTERN_MODULE(AcaciaConfig, NSObject)');
   expect(authBridge).toContain('RCT_EXTERN_MODULE(AcaciaAuth, NSObject)');

@@ -114,6 +114,21 @@ describe('native PDFKit highlight placement', () => {
     );
   });
 
+  it('iOS canvas captures active-tool pan gestures above PDFKit scrolling', () => {
+    const iosCanvas = readFileSync(
+      path.join(__dirname, '..', 'ios/PDFViewer/PdfCanvasViewManager.m'),
+      'utf8',
+    );
+
+    expect(iosCanvas).toContain('[self addGestureRecognizer:_highlightPanRecognizer]');
+    expect(iosCanvas).toContain('[self addGestureRecognizer:_drawingPanRecognizer]');
+    expect(iosCanvas).toContain('_highlightPanRecognizer.cancelsTouchesInView = YES');
+    expect(iosCanvas).toContain('_drawingPanRecognizer.cancelsTouchesInView = YES');
+    expect(iosCanvas).toContain(
+      'return [AcaciaAnnotationKindForTool(_activeTool) isEqualToString:@"drawing"]',
+    );
+  });
+
   it('macOS canvas shows a pointer-following signature preview before stamping', () => {
     const macCanvas = readFileSync(
       path.join(__dirname, '..', 'macos/PDFViewer-macOS/PdfCanvasViewManager.mm'),

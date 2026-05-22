@@ -39,6 +39,10 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>AcaciaFirebaseWebAPIKey</key>
+	<string>$(ACACIA_FIREBASE_WEB_API_KEY)</string>
+	<key>AcaciaProAPIBaseURL</key>
+	<string>$(ACACIA_PRO_API_BASE_URL)</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
 	<key>LSArchitecturePriority</key>
