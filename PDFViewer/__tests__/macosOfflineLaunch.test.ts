@@ -48,6 +48,9 @@ describe('macOS offline launch configuration', () => {
     expect(e2eScript).toContain('PDFVIEWER_REAL_PDF_FIXTURE_PATH');
     expect(e2eScript).toContain('TEST_TARGET_NAME="Acacia-macOS"');
     expect(e2eScript).toContain('pkill -x "Acacia"');
+    expect(e2eScript).toContain('quit_interfering_apps()');
+    expect(e2eScript).toContain('tell application "Simulator" to quit');
+    expect(e2eScript).toContain('pkill -x "SimulatorTrampoline"');
   });
 
   it('declares export compliance in the macOS Info.plist for TestFlight', () => {

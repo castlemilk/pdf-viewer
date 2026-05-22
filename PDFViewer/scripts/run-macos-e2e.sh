@@ -70,6 +70,20 @@ cleanup_stale_test_processes() {
   pkill -f "${DERIVED_DATA_PATH}/Build/Products/Release/Acacia-macOSUITests-Runner.app" >/dev/null 2>&1 || true
 }
 
+quit_interfering_apps() {
+  local attempt
+
+  osascript -e 'tell application "Simulator" to quit' >/dev/null 2>&1 || true
+  pkill -x "SimulatorTrampoline" >/dev/null 2>&1 || true
+
+  for attempt in 1 2 3 4 5; do
+    pgrep -x "Simulator" >/dev/null 2>&1 || return 0
+    sleep 0.5
+  done
+
+  pkill -x "Simulator" >/dev/null 2>&1 || true
+}
+
 remove_path() {
   local path="$1"
   local attempt
@@ -84,11 +98,13 @@ remove_path() {
 }
 
 cleanup_stale_test_processes
+quit_interfering_apps
 remove_path "$DERIVED_DATA_PATH"
 remove_path "$RESULT_BUNDLE_PATH"
 
 cleanup() {
   cleanup_stale_test_processes
+  quit_interfering_apps
   remove_path "$DERIVED_DATA_PATH" || true
 }
 trap cleanup EXIT
