@@ -28,3 +28,21 @@ func TestLoadConfigParsesPaymentProductSettings(t *testing.T) {
 		t.Fatalf("unexpected quota: %d", config.ProStorageQuotaBytes)
 	}
 }
+
+func TestLoadConfigTrimsSecretManagerNewlines(t *testing.T) {
+	t.Setenv("ACACIA_ENTITLEMENTS_BUCKET", "acacia-entitlements")
+	t.Setenv("ACACIA_APP_ACCOUNT_TOKEN_SECRET", "app-secret\n")
+	t.Setenv("ACACIA_ADMIN_TOKEN", "admin-secret\n")
+
+	config, err := loadConfig()
+
+	if err != nil {
+		t.Fatalf("expected config to load: %v", err)
+	}
+	if config.AppAccountTokenSecret != "app-secret" {
+		t.Fatalf("expected trimmed app account token secret, got %q", config.AppAccountTokenSecret)
+	}
+	if config.AdminToken != "admin-secret" {
+		t.Fatalf("expected trimmed admin token, got %q", config.AdminToken)
+	}
+}

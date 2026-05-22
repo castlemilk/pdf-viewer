@@ -88,7 +88,7 @@ func New(config Config) http.Handler {
 
 func (server *Server) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	switch {
-	case request.Method == http.MethodGet && request.URL.Path == "/healthz":
+	case request.Method == http.MethodGet && request.URL.Path == "/health":
 		response.WriteHeader(http.StatusOK)
 		_, _ = response.Write([]byte("ok"))
 	case request.Method == http.MethodPost && request.URL.Path == "/v1/account:get":

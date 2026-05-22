@@ -22,7 +22,7 @@ wait_for_backend() {
   local attempt
 
   for attempt in $(seq 1 80); do
-    if curl -fsS "${BASE_URL}/healthz" >/dev/null 2>&1; then
+    if curl -fsS "${BASE_URL}/health" >/dev/null 2>&1; then
       return 0
     fi
 

@@ -55,6 +55,21 @@ func (verifier fakeNotificationVerifier) VerifySignedNotification(_ context.Cont
 	return notification, nil
 }
 
+func TestHealthEndpointUsesCloudRunSafePath(t *testing.T) {
+	handler := newTestHandler()
+	request := httptest.NewRequest(http.MethodGet, "/health", nil)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", response.Code)
+	}
+	if response.Body.String() != "ok" {
+		t.Fatalf("expected ok health body, got %q", response.Body.String())
+	}
+}
+
 func TestGetAccountRequiresFirebaseBearerToken(t *testing.T) {
 	handler := newTestHandler()
 	request := newProtoRequest(http.MethodPost, "/v1/account:get", &prov1.GetAccountRequest{})

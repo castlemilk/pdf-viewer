@@ -14,7 +14,7 @@ Lightweight entitlement service for Acacia Pro.
 
 All protobuf endpoints return `application/x-protobuf`.
 
-- `GET /healthz`
+- `GET /health`
 - `POST /v1/account:get`
   - Requires `Authorization: Bearer <firebase-id-token>`.
   - Body: `acacia.pro.v1.GetAccountRequest`.
@@ -84,7 +84,7 @@ ACACIA_SMOKE_EMAIL=smoke@example.com \
 scripts/smoke-cloud-run.sh
 ```
 
-The smoke command covers `/healthz`, unauthorized auth guarding, purchase context, account refresh, and optional admin entitlement upsert. Real App Store purchase and transaction-JWS sync still need a sandbox StoreKit run from macOS/iOS.
+The smoke command covers `/health`, unauthorized auth guarding, purchase context, account refresh, and optional admin entitlement upsert. Real App Store purchase and transaction-JWS sync still need a sandbox StoreKit run from macOS/iOS.
 
 ## Deploy
 

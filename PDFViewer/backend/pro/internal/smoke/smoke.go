@@ -64,17 +64,17 @@ func Run(ctx context.Context, config Config) error {
 }
 
 func checkHealth(ctx context.Context, client *http.Client, baseURL string) error {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/healthz", nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/health", nil)
 	if err != nil {
 		return err
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		return fmt.Errorf("healthz request failed: %w", err)
+		return fmt.Errorf("health request failed: %w", err)
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("healthz returned %d", response.StatusCode)
+		return fmt.Errorf("health returned %d", response.StatusCode)
 	}
 	return nil
 }
@@ -200,4 +200,3 @@ func postProto(ctx context.Context, client *http.Client, url string, bearerToken
 	}
 	return response.StatusCode, nil
 }
-

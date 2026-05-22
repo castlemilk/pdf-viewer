@@ -53,6 +53,7 @@ test('macOS Pro purchase e2e script runs a local backend and StoreKit fixture', 
   expect(script).toContain('ACACIA_PRO_API_BASE_URL');
   expect(script).toContain('ACACIA_FIREBASE_ID_TOKEN');
   expect(script).toContain('ACACIA_STOREKIT_TEST_SIGNED_JWS');
+  expect(script).toContain('"${BASE_URL}/health"');
   expect(script).toContain(
     'Acacia-macOSUITests/PDFViewerUITests/testProPurchaseFlowActivatesCommentsThroughBackend',
   );
