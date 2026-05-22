@@ -21,6 +21,12 @@ const smokeScriptPath = path.join(
   'scripts',
   'smoke-cloud-run.sh',
 );
+const purchaseE2EScriptPath = path.join(
+  __dirname,
+  '..',
+  'scripts',
+  'run-macos-pro-purchase-e2e.sh',
+);
 
 test('pro backend deploy script grants Secret Manager access when admin token secret is used', () => {
   const script = readFileSync(scriptPath, 'utf8');
@@ -38,4 +44,16 @@ test('pro backend smoke script runs the protobuf Cloud Run smoke command', () =>
   expect(script).toContain('ACACIA_PRO_BASE_URL');
   expect(script).toContain('ACACIA_FIREBASE_ID_TOKEN');
   expect(script).toContain('go run ./cmd/acacia-pro-smoke');
+});
+
+test('macOS Pro purchase e2e script runs a local backend and StoreKit fixture', () => {
+  const script = readFileSync(purchaseE2EScriptPath, 'utf8');
+
+  expect(script).toContain('go run ./cmd/acacia-pro-e2e');
+  expect(script).toContain('ACACIA_PRO_API_BASE_URL');
+  expect(script).toContain('ACACIA_FIREBASE_ID_TOKEN');
+  expect(script).toContain('ACACIA_STOREKIT_TEST_SIGNED_JWS');
+  expect(script).toContain(
+    'Acacia-macOSUITests/PDFViewerUITests/testProPurchaseFlowActivatesCommentsThroughBackend',
+  );
 });

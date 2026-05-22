@@ -21,6 +21,11 @@ final class AcaciaStoreKit: NSObject {
       return
     }
 
+    if let testPayload = storeKitTestPayload(productId: productId) {
+      resolve(testPayload)
+      return
+    }
+
     Task {
       do {
         let products = try await Product.products(for: [productId])
@@ -57,6 +62,23 @@ final class AcaciaStoreKit: NSObject {
       }
     }
   }
+}
+
+private func storeKitTestPayload(productId: String) -> [String: Any]? {
+  let environment = ProcessInfo.processInfo.environment
+  guard environment["PDFVIEWER_PRO_PURCHASE_TESTING"] == "1" else {
+    return nil
+  }
+  guard let signedTransactionJws = environment["ACACIA_STOREKIT_TEST_SIGNED_JWS"],
+        !signedTransactionJws.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+    return nil
+  }
+
+  return [
+    "productId": productId,
+    "originalTransactionId": environment["ACACIA_STOREKIT_TEST_ORIGINAL_TRANSACTION_ID"] ?? "acacia-ui-test-original-transaction",
+    "signedTransactionJws": signedTransactionJws,
+  ]
 }
 
 private func verifiedTransaction(

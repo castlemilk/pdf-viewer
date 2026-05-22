@@ -28,6 +28,8 @@ test('iOS StoreKit bridge passes backend appAccountToken and returns signed tran
 
   expect(swift).toContain('Product.PurchaseOption.appAccountToken');
   expect(swift).toContain('verification.jwsRepresentation');
+  expect(swift).toContain('ACACIA_STOREKIT_TEST_SIGNED_JWS');
+  expect(swift).toContain('PDFVIEWER_PRO_PURCHASE_TESTING');
   expect(bridge).toContain('RCT_EXTERN_MODULE(AcaciaStoreKit, NSObject)');
   expect(project).toContain('AcaciaStoreKit.swift');
   expect(project).toContain('AcaciaStoreKitBridge.m');
@@ -40,6 +42,8 @@ test('macOS StoreKit bridge is included in the app target', () => {
 
   expect(swift).toContain('Product.PurchaseOption.appAccountToken');
   expect(swift).toContain('verification.jwsRepresentation');
+  expect(swift).toContain('ACACIA_STOREKIT_TEST_SIGNED_JWS');
+  expect(swift).toContain('PDFVIEWER_PRO_PURCHASE_TESTING');
   expect(bridge).toContain('RCT_EXTERN_MODULE(AcaciaStoreKit, NSObject)');
   expect(project).toContain('AcaciaStoreKit.swift');
   expect(project).toContain('AcaciaStoreKitBridge.m');

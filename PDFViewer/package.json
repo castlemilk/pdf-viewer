@@ -10,6 +10,7 @@
     "macos:test": "xcodebuild build-for-testing -workspace macos/PDFViewer.xcworkspace -scheme PDFViewer-macOS-Unit -destination 'platform=macOS' -derivedDataPath /tmp/PDFViewerDerivedData && xcrun xctest /tmp/PDFViewerDerivedData/Build/Products/Debug/Acacia-macOSTests.xctest",
     "macos:ui-build": "FORCE_BUNDLING=1 xcodebuild -quiet build-for-testing -workspace macos/PDFViewer.xcworkspace -scheme PDFViewer-macOS-UI -configuration Release -destination 'platform=macOS' -derivedDataPath /tmp/PDFViewerUIDerivedData ONLY_ACTIVE_ARCH=YES ARCHS=$(uname -m) ENABLE_HARDENED_RUNTIME=NO",
     "macos:ui-test": "scripts/run-macos-e2e.sh",
+    "macos:pro-purchase-e2e": "scripts/run-macos-pro-purchase-e2e.sh",
     "macos:smoke-window": "scripts/smoke-macos-window.sh /Applications/Acacia.app --uitesting",
     "e2e:macos": "npm run macos:ui-test",
     "ios:ui-test": "scripts/run-ios-e2e.sh",

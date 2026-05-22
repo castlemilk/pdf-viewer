@@ -6,6 +6,7 @@ test('allows local pro unlock only for controlled validation contexts', () => {
       isJestRuntime: true,
       isScreenshotLaunch: false,
       isUiTestingLaunch: false,
+      isProPurchaseTestingLaunch: false,
     }),
   ).toBe(true);
 
@@ -14,6 +15,7 @@ test('allows local pro unlock only for controlled validation contexts', () => {
       isJestRuntime: false,
       isScreenshotLaunch: true,
       isUiTestingLaunch: false,
+      isProPurchaseTestingLaunch: false,
     }),
   ).toBe(true);
 
@@ -22,6 +24,7 @@ test('allows local pro unlock only for controlled validation contexts', () => {
       isJestRuntime: false,
       isScreenshotLaunch: false,
       isUiTestingLaunch: true,
+      isProPurchaseTestingLaunch: false,
     }),
   ).toBe(true);
 
@@ -29,7 +32,17 @@ test('allows local pro unlock only for controlled validation contexts', () => {
     shouldAllowLocalProUnlock({
       isJestRuntime: false,
       isScreenshotLaunch: false,
+      isUiTestingLaunch: true,
+      isProPurchaseTestingLaunch: true,
+    }),
+  ).toBe(false);
+
+  expect(
+    shouldAllowLocalProUnlock({
+      isJestRuntime: false,
+      isScreenshotLaunch: false,
       isUiTestingLaunch: false,
+      isProPurchaseTestingLaunch: false,
     }),
   ).toBe(false);
 });

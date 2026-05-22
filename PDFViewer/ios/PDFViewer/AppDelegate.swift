@@ -26,11 +26,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     let isUITestingLaunch =
       ProcessInfo.processInfo.environment["PDFVIEWER_UITESTING"] == "1" ||
       ProcessInfo.processInfo.arguments.contains("--uitesting")
+    let isProPurchaseTestingLaunch =
+      ProcessInfo.processInfo.environment["PDFVIEWER_PRO_PURCHASE_TESTING"] == "1"
+    var initialProperties: [String: Any]? = nil
+    if isUITestingLaunch || isProPurchaseTestingLaunch {
+      initialProperties = [
+        "isUiTestingLaunch": isUITestingLaunch,
+        "isProPurchaseTestingLaunch": isProPurchaseTestingLaunch,
+      ]
+    }
 
     factory.startReactNative(
       withModuleName: "Acacia",
       in: window,
-      initialProperties: isUITestingLaunch ? ["isUiTestingLaunch": true] : nil,
+      initialProperties: initialProperties,
       launchOptions: launchOptions
     )
 

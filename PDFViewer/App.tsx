@@ -81,6 +81,7 @@ type AppProps = {
   screenshotMode?: ScreenshotMode;
   forceCompactLayout?: boolean;
   isUiTestingLaunch?: boolean;
+  isProPurchaseTestingLaunch?: boolean;
   proAccountSynchronizer?: ProAccountSynchronizer;
 };
 
@@ -150,6 +151,7 @@ function App({
   screenshotMode,
   forceCompactLayout = false,
   isUiTestingLaunch = false,
+  isProPurchaseTestingLaunch = false,
   proAccountSynchronizer,
 }: AppProps) {
   const isScreenshotLaunch = screenshotMode !== undefined;
@@ -622,6 +624,7 @@ function App({
         isJestRuntime: isJestRuntime(),
         isScreenshotLaunch,
         isUiTestingLaunch,
+        isProPurchaseTestingLaunch,
       })
     ) {
       setAccountState({signedIn: true, plan: 'pro'});

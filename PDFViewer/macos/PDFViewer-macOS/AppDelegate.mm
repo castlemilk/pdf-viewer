@@ -43,6 +43,12 @@ static NSString *const AcaciaPDFMenuOpenURLNotification = @"AcaciaPDFMenuOpenURL
   if (isUITestingLaunch) {
     initialProps[@"isUiTestingLaunch"] = @YES;
   }
+  BOOL isProPurchaseTestingLaunch =
+      [[[NSProcessInfo processInfo].environment objectForKey:@"PDFVIEWER_PRO_PURCHASE_TESTING"]
+          isEqualToString:@"1"];
+  if (isProPurchaseTestingLaunch) {
+    initialProps[@"isProPurchaseTestingLaunch"] = @YES;
+  }
   self.initialProps = initialProps;
   self.dependencyProvider = [RCTAppDependencyProvider new];
   self.automaticallyLoadReactNativeWindow = YES;

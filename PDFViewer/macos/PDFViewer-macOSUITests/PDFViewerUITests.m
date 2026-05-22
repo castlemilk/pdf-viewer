@@ -964,6 +964,39 @@
   [self assertIdentifier:@"comment-item-local-highlight" labelContains:@"Local non-destructive highlight"];
 }
 
+- (void)testProPurchaseFlowActivatesCommentsThroughBackend
+{
+  NSDictionary<NSString *, NSString *> *environment = [NSProcessInfo processInfo].environment;
+  NSString *baseURL = environment[@"ACACIA_PRO_API_BASE_URL"];
+  NSString *firebaseToken = environment[@"ACACIA_FIREBASE_ID_TOKEN"];
+  NSString *signedTransactionJWS = environment[@"ACACIA_STOREKIT_TEST_SIGNED_JWS"];
+  if (baseURL.length == 0 || firebaseToken.length == 0 || signedTransactionJWS.length == 0) {
+    XCTSkip(@"Set ACACIA_PRO_API_BASE_URL, ACACIA_FIREBASE_ID_TOKEN, and "
+            @"ACACIA_STOREKIT_TEST_SIGNED_JWS to run Pro purchase e2e.");
+    return;
+  }
+
+  self.app.launchEnvironment = @{
+    @"PDFVIEWER_UITESTING" : @"1",
+    @"PDFVIEWER_PRO_PURCHASE_TESTING" : @"1",
+    @"PDFVIEWER_RESET_STATE" : @"1",
+    @"ACACIA_PRO_API_BASE_URL" : baseURL,
+    @"ACACIA_FIREBASE_ID_TOKEN" : firebaseToken,
+    @"ACACIA_STOREKIT_TEST_SIGNED_JWS" : signedTransactionJWS,
+  };
+  [self launchAndWaitForLibrary];
+
+  [self tapIdentifier:@"doc-card-q4-market-analysis"];
+  [self waitForIdentifier:@"viewer-screen"];
+  [self tapIdentifier:@"inspector-tab-comments"];
+  [self waitForIdentifier:@"comments-paywall"];
+  [self tapIdentifier:@"unlock-comments-button"];
+
+  [self waitForStaticTextContaining:@"Pro is active"];
+  [self dismissAlertIfPresent];
+  [self waitForIdentifier:@"comments-panel"];
+}
+
 - (void)testFileOpenRecentMenuReopensImportedPdf
 {
   NSString *fixturePath =
