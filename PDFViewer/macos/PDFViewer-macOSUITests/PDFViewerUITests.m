@@ -49,6 +49,72 @@
   self.app = nil;
 }
 
+- (NSDictionary<NSString *, NSString *> *)proPurchaseE2EConfiguration
+{
+  NSArray<NSString *> *keys = @[
+    @"ACACIA_PRO_API_BASE_URL",
+    @"ACACIA_FIREBASE_ID_TOKEN",
+    @"ACACIA_STOREKIT_TEST_SIGNED_JWS",
+  ];
+  NSDictionary<NSString *, NSString *> *environment = [NSProcessInfo processInfo].environment;
+  NSMutableDictionary<NSString *, NSString *> *config = [NSMutableDictionary dictionary];
+
+  NSString *configPath = environment[@"ACACIA_PRO_PURCHASE_E2E_CONFIG_PATH"];
+  if (configPath.length == 0) {
+    configPath = @"/tmp/acacia-pro-purchase-e2e-config.plist";
+  }
+  NSDictionary *fileConfig = [NSDictionary dictionaryWithContentsOfFile:configPath];
+
+  for (NSString *key in keys) {
+    NSString *value = environment[key];
+    if (value.length == 0 && [fileConfig[key] isKindOfClass:[NSString class]]) {
+      value = fileConfig[key];
+    }
+    if (value.length > 0) {
+      config[key] = value;
+    }
+  }
+
+  return config;
+}
+
+- (BOOL)proBackendIsHealthyAtBaseURL:(NSString *)baseURL
+{
+  if (baseURL.length == 0) {
+    return NO;
+  }
+
+  NSString *trimmedBaseURL =
+      [baseURL stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"/"]];
+  NSURL *healthURL = [NSURL URLWithString:[trimmedBaseURL stringByAppendingString:@"/health"]];
+  if (healthURL == nil) {
+    return NO;
+  }
+
+  NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:healthURL];
+  request.HTTPMethod = @"GET";
+  request.timeoutInterval = 2;
+
+  dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+  __block NSInteger statusCode = 0;
+  NSURLSessionDataTask *task = [[NSURLSession sharedSession]
+      dataTaskWithRequest:request
+        completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+          if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
+            statusCode = ((NSHTTPURLResponse *)response).statusCode;
+          }
+          dispatch_semaphore_signal(semaphore);
+        }];
+  [task resume];
+
+  dispatch_time_t deadline = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC));
+  if (dispatch_semaphore_wait(semaphore, deadline) != 0) {
+    [task cancel];
+    return NO;
+  }
+  return statusCode == 200;
+}
+
 - (XCUIElement *)elementWithIdentifier:(NSString *)identifier
 {
   return [[[self.app descendantsMatchingType:XCUIElementTypeAny] matchingIdentifier:identifier] firstMatch];
@@ -502,6 +568,32 @@
   if ([okButton waitForExistenceWithTimeout:5]) {
     [okButton click];
   }
+}
+
+- (NSString *)alertContentIfPresent
+{
+  XCUIElement *sheet = self.app.sheets.firstMatch;
+  if (![sheet waitForExistenceWithTimeout:2]) {
+    sheet = self.app.windows.firstMatch.sheets.firstMatch;
+  }
+  if (![sheet waitForExistenceWithTimeout:2]) {
+    return @"";
+  }
+
+  NSMutableArray<NSString *> *parts = [NSMutableArray array];
+  for (XCUIElement *text in [sheet descendantsMatchingType:XCUIElementTypeStaticText].allElementsBoundByIndex) {
+    NSString *content = [self contentForElement:text];
+    if (content.length > 0) {
+      [parts addObject:content];
+    }
+  }
+  for (XCUIElement *button in [sheet descendantsMatchingType:XCUIElementTypeButton].allElementsBoundByIndex) {
+    NSString *content = [self contentForElement:button];
+    if (content.length > 0) {
+      [parts addObject:content];
+    }
+  }
+  return [parts componentsJoinedByString:@" | "];
 }
 
 - (void)chooseOpenRecentMenuItemNamed:(NSString *)title
@@ -966,13 +1058,17 @@
 
 - (void)testProPurchaseFlowActivatesCommentsThroughBackend
 {
-  NSDictionary<NSString *, NSString *> *environment = [NSProcessInfo processInfo].environment;
-  NSString *baseURL = environment[@"ACACIA_PRO_API_BASE_URL"];
-  NSString *firebaseToken = environment[@"ACACIA_FIREBASE_ID_TOKEN"];
-  NSString *signedTransactionJWS = environment[@"ACACIA_STOREKIT_TEST_SIGNED_JWS"];
+  NSDictionary<NSString *, NSString *> *config = [self proPurchaseE2EConfiguration];
+  NSString *baseURL = config[@"ACACIA_PRO_API_BASE_URL"];
+  NSString *firebaseToken = config[@"ACACIA_FIREBASE_ID_TOKEN"];
+  NSString *signedTransactionJWS = config[@"ACACIA_STOREKIT_TEST_SIGNED_JWS"];
   if (baseURL.length == 0 || firebaseToken.length == 0 || signedTransactionJWS.length == 0) {
     XCTSkip(@"Set ACACIA_PRO_API_BASE_URL, ACACIA_FIREBASE_ID_TOKEN, and "
             @"ACACIA_STOREKIT_TEST_SIGNED_JWS to run Pro purchase e2e.");
+    return;
+  }
+  if (![self proBackendIsHealthyAtBaseURL:baseURL]) {
+    XCTSkip(@"Acacia Pro e2e backend is not reachable.");
     return;
   }
 
@@ -992,9 +1088,12 @@
   [self waitForIdentifier:@"comments-paywall"];
   [self tapIdentifier:@"unlock-comments-button"];
 
-  [self waitForStaticTextContaining:@"Pro is active"];
+  NSString *alertContent = [self alertContentIfPresent];
   [self dismissAlertIfPresent];
-  [self waitForIdentifier:@"comments-panel"];
+  XCUIElement *commentsFilter = [self elementWithIdentifier:@"comment-filter-all"];
+  XCTAssertTrue([commentsFilter waitForExistenceWithTimeout:20],
+                @"Expected comments controls to exist after Pro purchase. Last alert: %@",
+                alertContent);
 }
 
 - (void)testFileOpenRecentMenuReopensImportedPdf

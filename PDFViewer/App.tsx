@@ -64,6 +64,7 @@ import {
   createDefaultProPurchaseCoordinator,
   ProBackendError,
   type ProAccountSynchronizer,
+  type ProPurchaseCoordinator,
   ProPurchaseUnavailableError,
 } from './src/pro';
 
@@ -83,6 +84,7 @@ type AppProps = {
   isUiTestingLaunch?: boolean;
   isProPurchaseTestingLaunch?: boolean;
   proAccountSynchronizer?: ProAccountSynchronizer;
+  proPurchaseCoordinator?: ProPurchaseCoordinator;
 };
 
 declare const require: (assetPath: string) => number;
@@ -153,6 +155,7 @@ function App({
   isUiTestingLaunch = false,
   isProPurchaseTestingLaunch = false,
   proAccountSynchronizer,
+  proPurchaseCoordinator,
 }: AppProps) {
   const isScreenshotLaunch = screenshotMode !== undefined;
   const initialScreenshotMode = screenshotMode ?? 'library';
@@ -205,6 +208,7 @@ function App({
   const windowMetrics = useWindowDimensions();
   const menuOpenHandlerRef = useRef<(imported: ImportedPdf) => void>(() => {});
   const persistenceHydratedRef = useRef(false);
+  const proActivationGenerationRef = useRef(0);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -439,6 +443,7 @@ function App({
         if (!isCancelled) {
           persistenceHydratedRef.current = true;
           if (!isScreenshotLaunch) {
+            const syncActivationGeneration = proActivationGenerationRef.current;
             accountSynchronizer
               .syncAccount()
               .then(result => {
@@ -446,7 +451,18 @@ function App({
                   return;
                 }
 
-                setAccountState(result.accountState);
+                setAccountState(current => {
+                  if (
+                    proActivationGenerationRef.current !==
+                      syncActivationGeneration &&
+                    current.signedIn &&
+                    current.plan === 'pro' &&
+                    result.accountState.plan !== 'pro'
+                  ) {
+                    return current;
+                  }
+                  return result.accountState;
+                });
                 if (result.storageLimitGb !== undefined) {
                   dispatchLibrary({
                     type: 'setStorageQuota',
@@ -638,11 +654,13 @@ function App({
     setProUnlocking(true);
 
     try {
-      const coordinator = createDefaultProPurchaseCoordinator();
+      const coordinator =
+        proPurchaseCoordinator ?? createDefaultProPurchaseCoordinator();
       const result =
         action === 'restore'
           ? await coordinator.restorePro()
           : await coordinator.purchasePro();
+      proActivationGenerationRef.current += 1;
       setAccountState(result.accountState);
 
       if (result.storageLimitGb !== undefined) {

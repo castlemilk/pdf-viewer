@@ -201,6 +201,74 @@ test('refreshes Pro account entitlement from backend on launch', async () => {
   ).not.toHaveLength(0);
 });
 
+test('stale launch account sync cannot downgrade a completed Pro purchase', async () => {
+  let resolveSync!: (value: {
+    accountState: {signedIn: true; plan: 'free'};
+  }) => void;
+  const syncPromise = new Promise<{
+    accountState: {signedIn: true; plan: 'free'};
+  }>(resolve => {
+    resolveSync = resolve;
+  });
+  const syncAccount = jest.fn(() => syncPromise);
+  const purchasePro = jest.fn(async () => ({
+    accountState: {signedIn: true, plan: 'pro' as const},
+    storageLimitGb: 20,
+  }));
+  const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation();
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(async () => {
+    renderer = ReactTestRenderer.create(
+      <App
+        isProPurchaseTestingLaunch
+        proAccountSynchronizer={{syncAccount}}
+        proPurchaseCoordinator={{
+          purchasePro,
+          restorePro: jest.fn(),
+        }}
+      />,
+    );
+    await Promise.resolve();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findAllByProps({testID: 'doc-card-q4-market-analysis'})[0]
+      .props.onPress();
+  });
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'inspector-tab-comments'}).props.onPress();
+  });
+  expect(
+    renderer!.root.findAllByProps({testID: 'comments-paywall'}).length,
+  ).toBeGreaterThan(0);
+
+  await ReactTestRenderer.act(async () => {
+    await renderer!.root.findAllByProps({testID: 'unlock-comments-button'})[0].props.onPress();
+  });
+
+  expect(purchasePro).toHaveBeenCalledTimes(1);
+  expect(alertSpy).toHaveBeenLastCalledWith(
+    'Acacia Pro',
+    'Pro is active on this account.',
+  );
+  expect(
+    renderer!.root.findAllByProps({testID: 'comments-panel'}).length,
+  ).toBeGreaterThan(0);
+
+  await ReactTestRenderer.act(async () => {
+    resolveSync({accountState: {signedIn: true, plan: 'free'}});
+    await syncPromise;
+    await Promise.resolve();
+  });
+
+  expect(
+    renderer!.root.findAllByProps({testID: 'comments-panel'}).length,
+  ).toBeGreaterThan(0);
+  expect(renderer!.root.findAllByProps({testID: 'comments-paywall'})).toHaveLength(0);
+});
+
 test('library brand uses the Acacia logo image instead of a letter mark', async () => {
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 
