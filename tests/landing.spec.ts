@@ -70,6 +70,14 @@ test("supports keyboard users and points navigation at real landing sections", a
       "href",
       "#download",
     );
+    await expect(page.getByLabel("Primary navigation").getByRole("link", { name: "Privacy" })).toHaveAttribute(
+      "href",
+      "/privacy.html",
+    );
+    await expect(page.getByLabel("Primary navigation").getByRole("link", { name: "Support" })).toHaveAttribute(
+      "href",
+      "/support.html",
+    );
     await expect(page.getByRole("link", { name: "Bundle ID", exact: true })).toHaveAttribute("href", "#bundle-id");
   }
   await expect(page.getByLabel("Product links").getByRole("link", { name: "Download" })).toHaveAttribute(
@@ -80,4 +88,21 @@ test("supports keyboard users and points navigation at real landing sections", a
     "href",
     "/downloads/Acacia-0.0.1.dmg.sha256",
   );
+});
+
+test("publishes support, privacy, and accessibility pages for App Store metadata", async ({ page }) => {
+  await page.goto("/support.html");
+  await expect(page.getByRole("heading", { name: "Support" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "support@benebsworth.com" }).first()).toHaveAttribute(
+    "href",
+    "mailto:support@benebsworth.com",
+  );
+
+  await page.goto("/privacy.html");
+  await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
+  await expect(page.getByText("does not upload the PDF documents")).toBeVisible();
+
+  await page.goto("/accessibility.html");
+  await expect(page.getByRole("heading", { name: "Accessibility" })).toBeVisible();
+  await expect(page.getByText("labelled controls")).toBeVisible();
 });

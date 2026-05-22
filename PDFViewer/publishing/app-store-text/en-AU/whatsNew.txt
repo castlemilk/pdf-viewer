@@ -1,0 +1,1 @@
+Acacia 1.0.3 improves the launch-ready PDF review workflow with reliable text highlighting, colour highlight tools, aligned signature placement, App Store screenshots, and validated macOS and iOS release builds.

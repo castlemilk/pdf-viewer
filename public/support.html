@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <title>Acacia Support</title>
+    <style>
+      :root {
+        color: #151827;
+        background: #fbfbfd;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      }
+      body {
+        margin: 0;
+      }
+      main {
+        width: min(100% - 40px, 760px);
+        margin: 0 auto;
+        padding: 56px 0 80px;
+        line-height: 1.6;
+      }
+      a {
+        color: #151827;
+        font-weight: 700;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 40px;
+        text-decoration: none;
+      }
+      .brand img {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+      }
+      h1 {
+        margin: 0 0 16px;
+        font-size: clamp(40px, 7vw, 68px);
+        line-height: 0.95;
+        letter-spacing: 0;
+      }
+      h2 {
+        margin-top: 40px;
+        font-size: 21px;
+      }
+      p,
+      li {
+        color: #51586a;
+        font-size: 17px;
+      }
+      .panel {
+        margin-top: 28px;
+        padding: 22px;
+        border: 1px solid #e2e5ed;
+        border-radius: 12px;
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="brand" href="/">
+        <img src="/logo.png" alt="" />
+        <strong>Acacia</strong>
+      </a>
+      <h1>Support</h1>
+      <p>
+        Acacia is a local-first macOS PDF workspace. It does not require an account for the core app and does not upload
+        your PDF documents to a cloud service.
+      </p>
+
+      <section class="panel" aria-labelledby="contact">
+        <h2 id="contact">Contact</h2>
+        <p>Email <a href="mailto:support@benebsworth.com">support@benebsworth.com</a> for product support, privacy requests, or accessibility feedback.</p>
+      </section>
+
+      <h2>Common Tasks</h2>
+      <ul>
+        <li>Open a PDF from the library or system file picker.</li>
+        <li>Add tags, collections, favourites, and reading progress from the library.</li>
+        <li>Use thumbnails, search, zoom, metadata, and page controls in the viewer.</li>
+        <li>Add highlights, notes, comments, drawings, signatures, and bookmarks.</li>
+        <li>Export annotated copies, page images, extracted text, or Markdown where available.</li>
+        <li>Use compare mode to review two document versions side by side.</li>
+      </ul>
+
+      <h2>Troubleshooting</h2>
+      <ul>
+        <li>If a PDF opens blank, confirm the original file still exists and is accessible from macOS.</li>
+        <li>If export output is missing, check the destination selected in the save dialog.</li>
+        <li>If annotation tools do not respond, reopen the document and confirm the PDF is not password protected.</li>
+        <li>If testing automation, grant Accessibility and Automation permissions in System Settings.</li>
+      </ul>
+
+      <p>Last updated: May 22, 2026</p>
+    </main>
+  </body>
+</html>

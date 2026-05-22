@@ -93,7 +93,7 @@ Wait for build processing after upload:
 npm run publish:appstore:wait -- --version 1.0 --build-number 2
 ```
 
-Upload App Store text metadata after replacing support and marketing URLs:
+Upload App Store text metadata after refreshing the local `en-AU` metadata:
 
 ```sh
 APP_STORE_CONNECT_APP_ID=<apple-app-id> npm run publish:appstore:text

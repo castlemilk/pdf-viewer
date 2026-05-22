@@ -48,7 +48,7 @@ SKU:
 acacia-macos-001
 
 Primary language:
-English (U.S.)
+English (Australia)
 
 Primary category:
 Productivity
@@ -66,10 +66,10 @@ License agreement:
 Apple Standard EULA
 
 Privacy Policy URL:
-TBD: https://benebsworth.com/acacia/privacy
+https://storage.googleapis.com/acacia-496104-downloads/privacy.html
 
 Accessibility URL:
-TBD: https://benebsworth.com/acacia/accessibility
+https://storage.googleapis.com/acacia-496104-downloads/accessibility.html
 
 ## Platform Version Information
 
@@ -109,10 +109,10 @@ Keywords:
 documents,reader,annotations,comments,compare,library,review,reports,offline,productivity
 
 Support URL:
-TBD: https://benebsworth.com/acacia/support
+https://storage.googleapis.com/acacia-496104-downloads/support.html
 
 Marketing URL:
-TBD: https://benebsworth.com/acacia
+https://storage.googleapis.com/acacia-496104-downloads/index.html
 
 ## Review Notes
 
@@ -122,5 +122,4 @@ Acacia is a macOS-only, local-first PDF viewer. No account or network service is
 
 1. Install local `Mac App Distribution` and `Mac Installer Distribution` certificates, or grant the App Store Connect API key/account cloud signing permission.
 2. Export/upload the Mac App Store archive using `--version 1.0`.
-3. Publish real support, privacy, and accessibility URLs.
-4. Complete app privacy, age rating, pricing/availability, and screenshot uploads.
+3. Complete app privacy, age rating, pricing/availability, and review submission.

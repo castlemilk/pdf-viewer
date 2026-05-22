@@ -89,7 +89,10 @@ Troubleshooting:
 - If keyboard or accessibility automation is being tested, grant Accessibility/Automation permissions to the test runner or terminal in System Settings.
 
 Contact:
-TBD support email, legal address, and phone number.
+support@benebsworth.com
+
+Public support page:
+https://storage.googleapis.com/acacia-496104-downloads/support.html
 
 ## Privacy Policy Draft
 
@@ -103,16 +106,20 @@ Documents you import remain on your Mac. Tags, collections, favorites, comments,
 
 If you choose to export, share, or send a file using macOS sharing features, that action is initiated by you and handled by the destination you choose.
 
+If you choose to sign in or use Pro features, Acacia may process account identifiers, purchase receipts, subscription status, entitlement state, and basic diagnostic request metadata needed to provide and validate those features. This data is not used for tracking.
+
 If you contact support, we will use the information you provide to respond to your request.
 
 Contact:
-TBD support/privacy contact.
+support@benebsworth.com
+
+Public privacy policy:
+https://storage.googleapis.com/acacia-496104-downloads/privacy.html
 
 Last updated:
-2026-05-12
+2026-05-22
 
 ## Remaining Direct Distribution Work
 
-1. Publish support/privacy pages with real contact details.
-2. Upload the DMG and checksum to the GCP download bucket.
-3. Smoke test the downloaded DMG from the final public URL.
+1. Upload the DMG and checksum to the GCP download bucket for each direct-distribution release.
+2. Smoke test the downloaded DMG from the final public URL.

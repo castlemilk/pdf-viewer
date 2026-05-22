@@ -1,1 +1,0 @@
-Initial macOS release with local PDF library organization, PDFKit viewing, annotations, comments, exports, and side-by-side compare mode.

@@ -24,6 +24,10 @@ const release = {
 };
 
 const logoSrc = "/logo.png";
+const supportUrl = "/support.html";
+const privacyUrl = "/privacy.html";
+const accessibilityUrl = "/accessibility.html";
+const supportEmail = "support@benebsworth.com";
 
 const downloads: DownloadLink[] = [
   {
@@ -137,9 +141,9 @@ function Header({ primaryDownload }: { primaryDownload: DownloadLink }) {
       <nav className="primary-nav" aria-label="Primary navigation">
         <a href="#features">Features</a>
         <a href="#whats-new">What's New</a>
-        <a href="#security">Privacy</a>
+        <a href={privacyUrl}>Privacy</a>
         <a href="#download">Download</a>
-        <a href="#support">Support</a>
+        <a href={supportUrl}>Support</a>
       </nav>
       <div className="header-actions">
         <a className="login-link" href="#bundle-id">
@@ -440,7 +444,7 @@ function ValueStrip() {
       </article>
       <article id="support">
         <strong>Direct Support</strong>
-        <span>support@benebsworth.com</span>
+        <span>{supportEmail}</span>
       </article>
     </section>
   );
@@ -472,25 +476,25 @@ function Footer() {
         <strong>Resources</strong>
         <a href={release.checksumHref}>Checksum</a>
         <a href={release.manifestHref}>Manifest</a>
-        <a href="#support">Support</a>
-        <a href="#security">Privacy</a>
+        <a href={supportUrl}>Support</a>
+        <a href={privacyUrl}>Privacy</a>
       </nav>
       <nav aria-label="Company links">
         <strong>Company</strong>
-        <a href="#support">About</a>
-        <a href="#security">Privacy</a>
-        <a href="#support">Terms</a>
-        <a href="mailto:support@benebsworth.com">Contact</a>
+        <a href={supportUrl}>About</a>
+        <a href={privacyUrl}>Privacy</a>
+        <a href={accessibilityUrl}>Accessibility</a>
+        <a href={`mailto:${supportEmail}`}>Contact</a>
       </nav>
       <div className="footer-meta">
         <div className="social-links" aria-label="Social links">
-          <a href="#support" aria-label="Acacia on X">
-            X
+          <a href={supportUrl} aria-label="Acacia support">
+            ?
           </a>
-          <a href="#support" aria-label="Acacia on Instagram">
-            IG
+          <a href={privacyUrl} aria-label="Acacia privacy">
+            P
           </a>
-          <a href="mailto:support@benebsworth.com" aria-label="Email Acacia">
+          <a href={`mailto:${supportEmail}`} aria-label="Email Acacia">
             @
           </a>
         </div>

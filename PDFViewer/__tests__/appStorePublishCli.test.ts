@@ -189,4 +189,19 @@ describe('App Store CLI publishing pipeline', () => {
     expect(uploader).toContain('replacedScreenshots');
     expect(uploader).not.toContain('app-store-text');
   });
+
+  it('checks only text metadata files for App Store text placeholders', () => {
+    const textScript = readFileSync(
+      path.join(appRoot, 'scripts', 'upload-app-store-text.sh'),
+      'utf8',
+    );
+
+    expect(textScript).toContain("find \"$TEXT_DIR\" -type f -name '*.txt'");
+    expect(textScript).toContain('stage_source_text');
+    expect(textScript).toContain('up-$APP_STORE_CONNECT_APP_ID');
+    expect(textScript).toContain('write_text_field privacyPolicyUrl');
+    expect(textScript).toContain('APP_STORE_TEXT_INCLUDE_WHATS_NEW');
+    expect(textScript).toContain('Unable to upload app store text');
+    expect(textScript).toContain('App Store text metadata still contains placeholder values');
+  });
 });
