@@ -99,6 +99,12 @@ Upload App Store text metadata after replacing support and marketing URLs:
 APP_STORE_CONNECT_APP_ID=<apple-app-id> npm run publish:appstore:text
 ```
 
+Upload the macOS App Store screenshot set after refreshing the PNGs:
+
+```sh
+npm run publish:appstore:screenshots -- --version 1.0.3 --platform MAC_OS
+```
+
 ## Screenshots
 
 Screenshots are deterministic via launch state props:

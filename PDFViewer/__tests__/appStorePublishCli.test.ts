@@ -17,6 +17,9 @@ describe('App Store CLI publishing pipeline', () => {
     expect(pkg.scripts['publish:ios:appstore:attach-build']).toBe(
       'scripts/attach-app-store-version-build.sh --platform IOS',
     );
+    expect(pkg.scripts['publish:appstore:screenshots']).toBe(
+      'scripts/upload-app-store-screenshots.sh',
+    );
     expect(pkg.scripts['package:ios:appstore']).toBe('scripts/build-ios-app-store-archive.sh');
     expect(pkg.scripts['publish:testflight:internal']).toBe(
       'scripts/rollout-testflight-internal.sh',
@@ -164,5 +167,26 @@ describe('App Store CLI publishing pipeline', () => {
     expect(iosBuildScript).toContain('ACACIA_FIREBASE_WEB_API_KEY=${ACACIA_FIREBASE_WEB_API_KEY:-}');
     expect(iosBuildScript).toContain("platform: 'IOS'");
     expect(iosBuildScript).toContain('Acacia-iOS-${VERSION}-${BUILD_NUMBER}.xcarchive');
+  });
+
+  it('uploads App Store screenshot sets without touching text metadata', () => {
+    const wrapper = readFileSync(
+      path.join(appRoot, 'scripts', 'upload-app-store-screenshots.sh'),
+      'utf8',
+    );
+    const uploader = readFileSync(
+      path.join(appRoot, 'scripts', 'upload-app-store-screenshots.mjs'),
+      'utf8',
+    );
+
+    expect(wrapper).toContain('load-apple-publishing-env.sh');
+    expect(wrapper).toContain('upload-app-store-screenshots.mjs');
+    expect(uploader).toContain('APP_DESKTOP');
+    expect(uploader).toContain('/appScreenshotSets');
+    expect(uploader).toContain('/appScreenshots');
+    expect(uploader).toContain('uploadOperations');
+    expect(uploader).toContain('relationships/appScreenshots');
+    expect(uploader).toContain('replacedScreenshots');
+    expect(uploader).not.toContain('app-store-text');
   });
 });
