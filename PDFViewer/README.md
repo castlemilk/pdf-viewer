@@ -80,7 +80,7 @@ ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES npm run package:macos:dmg
 Use the signed-in Xcode account path from this Mac:
 
 ```sh
-APP_STORE_EXPORT_USE_XCODE_ACCOUNT=1 npm run publish:appstore:rollout -- --version 1.0
+APP_STORE_EXPORT_USE_XCODE_ACCOUNT=1 npm run publish:appstore:rollout -- --version 1.0.3
 ```
 
 That command validates, archives, uploads to App Store Connect, and waits for Apple processing. It does not submit for App Review.
@@ -94,6 +94,6 @@ sudo xcrun automationmodetool enable-automationmode-without-authentication
 To check an uploaded build directly:
 
 ```sh
-VERSION=1.0 BUILD_NUMBER=<build> npm run publish:appstore:status
-npm run publish:appstore:wait -- --version 1.0 --build-number <build>
+VERSION=1.0.3 BUILD_NUMBER=<build> npm run publish:appstore:status
+npm run publish:appstore:wait -- --version 1.0.3 --build-number <build>
 ```

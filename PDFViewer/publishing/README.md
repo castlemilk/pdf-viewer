@@ -67,7 +67,7 @@ npm run publish:appstore -- --upload
 Run the Greenveil-style local rollout command:
 
 ```sh
-npm run publish:appstore:rollout -- --version 1.0
+npm run publish:appstore:rollout -- --version 1.0.3
 ```
 
 This runs the local validation gate, confirms the Bundle ID, archives, uploads
@@ -75,10 +75,10 @@ to App Store Connect, then polls Apple processing. If `--build-number` is not
 provided, it uses a timestamp build number. Useful options:
 
 ```sh
-npm run publish:appstore:rollout -- --version 1.0 --build-number 2
-npm run publish:appstore:rollout -- --version 1.0 --skip-validation
-npm run publish:appstore:rollout -- --version 1.0 --skip-archive --archive-path dist/app-store/Acacia-1.0-2.xcarchive
-npm run publish:appstore:rollout -- --version 1.0 --no-wait
+npm run publish:appstore:rollout -- --version 1.0.3 --build-number 202605221703
+npm run publish:appstore:rollout -- --version 1.0.3 --skip-validation
+npm run publish:appstore:rollout -- --version 1.0.3 --skip-archive --archive-path dist/app-store/Acacia-1.0.3-202605221703.xcarchive
+npm run publish:appstore:rollout -- --version 1.0.3 --no-wait
 ```
 
 Check build processing after upload:
@@ -90,13 +90,13 @@ APP_STORE_CONNECT_APP_ID=<apple-app-id> npm run publish:appstore:status
 Wait for build processing after upload:
 
 ```sh
-npm run publish:appstore:wait -- --version 1.0 --build-number 2
+npm run publish:appstore:wait -- --version 1.0.3 --build-number 202605221703
 ```
 
 Upload App Store text metadata after refreshing the local `en-AU` metadata:
 
 ```sh
-APP_STORE_CONNECT_APP_ID=<apple-app-id> npm run publish:appstore:text
+VERSION=1.0.3 APP_STORE_CONNECT_APP_ID=<apple-app-id> npm run publish:appstore:text
 ```
 
 Upload the macOS App Store screenshot set after refreshing the PNGs:

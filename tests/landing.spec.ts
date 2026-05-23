@@ -12,7 +12,10 @@ test("presents a focused Acacia landing page with direct download links", async 
   await expect(page.getByText("Every public Acacia link in one place.")).toHaveCount(0);
 
   const primaryDownloadLinks = page.getByRole("link", { name: /download for mac/i });
-  await expect(primaryDownloadLinks.first()).toHaveAttribute("href", "/downloads/Acacia-0.0.1.dmg");
+  await expect(primaryDownloadLinks.first()).toHaveAttribute(
+    "href",
+    "https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-0.0.1.dmg",
+  );
   await expect(primaryDownloadLinks.first()).toHaveAttribute("download", "");
 
   await expect(page.getByRole("link", { name: "View App Store" })).toHaveAttribute(
@@ -26,11 +29,11 @@ test("presents a focused Acacia landing page with direct download links", async 
 
   await expect(page.getByRole("link", { name: "Checksum Verify the DMG" })).toHaveAttribute(
     "href",
-    "/downloads/Acacia-0.0.1.dmg.sha256",
+    "https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-0.0.1.dmg.sha256",
   );
   await expect(page.getByRole("link", { name: "Manifest Release metadata" })).toHaveAttribute(
     "href",
-    "/downloads/Acacia-0.0.1.manifest.json",
+    "https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-0.0.1.manifest.json",
   );
 });
 

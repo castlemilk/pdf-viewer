@@ -22,11 +22,18 @@ const release = {
   appName: "Acacia",
   bundleId: "com.benebsworth.acacia",
   version: import.meta.env.VITE_DOWNLOAD_VERSION ?? "0.0.1",
-  href: import.meta.env.VITE_DOWNLOAD_URL ?? "/downloads/Acacia-0.0.1.dmg",
-  checksum: import.meta.env.VITE_DOWNLOAD_SHA256 ?? "pending release checksum",
-  size: import.meta.env.VITE_DOWNLOAD_SIZE ?? "9.1 MB",
-  manifestHref: import.meta.env.VITE_DOWNLOAD_MANIFEST_URL ?? "/downloads/Acacia-0.0.1.manifest.json",
-  checksumHref: import.meta.env.VITE_DOWNLOAD_CHECKSUM_URL ?? "/downloads/Acacia-0.0.1.dmg.sha256",
+  href:
+    import.meta.env.VITE_DOWNLOAD_URL ??
+    "https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-0.0.1.dmg",
+  checksum:
+    import.meta.env.VITE_DOWNLOAD_SHA256 ?? "6d0ec7078a74f2f48601bdc0c2c663691136889c29e05343d497b563d05c3b5c",
+  size: import.meta.env.VITE_DOWNLOAD_SIZE ?? "10.7 MB",
+  manifestHref:
+    import.meta.env.VITE_DOWNLOAD_MANIFEST_URL ??
+    "https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-0.0.1.manifest.json",
+  checksumHref:
+    import.meta.env.VITE_DOWNLOAD_CHECKSUM_URL ??
+    "https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-0.0.1.dmg.sha256",
 };
 
 const logoSrc = "/logo.png";

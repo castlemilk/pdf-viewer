@@ -1,21 +1,20 @@
 # Acacia App Store Connect Publishing Packet
 
-Prepared on 2026-05-12 for macOS-only publishing.
+Prepared on 2026-05-23 for macOS and iOS publishing.
 
 ## Current Artifact
 
 - App name: Acacia
-- Platform: macOS
+- Platforms: macOS and iOS
 - Bundle ID: com.benebsworth.acacia
 - Bundle ID resource ID: 3LNT77ZB3H
 - App Store Connect app ID: 6768526705
-- Version: 0.0.1
-- Build: 1
+- Version row: 1.0.3
+- Selected macOS build: 202605221703 (`b768e742-12bd-4be9-ae5e-3fc36e8f6f85`)
+- Selected iOS build: 202605221703 (`19643063-e930-43b5-b67a-3219612e9c3d`)
+- Build processing state: VALID
 - Team ID: WFTX6CN23F
-- Release artifact: dist/macos/Acacia-0.0.1.dmg
-- Notarization status: Accepted
-- Latest notarization submission: a32b0b6f-87b6-4954-b77b-901ae9b7bd00
-- DMG SHA-256: 6a11e7fefccb82a8d58f5eb53eaaf9befe38eb346a0ce16b96a4974e603147d1
+- App Store state: PREPARE_FOR_SUBMISSION
 
 ## Screenshots
 
@@ -66,21 +65,21 @@ License agreement:
 Apple Standard EULA
 
 Privacy Policy URL:
-https://storage.googleapis.com/acacia-496104-downloads/privacy.html
+https://acacia-eta.vercel.app/privacy.html
 
 Accessibility URL:
-https://storage.googleapis.com/acacia-496104-downloads/accessibility.html
+https://acacia-eta.vercel.app/accessibility.html
 
 ## Platform Version Information
 
 Version number:
-1.0
+1.0.3
 
 Build note:
-The App Store Connect macOS version row is `1.0`, so App Store archives should be built with `--version 1.0`.
+The App Store Connect macOS and iOS version rows are `1.0.3`; selected builds are `1.0.3 (202605221703)` and are valid.
 
-Local archive status:
-A universal `1.0 (1)` archive exists at `dist/app-store/Acacia-0.0.1-1.xcarchive`. The archive filename is stale from an earlier script bug, but the archive Info.plist confirms bundle ID `com.benebsworth.acacia`, version `1.0`, build `1`, and both `x86_64` and `arm64` slices.
+Selected build status:
+The macOS build `b768e742-12bd-4be9-ae5e-3fc36e8f6f85` and iOS build `19643063-e930-43b5-b67a-3219612e9c3d` are both `VALID`, not expired, and declare `usesNonExemptEncryption=false`.
 
 Promotional text:
 Local-first PDF reading, organization, annotations, comments, exports, and side-by-side comparison for professional Mac document workflows.
@@ -109,17 +108,17 @@ Keywords:
 documents,reader,annotations,comments,compare,library,review,reports,offline,productivity
 
 Support URL:
-https://storage.googleapis.com/acacia-496104-downloads/support.html
+https://acacia-eta.vercel.app/support.html
 
 Marketing URL:
-https://storage.googleapis.com/acacia-496104-downloads/index.html
+https://acacia-eta.vercel.app
 
 ## Review Notes
 
-Acacia is a macOS-only, local-first PDF viewer. No account or network service is required. The app launches with a seeded demo library so review can test the main flows immediately.
+Acacia is a local-first PDF viewer for Mac and iOS. No account or network service is required for the core PDF library and viewer. The app launches with a seeded demo library so review can test the main flows immediately.
 
 ## Remaining App Store Work
 
-1. Install local `Mac App Distribution` and `Mac Installer Distribution` certificates, or grant the App Store Connect API key/account cloud signing permission.
-2. Export/upload the Mac App Store archive using `--version 1.0`.
-3. Complete app privacy, age rating, pricing/availability, and review submission.
+1. Confirm App Privacy, age rating, pricing, availability, and review notes in App Store Connect.
+2. Confirm the selected macOS and iOS `1.0.3 (202605221703)` builds are attached to the release rows.
+3. Submit the macOS and iOS version rows for App Review.

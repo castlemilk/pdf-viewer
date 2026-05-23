@@ -5,9 +5,10 @@ Acacia uses a low-cost GCP static hosting setup:
 - GCP project: `acacia-496104`
 - Public object bucket: `gs://acacia-496104-downloads`
 - Release artifacts under `/downloads/`
-- Static Vite landing page at the bucket root
+- Static Vite landing page at the bucket root for fallback/direct distribution
+- Primary launch landing page on Vercel: `https://acacia-eta.vercel.app`
 
-The deployment script builds the landing page with the live DMG URL and uploads:
+The deployment script builds the fallback landing page with the live DMG URL and uploads:
 
 - `downloads/Acacia-<version>.dmg`
 - `downloads/Acacia-<version>.dmg.sha256`

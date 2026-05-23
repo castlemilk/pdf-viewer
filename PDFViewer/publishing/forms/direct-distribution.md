@@ -1,6 +1,6 @@
 # Acacia Direct Distribution Packet
 
-Prepared on 2026-05-12.
+Prepared on 2026-05-23.
 
 ## Status
 
@@ -10,7 +10,7 @@ Artifact:
 dist/macos/Acacia-0.0.1.dmg
 
 SHA-256:
-6a11e7fefccb82a8d58f5eb53eaaf9befe38eb346a0ce16b96a4974e603147d1
+6d0ec7078a74f2f48601bdc0c2c663691136889c29e05343d497b563d05c3b5c
 
 Bundle ID:
 com.benebsworth.acacia
@@ -19,7 +19,13 @@ Team ID:
 WFTX6CN23F
 
 Notarization submission:
-a32b0b6f-87b6-4954-b77b-901ae9b7bd00
+df6a4c4f-e86b-4b1c-bf96-a61da66ca5db
+
+Public download:
+https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-0.0.1.dmg
+
+Launch page:
+https://acacia-eta.vercel.app
 
 ## Verification Completed
 
@@ -67,7 +73,7 @@ Security:
 Signed and notarized with Apple Developer ID.
 
 Checksum:
-6a11e7fefccb82a8d58f5eb53eaaf9befe38eb346a0ce16b96a4974e603147d1
+6d0ec7078a74f2f48601bdc0c2c663691136889c29e05343d497b563d05c3b5c
 
 ## Support Page Copy
 
@@ -92,7 +98,7 @@ Contact:
 support@benebsworth.com
 
 Public support page:
-https://storage.googleapis.com/acacia-496104-downloads/support.html
+https://acacia-eta.vercel.app/support.html
 
 ## Privacy Policy Draft
 
@@ -114,12 +120,12 @@ Contact:
 support@benebsworth.com
 
 Public privacy policy:
-https://storage.googleapis.com/acacia-496104-downloads/privacy.html
+https://acacia-eta.vercel.app/privacy.html
 
 Last updated:
 2026-05-22
 
 ## Remaining Direct Distribution Work
 
-1. Upload the DMG and checksum to the GCP download bucket for each direct-distribution release.
-2. Smoke test the downloaded DMG from the final public URL.
+1. Smoke test the downloaded DMG from the final public URL before announcing the direct download.
+2. Refresh and re-upload the DMG/checksum/manifest for each future direct-distribution release.
