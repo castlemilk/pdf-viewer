@@ -1,48 +1,51 @@
 import { expect, test } from "@playwright/test";
 
-test("presents the Acacia landing page with direct download links", async ({ page }) => {
+test("presents a focused Acacia landing page with direct download links", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("banner")).toContainText("Acacia");
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/logo.png");
-  await expect(page.locator('img[src="/logo.png"]')).toHaveCount(3);
-  await expect(page.getByRole("heading", { name: "Acacia for private PDF work." })).toBeVisible();
-  await expect(page.getByText("Launch-ready links and assets")).toBeVisible();
-  await expect(page.getByText("App ID: 6768526705")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Every public Acacia link in one place." })).toBeVisible();
+  await expect(page.locator('img[src="/logo.png"]')).toHaveCount(2);
+  await expect(page.getByRole("heading", { name: "Acacia for private PDF review." })).toBeVisible();
+  await expect(page.getByText("ACACIA · PDF WORKSPACE FOR MAC")).toBeVisible();
+  await expect(page.getByText("Launch-ready links and assets")).toHaveCount(0);
+  await expect(page.getByText("Every public Acacia link in one place.")).toHaveCount(0);
 
-  const primaryDownloadLinks = page.getByRole("link", { name: /download acacia/i });
+  const primaryDownloadLinks = page.getByRole("link", { name: /download for mac/i });
   await expect(primaryDownloadLinks.first()).toHaveAttribute("href", "/downloads/Acacia-0.0.1.dmg");
   await expect(primaryDownloadLinks.first()).toHaveAttribute("download", "");
 
-  await expect(page.getByRole("link", { name: "App Store Public listing for Acacia on Apple platforms" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "View App Store" })).toHaveAttribute(
+    "href",
+    "https://apps.apple.com/app/id6768526705",
+  );
+  await expect(page.getByRole("link", { name: "App Store" }).last()).toHaveAttribute(
     "href",
     "https://apps.apple.com/app/id6768526705",
   );
 
-  await expect(page.getByRole("link", { name: "SHA-256 checksum Verify the downloaded DMG" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Checksum Verify the DMG" })).toHaveAttribute(
     "href",
     "/downloads/Acacia-0.0.1.dmg.sha256",
   );
-  await expect(
-    page.getByRole("link", { name: "Release manifest Version, bundle ID, and notarization metadata" }),
-  ).toHaveAttribute("href", "/downloads/Acacia-0.0.1.manifest.json");
+  await expect(page.getByRole("link", { name: "Manifest Release metadata" })).toHaveAttribute(
+    "href",
+    "/downloads/Acacia-0.0.1.manifest.json",
+  );
 });
 
-test("shows the core product sections from the supplied design", async ({ page }) => {
+test("keeps only the core product sections", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "Everything a serious PDF review flow needs." })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Built around real review workflows" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Download Acacia directly." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "The full review loop, stripped down." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Designed for quiet document work." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Download the Mac app." })).toBeVisible();
 
   const expectedFeatures = [
-    "Organize a local PDF library.",
-    "Read with native PDFKit.",
-    "Annotate without touching originals.",
-    "Export review-ready copies.",
-    "Compare versions side by side.",
-    "Private by default.",
+    "A quiet home for working documents.",
+    "Highlights, notes, and signatures stay precise.",
+    "Export the useful version.",
+    "Inspect versions without losing place.",
   ];
 
   for (const feature of expectedFeatures) {
@@ -54,9 +57,9 @@ test("keeps the landing page usable on mobile without horizontal overflow", asyn
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "Acacia for private PDF work." })).toBeVisible();
-  await expect(page.getByLabel("Acacia app preview")).toBeVisible();
-  await expect(page.getByRole("link", { name: /download acacia/i }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Acacia for private PDF review." })).toBeVisible();
+  await expect(page.getByLabel("Acacia library preview")).toBeVisible();
+  await expect(page.getByRole("link", { name: /download for mac/i }).first()).toBeVisible();
 
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
   expect(hasHorizontalOverflow).toBe(false);
@@ -72,31 +75,30 @@ test("supports keyboard users and points navigation at real landing sections", a
 
   await expect(page.getByRole("main")).toHaveAttribute("id", "main-content");
   if ((page.viewportSize()?.width ?? 0) > 760) {
+    await expect(page.getByLabel("Primary navigation").getByRole("link", { name: "Features" })).toHaveAttribute(
+      "href",
+      "#features",
+    );
+    await expect(page.getByLabel("Primary navigation").getByRole("link", { name: "Workflow" })).toHaveAttribute(
+      "href",
+      "#workflow",
+    );
     await expect(page.getByLabel("Primary navigation").getByRole("link", { name: "Download" })).toHaveAttribute(
       "href",
       "#download",
-    );
-    await expect(page.getByLabel("Primary navigation").getByRole("link", { name: "Links" })).toHaveAttribute(
-      "href",
-      "#links",
-    );
-    await expect(page.getByLabel("Primary navigation").getByRole("link", { name: "Privacy" })).toHaveAttribute(
-      "href",
-      "/privacy.html",
     );
     await expect(page.getByLabel("Primary navigation").getByRole("link", { name: "Support" })).toHaveAttribute(
       "href",
       "/support.html",
     );
-    await expect(page.getByRole("link", { name: "Bundle ID", exact: true })).toHaveAttribute("href", "#bundle-id");
   }
-  await expect(page.getByLabel("Product links").getByRole("link", { name: "Download" })).toHaveAttribute(
+  await expect(page.getByLabel("Footer links").getByRole("link", { name: "Privacy" })).toHaveAttribute(
     "href",
-    "#download",
+    "/privacy.html",
   );
-  await expect(page.getByRole("link", { name: "Verify Checksum" })).toHaveAttribute(
+  await expect(page.getByLabel("Footer links").getByRole("link", { name: "Contact" })).toHaveAttribute(
     "href",
-    "/downloads/Acacia-0.0.1.dmg.sha256",
+    "mailto:support@benebsworth.com",
   );
 });
 
