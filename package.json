@@ -7,7 +7,12 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --pretty false",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "video:studio": "remotion studio remotion/index.ts",
+    "video:render:hero": "remotion render remotion/index.ts AcaciaLaunchHero public/video/acacia-launch-hero.mp4 --codec h264 --pixel-format yuv420p --crf 22",
+    "video:render:preview": "remotion render remotion/index.ts AcaciaAppPreview public/video/acacia-app-preview.mp4 --codec h264 --pixel-format yuv420p --crf 22",
+    "video:strip-audio": "ffmpeg -y -i public/video/acacia-launch-hero.mp4 -an -c:v copy /tmp/acacia-launch-hero.mp4 && mv /tmp/acacia-launch-hero.mp4 public/video/acacia-launch-hero.mp4 && ffmpeg -y -i public/video/acacia-app-preview.mp4 -an -c:v copy /tmp/acacia-app-preview.mp4 && mv /tmp/acacia-app-preview.mp4 public/video/acacia-app-preview.mp4",
+    "video:render": "npm run video:render:hero && npm run video:render:preview && npm run video:strip-audio"
   },
   "dependencies": {
     "react": "^19.2.0",
@@ -15,10 +20,12 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
-    "@vitejs/plugin-react": "4.3.4",
+    "@remotion/cli": "^4.0.465",
     "@types/node": "^22.10.1",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "4.3.4",
+    "remotion": "^4.0.465",
     "typescript": "^5.9.3",
     "vite": "6.4.2"
   }

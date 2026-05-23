@@ -39,6 +39,8 @@ const release = {
 const logoSrc = "/logo.png";
 const heroScreenshot = "/screenshots/library.png";
 const annotationScreenshot = "/screenshots/annotations.png";
+const launchVideo = "/video/acacia-launch-hero.mp4";
+const previewVideo = "/video/acacia-app-preview.mp4";
 const supportUrl = "/support.html";
 const privacyUrl = "/privacy.html";
 const accessibilityUrl = "/accessibility.html";
@@ -137,6 +139,7 @@ export function App() {
       <Header primaryDownload={primaryDownload} />
       <main id="main-content" tabIndex={-1}>
         <Hero primaryDownload={primaryDownload} />
+        <ProductVideo />
         <Features />
         <Workflow />
         <DownloadSection primaryDownload={primaryDownload} />
@@ -156,6 +159,7 @@ function Header({ primaryDownload }: { primaryDownload: DownloadLink }) {
         <span>Acacia</span>
       </a>
       <nav className="primary-nav" aria-label="Primary navigation">
+        <a href="#video">Video</a>
         <a href="#features">Features</a>
         <a href="#workflow">Workflow</a>
         <a href="#download">Download</a>
@@ -211,6 +215,42 @@ function DownloadButton({
     <a className={`button button-${variant}`} href={href} download="">
       {label}
     </a>
+  );
+}
+
+function ProductVideo() {
+  return (
+    <section className="video-section" id="video" aria-labelledby="video-title">
+      <div className="video-copy">
+        <p className="section-eyebrow">VIDEO</p>
+        <h2 id="video-title">See the review loop in motion.</h2>
+        <p>
+          A short launch cut for the homepage, plus a longer App Preview export for store listings and release posts.
+        </p>
+      </div>
+      <div className="video-frame">
+        <video
+          aria-label="Acacia launch video"
+          controls
+          muted
+          playsInline
+          poster={heroScreenshot}
+          preload="metadata"
+        >
+          <source src={launchVideo} type="video/mp4" />
+        </video>
+      </div>
+      <div className="video-links" aria-label="Acacia video assets">
+        <a href={launchVideo} download="">
+          Launch Hero
+          <span>8 seconds · 1920 x 1080</span>
+        </a>
+        <a href={previewVideo} download="">
+          App Preview
+          <span>30 seconds · 1920 x 1080</span>
+        </a>
+      </div>
+    </section>
   );
 }
 

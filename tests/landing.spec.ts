@@ -7,6 +7,7 @@ test("presents a focused Acacia landing page with direct download links", async 
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/logo.png");
   await expect(page.locator('img[src="/logo.png"]')).toHaveCount(2);
   await expect(page.getByRole("heading", { name: "Acacia for private PDF review." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "See the review loop in motion." })).toBeVisible();
   await expect(page.getByText("ACACIA · PDF WORKSPACE FOR MAC")).toBeVisible();
   await expect(page.getByText("Launch-ready links and assets")).toHaveCount(0);
   await expect(page.getByText("Every public Acacia link in one place.")).toHaveCount(0);
@@ -37,9 +38,29 @@ test("presents a focused Acacia landing page with direct download links", async 
   );
 });
 
+test("publishes Remotion video assets on the landing page", async ({ page }) => {
+  await page.goto("/");
+
+  const launchVideo = page.getByLabel("Acacia launch video");
+  await expect(launchVideo).toBeVisible();
+  await expect(page.locator('video[aria-label="Acacia launch video"] source')).toHaveAttribute(
+    "src",
+    "/video/acacia-launch-hero.mp4",
+  );
+  await expect(page.getByRole("link", { name: "Launch Hero 8 seconds · 1920 x 1080" })).toHaveAttribute(
+    "href",
+    "/video/acacia-launch-hero.mp4",
+  );
+  await expect(page.getByRole("link", { name: "App Preview 30 seconds · 1920 x 1080" })).toHaveAttribute(
+    "href",
+    "/video/acacia-app-preview.mp4",
+  );
+});
+
 test("keeps only the core product sections", async ({ page }) => {
   await page.goto("/");
 
+  await expect(page.getByRole("heading", { name: "See the review loop in motion." })).toBeVisible();
   await expect(page.getByRole("heading", { name: "The full review loop, stripped down." })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Designed for quiet document work." })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Download the Mac app." })).toBeVisible();
@@ -78,6 +99,10 @@ test("supports keyboard users and points navigation at real landing sections", a
 
   await expect(page.getByRole("main")).toHaveAttribute("id", "main-content");
   if ((page.viewportSize()?.width ?? 0) > 760) {
+    await expect(page.getByLabel("Primary navigation").getByRole("link", { name: "Video" })).toHaveAttribute(
+      "href",
+      "#video",
+    );
     await expect(page.getByLabel("Primary navigation").getByRole("link", { name: "Features" })).toHaveAttribute(
       "href",
       "#features",
