@@ -15,3 +15,4 @@ acacia-landing-*.png
 *.xcuserstate
 xcuserdata
 PDFViewer/.build-release
+.vercel

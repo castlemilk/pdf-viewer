@@ -5,6 +5,14 @@ type DownloadLink = {
   download?: boolean;
 };
 
+type LaunchLink = {
+  label: string;
+  href: string;
+  detail: string;
+  tone: "dark" | "paper" | "sun";
+  download?: boolean;
+};
+
 type Feature = {
   title: string;
   body: string;
@@ -24,10 +32,13 @@ const release = {
 };
 
 const logoSrc = "/logo.png";
+const heroScreenshot = "/screenshots/library.png";
+const annotationScreenshot = "/screenshots/annotations.png";
 const supportUrl = "/support.html";
 const privacyUrl = "/privacy.html";
 const accessibilityUrl = "/accessibility.html";
 const supportEmail = "support@benebsworth.com";
+const appStoreUrl = "https://apps.apple.com/app/id6768526705";
 
 const downloads: DownloadLink[] = [
   {
@@ -45,6 +56,46 @@ const downloads: DownloadLink[] = [
     label: "Release manifest",
     href: release.manifestHref,
     detail: "Version, bundle ID, and notarization metadata",
+  },
+];
+
+const launchLinks: LaunchLink[] = [
+  {
+    label: "App Store",
+    href: appStoreUrl,
+    detail: "Public listing for Acacia on Apple platforms",
+    tone: "dark",
+  },
+  {
+    label: "Direct DMG",
+    href: release.href,
+    detail: `Signed Mac download, ${release.size}`,
+    tone: "sun",
+    download: true,
+  },
+  {
+    label: "Support",
+    href: supportUrl,
+    detail: "Troubleshooting, contact, and release help",
+    tone: "paper",
+  },
+  {
+    label: "Privacy",
+    href: privacyUrl,
+    detail: "Local-first policy and Pro account details",
+    tone: "paper",
+  },
+  {
+    label: "Accessibility",
+    href: accessibilityUrl,
+    detail: "Keyboard, labels, and feedback channel",
+    tone: "paper",
+  },
+  {
+    label: "Checksum",
+    href: release.checksumHref,
+    detail: "SHA-256 verification for the DMG",
+    tone: "paper",
   },
 ];
 
@@ -118,6 +169,7 @@ export function App() {
       <Header primaryDownload={primaryDownload} />
       <main id="main-content" tabIndex={-1}>
         <Hero primaryDownload={primaryDownload} />
+        <LaunchLinks />
         <TrustedBy />
         <Features />
         <Testimonials />
@@ -140,6 +192,7 @@ function Header({ primaryDownload }: { primaryDownload: DownloadLink }) {
       </a>
       <nav className="primary-nav" aria-label="Primary navigation">
         <a href="#features">Features</a>
+        <a href="#links">Links</a>
         <a href="#whats-new">What's New</a>
         <a href={privacyUrl}>Privacy</a>
         <a href="#download">Download</a>
@@ -161,14 +214,14 @@ function Hero({ primaryDownload }: { primaryDownload: DownloadLink }) {
       <div className="hero-copy">
         <p className="sonoma-badge">
           <span className="sonoma-dot" aria-hidden="true" />
-          Signed and notarized for macOS
+          Launch-ready links and assets
         </p>
         <h1 id="hero-title">
-          Acacia <span>for Mac PDFs.</span>
+          Acacia <span>for private PDF work.</span>
         </h1>
         <p className="hero-lede">
-          A sleek local-first PDF workspace for reading, annotating, organizing, exporting, and comparing professional
-          documents on macOS.
+          A focused PDF workspace for reading, annotating, organizing, exporting, and comparing professional documents
+          without sending private files to a cloud service.
         </p>
         <div className="hero-actions">
           <DownloadButton href={primaryDownload.href} label={primaryDownload.label} variant="dark" />
@@ -179,7 +232,7 @@ function Hero({ primaryDownload }: { primaryDownload: DownloadLink }) {
         <ul className="hero-proof" aria-label="Product qualities">
           <li>Universal macOS app</li>
           <li>Native PDFKit rendering</li>
-          <li id="bundle-id">Bundle ID: {release.bundleId}</li>
+          <li id="bundle-id">App ID: 6768526705</li>
         </ul>
       </div>
       <ProductPreview />
@@ -205,53 +258,43 @@ function DownloadButton({
 
 function ProductPreview() {
   return (
-    <div className="product-preview" role="img" aria-label="Acacia app preview">
-      <div className="mock-laptop">
-        <div className="mock-screen">
-          <div className="app-toolbar">
-            <div className="traffic-lights" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </div>
-            <div className="file-pill">Q4_Market_Analysis.pdf</div>
-            <div className="toolbar-dots" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </div>
-          </div>
-          <div className="app-body">
-            <aside className="page-rail" aria-hidden="true">
-              {[1, 2, 8, 12].map((page) => (
-                <span className={page === 8 ? "active" : ""} key={page}>
-                  {page}
-                </span>
-              ))}
-            </aside>
-            <article className="pdf-page">
-              <div className="pdf-copy">
-                <p>Market</p>
-                <strong>Overview</strong>
-                <span>Global markets closed the year with steady growth across key segments.</span>
-                <em>Review note</em>
-              </div>
-              <div className="building-preview" aria-hidden="true">
-                <span />
-              </div>
-              <div className="annotation-bar" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-                <i />
-                <i />
-              </div>
-            </article>
-          </div>
+    <figure className="product-preview" aria-label="Acacia app preview">
+      <div className="screenshot-stage">
+        <img src={heroScreenshot} alt="Acacia library with PDF documents, reading progress, and document details" />
+        <div className="floating-note floating-note-one">
+          <strong>128 documents</strong>
+          <span>Library, tags, recents, and review state in one local workspace.</span>
         </div>
-        <div className="laptop-base" aria-hidden="true" />
+        <div className="floating-note floating-note-two">
+          <strong>Sidecar notes</strong>
+          <span>Highlights and comments stay separate from original PDFs.</span>
+        </div>
       </div>
-    </div>
+    </figure>
+  );
+}
+
+function LaunchLinks() {
+  return (
+    <section className="launch-links" id="links" aria-labelledby="links-title">
+      <div className="links-copy">
+        <p className="section-eyebrow">Launch kit</p>
+        <h2 id="links-title">Every public Acacia link in one place.</h2>
+      </div>
+      <div className="links-grid">
+        {launchLinks.map(link => (
+          <a
+            className={`launch-link launch-link-${link.tone}`}
+            download={link.download ? "" : undefined}
+            href={link.href}
+            key={link.label}
+          >
+            <strong>{link.label}</strong>
+            <span>{link.detail}</span>
+          </a>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -378,6 +421,9 @@ function Testimonials() {
         <span />
         <span />
       </div>
+      <figure className="annotation-preview">
+        <img src={annotationScreenshot} alt="Acacia annotation view with highlighted PDF text and notes" />
+      </figure>
     </section>
   );
 }
@@ -466,8 +512,10 @@ function Footer() {
       <nav aria-label="Product links">
         <strong>Product</strong>
         <a href="#features">Features</a>
+        <a href="#links">Launch Links</a>
         <a href="#whats-new">What's New</a>
         <a href="#download">Download</a>
+        <a href={appStoreUrl}>App Store</a>
         <a href={downloads[0].href} download="">
           Direct DMG
         </a>

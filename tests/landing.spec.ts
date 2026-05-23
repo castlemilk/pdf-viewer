@@ -6,13 +6,19 @@ test("presents the Acacia landing page with direct download links", async ({ pag
   await expect(page.getByRole("banner")).toContainText("Acacia");
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/logo.png");
   await expect(page.locator('img[src="/logo.png"]')).toHaveCount(3);
-  await expect(page.getByRole("heading", { name: "Acacia for Mac PDFs." })).toBeVisible();
-  await expect(page.getByText("Signed and notarized for macOS")).toBeVisible();
-  await expect(page.getByText("Bundle ID: com.benebsworth.acacia").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Acacia for private PDF work." })).toBeVisible();
+  await expect(page.getByText("Launch-ready links and assets")).toBeVisible();
+  await expect(page.getByText("App ID: 6768526705")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Every public Acacia link in one place." })).toBeVisible();
 
   const primaryDownloadLinks = page.getByRole("link", { name: /download acacia/i });
   await expect(primaryDownloadLinks.first()).toHaveAttribute("href", "/downloads/Acacia-0.0.1.dmg");
   await expect(primaryDownloadLinks.first()).toHaveAttribute("download", "");
+
+  await expect(page.getByRole("link", { name: "App Store Public listing for Acacia on Apple platforms" })).toHaveAttribute(
+    "href",
+    "https://apps.apple.com/app/id6768526705",
+  );
 
   await expect(page.getByRole("link", { name: "SHA-256 checksum Verify the downloaded DMG" })).toHaveAttribute(
     "href",
@@ -48,7 +54,7 @@ test("keeps the landing page usable on mobile without horizontal overflow", asyn
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "Acacia for Mac PDFs." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Acacia for private PDF work." })).toBeVisible();
   await expect(page.getByLabel("Acacia app preview")).toBeVisible();
   await expect(page.getByRole("link", { name: /download acacia/i }).first()).toBeVisible();
 
@@ -69,6 +75,10 @@ test("supports keyboard users and points navigation at real landing sections", a
     await expect(page.getByLabel("Primary navigation").getByRole("link", { name: "Download" })).toHaveAttribute(
       "href",
       "#download",
+    );
+    await expect(page.getByLabel("Primary navigation").getByRole("link", { name: "Links" })).toHaveAttribute(
+      "href",
+      "#links",
     );
     await expect(page.getByLabel("Primary navigation").getByRole("link", { name: "Privacy" })).toHaveAttribute(
       "href",
