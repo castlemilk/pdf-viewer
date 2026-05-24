@@ -48,6 +48,12 @@ iPad 12.9" / 13" screenshots are PNG files at 2064 x 2752:
 3. publishing/screenshots/ios/ipad-129/03-annotations.png
 4. publishing/screenshots/ios/ipad-129/04-compare.png
 
+App previews are MP4 files at 16 seconds, 30fps, H.264, yuv420p, with silent stereo AAC audio:
+
+1. publishing/app-previews/iphone-65/01-acacia-preview.mp4 - 886 x 1920
+2. publishing/app-previews/iphone-67/01-acacia-preview.mp4 - 886 x 1920
+3. publishing/app-previews/ipad-129/01-acacia-preview.mp4 - 1200 x 1600
+
 Recommended order:
 
 1. Library and document organization

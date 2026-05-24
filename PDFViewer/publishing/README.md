@@ -113,6 +113,17 @@ npm run publish:appstore:screenshots -- --version 1.0.3 --platform IOS --locale 
 npm run publish:appstore:screenshots -- --version 1.0.3 --platform IOS --locale en-AU --display-type APP_IPAD_PRO_3GEN_129 --screenshots-dir publishing/screenshots/ios/ipad-129
 ```
 
+Render and upload the iOS App Preview videos:
+
+```sh
+cd ..
+npm run video:render:store-previews
+cd PDFViewer
+npm run publish:appstore:previews -- --version 1.0.3 --platform IOS --locale en-AU --preview-type IPHONE_65 --previews-dir publishing/app-previews/iphone-65
+npm run publish:appstore:previews -- --version 1.0.3 --platform IOS --locale en-AU --preview-type IPHONE_67 --previews-dir publishing/app-previews/iphone-67
+npm run publish:appstore:previews -- --version 1.0.3 --platform IOS --locale en-AU --preview-type IPAD_PRO_3GEN_129 --previews-dir publishing/app-previews/ipad-129
+```
+
 ## Screenshots
 
 Screenshots are deterministic via launch state props:
@@ -131,6 +142,9 @@ The script captures:
 - `publishing/screenshots/ios/iphone-65/*.png`
 - `publishing/screenshots/ios/iphone-67/*.png`
 - `publishing/screenshots/ios/ipad-129/*.png`
+- `publishing/app-previews/iphone-65/01-acacia-preview.mp4`
+- `publishing/app-previews/iphone-67/01-acacia-preview.mp4`
+- `publishing/app-previews/ipad-129/01-acacia-preview.mp4`
 
 ## Icon
 

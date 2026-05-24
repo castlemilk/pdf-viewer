@@ -26,3 +26,16 @@ iOS screenshots are captured with:
 ```bash
 npm run screenshots:ios
 ```
+
+App Preview videos are rendered from the iOS screenshot sets with:
+
+```bash
+cd ..
+npm run video:render:store-previews
+```
+
+Outputs:
+
+- `app-previews/iphone-65/01-acacia-preview.mp4` - 886 x 1920
+- `app-previews/iphone-67/01-acacia-preview.mp4` - 886 x 1920
+- `app-previews/ipad-129/01-acacia-preview.mp4` - 1200 x 1600

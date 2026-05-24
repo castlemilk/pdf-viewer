@@ -873,3 +873,245 @@ export const AcaciaAppPreview = () => {
     </AbsoluteFill>
   );
 };
+
+type StorePreviewProps = {
+  sourceDir: string;
+  device: "phone" | "tablet";
+};
+
+type StorePreviewScene = {
+  file: string;
+  start: number;
+  end: number;
+  origin: string;
+  fromScale: number;
+  toScale: number;
+  panX: number;
+  panY: number;
+  taps: Array<{ x: number; y: number; at: number; color?: string }>;
+};
+
+const storePreviewScenes: StorePreviewScene[] = [
+  {
+    file: "01-library.png",
+    start: 0,
+    end: 132,
+    origin: "50% 42%",
+    fromScale: 1,
+    toScale: 1.035,
+    panX: 0,
+    panY: -18,
+    taps: [
+      { x: 83, y: 9.8, at: 34 },
+      { x: 26, y: 52, at: 78 },
+    ],
+  },
+  {
+    file: "02-viewer.png",
+    start: 118,
+    end: 254,
+    origin: "50% 34%",
+    fromScale: 1.015,
+    toScale: 1.055,
+    panX: 0,
+    panY: 12,
+    taps: [
+      { x: 82, y: 6.8, at: 152 },
+      { x: 50, y: 93, at: 204 },
+    ],
+  },
+  {
+    file: "03-annotations.png",
+    start: 240,
+    end: 374,
+    origin: "50% 47%",
+    fromScale: 1.015,
+    toScale: 1.045,
+    panX: 0,
+    panY: -10,
+    taps: [
+      { x: 27, y: 39, at: 278, color: colors.yellow },
+      { x: 46, y: 87, at: 326, color: colors.green },
+    ],
+  },
+  {
+    file: "04-compare.png",
+    start: 360,
+    end: 480,
+    origin: "50% 50%",
+    fromScale: 1.012,
+    toScale: 1.04,
+    panX: 0,
+    panY: -14,
+    taps: [
+      { x: 72, y: 58, at: 398, color: colors.blue },
+      { x: 50, y: 92, at: 438, color: colors.rose },
+    ],
+  },
+];
+
+const storePreviewSceneOpacity = (
+  frame: number,
+  scene: StorePreviewScene,
+  index: number,
+  sceneCount: number,
+) => {
+  const enter = ease(frame, scene.start, scene.start + 18);
+  if (index === sceneCount - 1) {
+    return enter;
+  }
+
+  return Math.min(enter, fadeOut(frame, scene.end - 18, scene.end));
+};
+
+const TapPulse = ({
+  frame,
+  x,
+  y,
+  at,
+  color = colors.ink,
+  device,
+}: {
+  frame: number;
+  x: number;
+  y: number;
+  at: number;
+  color?: string;
+  device: StorePreviewProps["device"];
+}) => {
+  const intro = ease(frame, at, at + 5);
+  const outro = fadeOut(frame, at + 12, at + 30);
+  const opacity = Math.min(intro, outro);
+  const size = device === "tablet" ? 58 : 46;
+  const scale = interpolate(ease(frame, at, at + 26), [0, 1], [0.72, 1.45]);
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: `${x}%`,
+        top: `${y}%`,
+        width: size,
+        height: size,
+        marginLeft: -size / 2,
+        marginTop: -size / 2,
+        borderRadius: 999,
+        border: `3px solid ${color}`,
+        background: `${color}18`,
+        opacity,
+        transform: `scale(${scale})`,
+        boxShadow: `0 0 0 10px ${color}12`,
+      }}
+    />
+  );
+};
+
+const StorePreviewSceneLayer = ({
+  scene,
+  index,
+  sceneCount,
+  sourceDir,
+  device,
+}: {
+  scene: StorePreviewScene;
+  index: number;
+  sceneCount: number;
+  sourceDir: string;
+  device: StorePreviewProps["device"];
+}) => {
+  const frame = useCurrentFrame();
+  const opacity = storePreviewSceneOpacity(frame, scene, index, sceneCount);
+  const progress = clamp((frame - scene.start) / Math.max(1, scene.end - scene.start));
+  const tablet = device === "tablet";
+  const scale = interpolate(progress, [0, 1], [scene.fromScale, scene.toScale], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.inOut(Easing.sin),
+  });
+  const adjustedScale = tablet ? interpolate(scale, [scene.fromScale, scene.toScale], [1, 1.016]) : scale;
+  const panAmount = tablet ? 0.25 : 1;
+  const x = interpolate(progress, [0, 1], [0, scene.panX * panAmount], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const y = interpolate(progress, [0, 1], [0, scene.panY * panAmount], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <AbsoluteFill style={{ opacity, background: colors.paper }}>
+      <Img
+        src={staticFile(`${sourceDir}/${scene.file}`)}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "50% 50%",
+          transform: `translate(${x}px, ${y}px) scale(${adjustedScale})`,
+          transformOrigin: scene.origin,
+        }}
+      />
+      {scene.taps.map((tap) => (
+        <TapPulse
+          key={`${scene.file}-${tap.at}`}
+          frame={frame}
+          x={tap.x}
+          y={tap.y}
+          at={tap.at}
+          color={tap.color}
+          device={device}
+        />
+      ))}
+    </AbsoluteFill>
+  );
+};
+
+const StorePreviewProgress = () => {
+  const frame = useCurrentFrame();
+  const { width, height, durationInFrames } = useVideoConfig();
+  const progress = clamp(frame / durationInFrames);
+  const barWidth = width * 0.54;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: (width - barWidth) / 2,
+        bottom: Math.max(18, height * 0.025),
+        width: barWidth,
+        height: 6,
+        borderRadius: 999,
+        background: "rgba(17,17,16,0.13)",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          width: `${progress * 100}%`,
+          height: "100%",
+          borderRadius: 999,
+          background: colors.ink,
+        }}
+      />
+    </div>
+  );
+};
+
+export const AcaciaStorePreview = ({ sourceDir, device }: StorePreviewProps) => {
+  return (
+    <AbsoluteFill style={{ background: colors.paper, overflow: "hidden" }}>
+      {storePreviewScenes.map((scene, index) => (
+        <StorePreviewSceneLayer
+          key={scene.file}
+          scene={scene}
+          index={index}
+          sceneCount={storePreviewScenes.length}
+          sourceDir={sourceDir}
+          device={device}
+        />
+      ))}
+      <StorePreviewProgress />
+    </AbsoluteFill>
+  );
+};
