@@ -20,20 +20,10 @@ type Feature = {
 
 const release = {
   appName: "Acacia",
-  bundleId: "com.benebsworth.acacia",
-  version: import.meta.env.VITE_DOWNLOAD_VERSION ?? "0.0.1",
   href:
     import.meta.env.VITE_DOWNLOAD_URL ??
     "https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-0.0.1.dmg",
-  checksum:
-    import.meta.env.VITE_DOWNLOAD_SHA256 ?? "6d0ec7078a74f2f48601bdc0c2c663691136889c29e05343d497b563d05c3b5c",
   size: import.meta.env.VITE_DOWNLOAD_SIZE ?? "10.7 MB",
-  manifestHref:
-    import.meta.env.VITE_DOWNLOAD_MANIFEST_URL ??
-    "https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-0.0.1.manifest.json",
-  checksumHref:
-    import.meta.env.VITE_DOWNLOAD_CHECKSUM_URL ??
-    "https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-0.0.1.dmg.sha256",
 };
 
 const logoSrc = "/logo.png";
@@ -51,18 +41,8 @@ const downloads: DownloadLink[] = [
   {
     label: "Download for Mac",
     href: release.href,
-    detail: `Universal macOS DMG, ${release.size}`,
+    detail: `Mac download, ${release.size}`,
     download: true,
-  },
-  {
-    label: "SHA-256 checksum",
-    href: release.checksumHref,
-    detail: "Verify the direct download",
-  },
-  {
-    label: "Release manifest",
-    href: release.manifestHref,
-    detail: "Version and notarization metadata",
   },
 ];
 
@@ -70,32 +50,17 @@ const resourceLinks: ResourceLink[] = [
   {
     label: "App Store",
     href: appStoreUrl,
-    detail: "Apple platform listing",
-  },
-  {
-    label: "Checksum",
-    href: release.checksumHref,
-    detail: "Verify the DMG",
-  },
-  {
-    label: "Manifest",
-    href: release.manifestHref,
-    detail: "Release metadata",
+    detail: "Open Acacia on Apple",
   },
   {
     label: "Support",
     href: supportUrl,
-    detail: "Help and contact",
+    detail: "Get help with Acacia",
   },
   {
     label: "Privacy",
     href: privacyUrl,
-    detail: "Local-first policy",
-  },
-  {
-    label: "Accessibility",
-    href: accessibilityUrl,
-    detail: "Keyboard and assistive tech notes",
+    detail: "How documents are handled",
   },
 ];
 
@@ -103,29 +68,29 @@ const features: Feature[] = [
   {
     kicker: "Library",
     title: "A quiet home for working documents.",
-    body: "Recents, tags, collections, favorites, inbox items, and reading progress sit in one local Mac workspace.",
+    body: "Keep recent files, folders, tags, favorites, and reading progress in one calm place.",
   },
   {
     kicker: "Markup",
-    title: "Highlights, notes, and signatures stay precise.",
-    body: "Use native PDF rendering with color highlights, comments, bookmarks, and signature placement designed for real review work.",
+    title: "Mark the parts that matter.",
+    body: "Highlight text, add notes, bookmark pages, and place signatures without fuss.",
   },
   {
-    kicker: "Handoff",
-    title: "Export the useful version.",
-    body: "Create annotated copies, page images, text, or Markdown when a report needs to leave your desk.",
+    kicker: "Share",
+    title: "Send a clean copy when you are done.",
+    body: "Export the marked-up version when a report, brief, or contract needs to leave your desk.",
   },
   {
     kicker: "Compare",
-    title: "Inspect versions without losing place.",
-    body: "Compare PDFs side by side with synced navigation so contracts, research drafts, and reports are easier to check.",
+    title: "Check versions side by side.",
+    body: "Compare two PDFs without bouncing between windows or losing your place.",
   },
 ];
 
 const workflowItems = [
-  "Original PDFs stay untouched while annotations live as local sidecar data.",
-  "Search, highlights, notes, and page context stay visible while reviewing long documents.",
-  "No account is required for the core workflow, and private files are not uploaded.",
+  "Original PDFs stay unchanged while your notes remain easy to edit.",
+  "Search, highlights, notes, and page context stay visible while you read.",
+  "No account is required for everyday PDF review.",
 ];
 
 export function App() {
@@ -161,7 +126,7 @@ function Header({ primaryDownload }: { primaryDownload: DownloadLink }) {
       <nav className="primary-nav" aria-label="Primary navigation">
         <a href="#video">Video</a>
         <a href="#features">Features</a>
-        <a href="#workflow">Workflow</a>
+        <a href="#workflow">How it works</a>
         <a href="#download">Download</a>
         <a href={supportUrl}>Support</a>
       </nav>
@@ -177,14 +142,13 @@ function Hero({ primaryDownload }: { primaryDownload: DownloadLink }) {
     <section className="hero" aria-labelledby="hero-title">
       <figure className="hero-media" aria-label="Acacia library preview">
         <img src={heroScreenshot} alt="Acacia library showing PDF documents, reading progress, and document details" width="2880" height="1800" />
-        <figcaption>Library view · local documents · sidecar notes</figcaption>
+        <figcaption>Library view · documents · notes</figcaption>
       </figure>
       <div className="hero-copy">
-        <p className="section-eyebrow">ACACIA · PDF WORKSPACE FOR MAC</p>
+        <p className="section-eyebrow">ACACIA · PDF REVIEW FOR MAC</p>
         <h1 id="hero-title">Acacia for private PDF review.</h1>
         <p className="hero-lede">
-          Read, mark up, organize, compare, and export professional PDFs without sending private files to a cloud
-          service.
+          Read, mark up, compare, and share PDFs while keeping your documents on your Mac.
         </p>
         <div className="hero-actions">
           <DownloadButton href={primaryDownload.href} label={primaryDownload.label} variant="dark" />
@@ -193,8 +157,9 @@ function Hero({ primaryDownload }: { primaryDownload: DownloadLink }) {
           </a>
         </div>
         <ul className="hero-proof" aria-label="Acacia qualities">
-          <li>Native PDFKit</li>
-          <li>Sidecar annotations</li>
+          <li>Read</li>
+          <li>Mark up</li>
+          <li>Keep private</li>
           <li>No account required</li>
         </ul>
       </div>
@@ -223,9 +188,9 @@ function ProductVideo() {
     <section className="video-section" id="video" aria-labelledby="video-title">
       <div className="video-copy">
         <p className="section-eyebrow">VIDEO</p>
-        <h2 id="video-title">See the review loop in motion.</h2>
+        <h2 id="video-title">Watch Acacia in use.</h2>
         <p>
-          A short launch cut for the homepage, plus a longer App Preview export for store listings and release posts.
+          A quick look at reading, marking up, comparing, and sharing PDFs in Acacia.
         </p>
       </div>
       <div className="video-frame">
@@ -242,14 +207,14 @@ function ProductVideo() {
           <source src={launchVideo} type="video/mp4" />
         </video>
       </div>
-      <div className="video-links" aria-label="Acacia video assets">
+      <div className="video-links" aria-label="Acacia video links">
         <a href={launchVideo} download="">
-          Launch Hero
-          <span>12 seconds · 1920 x 1080</span>
+          Short tour
+          <span>12 seconds</span>
         </a>
         <a href={previewVideo} download="">
-          App Preview
-          <span>30 seconds · 1920 x 1080</span>
+          Full preview
+          <span>30 seconds</span>
         </a>
       </div>
     </section>
@@ -260,8 +225,8 @@ function Features() {
   return (
     <section className="features-section" id="features" aria-labelledby="features-title">
       <div className="section-heading">
-        <p className="section-eyebrow">WHAT STAYS</p>
-        <h2 id="features-title">The full review loop, stripped down.</h2>
+        <p className="section-eyebrow">FEATURES</p>
+        <h2 id="features-title">Everything you need to review a PDF.</h2>
       </div>
       <div className="feature-list">
         {features.map((feature, index) => (
@@ -285,14 +250,14 @@ function Workflow() {
   return (
     <section className="workflow-section" id="workflow" aria-labelledby="workflow-title">
       <figure className="workflow-preview">
-        <img src={annotationScreenshot} alt="Acacia annotation view with highlighted PDF text and notes" width="2880" height="1800" loading="lazy" />
+        <img src={annotationScreenshot} alt="Acacia annotation view with highlighted PDF text and notes" width="2880" height="1800" />
       </figure>
       <div className="workflow-copy">
-        <p className="section-eyebrow">REVIEW MODE</p>
-        <h2 id="workflow-title">Designed for quiet document work.</h2>
+        <p className="section-eyebrow">FOCUS</p>
+        <h2 id="workflow-title">Made for focused reading.</h2>
         <p>
-          Acacia is for the PDFs that contain contracts, forecasts, research, invoices, and decisions. The interface
-          keeps the document first and makes markup feel deliberate.
+          Acacia is for contracts, reports, research, invoices, and other PDFs that need careful attention. The
+          document stays first, with the right tools close by.
         </p>
         <ul>
           {workflowItems.map((item) => (
@@ -310,10 +275,7 @@ function DownloadSection({ primaryDownload }: { primaryDownload: DownloadLink })
       <div>
         <p className="section-eyebrow">GET ACACIA</p>
         <h2 id="download-title">Download the Mac app.</h2>
-        <p>
-          Version {release.version}. Signed and notarized for macOS, with checksum and manifest links for direct
-          verification.
-        </p>
+        <p>Download Acacia for Mac, or open the App Store listing.</p>
       </div>
       <div className="download-stack">
         <div className="download-actions">
@@ -323,9 +285,9 @@ function DownloadSection({ primaryDownload }: { primaryDownload: DownloadLink })
           </a>
         </div>
         <p className="release-meta">
-          {primaryDownload.detail} · {release.bundleId}
+          {primaryDownload.detail}
         </p>
-        <div className="resource-grid" aria-label="Acacia launch resources">
+        <div className="resource-grid" aria-label="Acacia links">
           {resourceLinks.map((link) => (
             <a className="resource-link" href={link.href} download={link.download ? "" : undefined} key={link.label}>
               <strong>{link.label}</strong>
@@ -347,17 +309,13 @@ function Footer() {
         </span>
         <span>Acacia</span>
       </a>
-      <p>Local-first PDF review for Mac.</p>
+      <p>Private PDF review for Mac.</p>
       <nav aria-label="Footer links">
-        <a href={downloads[1].href}>Checksum</a>
-        <a href={downloads[2].href}>Manifest</a>
+        <a href={appStoreUrl}>App Store</a>
         <a href={privacyUrl}>Privacy</a>
         <a href={accessibilityUrl}>Accessibility</a>
         <a href={`mailto:${supportEmail}`}>Contact</a>
       </nav>
-      <p className="footer-meta">
-        Release {release.version}. SHA-256: {release.checksum}
-      </p>
     </footer>
   );
 }

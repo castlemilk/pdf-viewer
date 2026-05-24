@@ -7,10 +7,12 @@ test("presents a focused Acacia landing page with direct download links", async 
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/logo.png");
   await expect(page.locator('img[src="/logo.png"]')).toHaveCount(2);
   await expect(page.getByRole("heading", { name: "Acacia for private PDF review." })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "See the review loop in motion." })).toBeVisible();
-  await expect(page.getByText("ACACIA · PDF WORKSPACE FOR MAC")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Watch Acacia in use." })).toBeVisible();
+  await expect(page.getByText("ACACIA · PDF REVIEW FOR MAC")).toBeVisible();
   await expect(page.getByText("Launch-ready links and assets")).toHaveCount(0);
   await expect(page.getByText("Every public Acacia link in one place.")).toHaveCount(0);
+  await expect(page.getByText("SHA-256")).toHaveCount(0);
+  await expect(page.getByText("Release manifest")).toHaveCount(0);
 
   const primaryDownloadLinks = page.getByRole("link", { name: /download for mac/i });
   await expect(primaryDownloadLinks.first()).toHaveAttribute(
@@ -28,13 +30,13 @@ test("presents a focused Acacia landing page with direct download links", async 
     "https://apps.apple.com/app/id6768526705",
   );
 
-  await expect(page.getByRole("link", { name: "Checksum Verify the DMG" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Support Get help with Acacia" })).toHaveAttribute(
     "href",
-    "https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-0.0.1.dmg.sha256",
+    "/support.html",
   );
-  await expect(page.getByRole("link", { name: "Manifest Release metadata" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Privacy How documents are handled" })).toHaveAttribute(
     "href",
-    "https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-0.0.1.manifest.json",
+    "/privacy.html",
   );
 });
 
@@ -47,11 +49,11 @@ test("publishes Remotion video assets on the landing page", async ({ page }) => 
     "src",
     "/video/acacia-launch-hero.mp4",
   );
-  await expect(page.getByRole("link", { name: "Launch Hero 12 seconds · 1920 x 1080" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Short tour 12 seconds" })).toHaveAttribute(
     "href",
     "/video/acacia-launch-hero.mp4",
   );
-  await expect(page.getByRole("link", { name: "App Preview 30 seconds · 1920 x 1080" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Full preview 30 seconds" })).toHaveAttribute(
     "href",
     "/video/acacia-app-preview.mp4",
   );
@@ -60,16 +62,16 @@ test("publishes Remotion video assets on the landing page", async ({ page }) => 
 test("keeps only the core product sections", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "See the review loop in motion." })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "The full review loop, stripped down." })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Designed for quiet document work." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Watch Acacia in use." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Everything you need to review a PDF." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Made for focused reading." })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Download the Mac app." })).toBeVisible();
 
   const expectedFeatures = [
     "A quiet home for working documents.",
-    "Highlights, notes, and signatures stay precise.",
-    "Export the useful version.",
-    "Inspect versions without losing place.",
+    "Mark the parts that matter.",
+    "Send a clean copy when you are done.",
+    "Check versions side by side.",
   ];
 
   for (const feature of expectedFeatures) {
@@ -107,7 +109,7 @@ test("supports keyboard users and points navigation at real landing sections", a
       "href",
       "#features",
     );
-    await expect(page.getByLabel("Primary navigation").getByRole("link", { name: "Workflow" })).toHaveAttribute(
+    await expect(page.getByLabel("Primary navigation").getByRole("link", { name: "How it works" })).toHaveAttribute(
       "href",
       "#workflow",
     );

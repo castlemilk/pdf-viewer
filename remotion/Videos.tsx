@@ -23,7 +23,6 @@ const colors = {
   green: "#8bc29d",
   blue: "#a9bae8",
   rose: "#df9bb0",
-  charcoal: "#2c2c2a",
 };
 
 const assets = {
@@ -349,57 +348,57 @@ const heroBeats: HeroBeat[] = [
   {
     start: 0,
     end: 96,
-    eyebrow: "Local library",
-    title: "Every PDF starts organized.",
-    body: "Recents, tags, collections, reading progress, and document details stay in one quiet workspace.",
+    eyebrow: "Library",
+    title: "Keep every PDF in sight.",
+    body: "Find recent documents, folders, tags, and reading progress in one calm place.",
     screenshot: assets.library,
     crop: cropFrom(50, 48),
     accent: colors.yellow,
     calls: [
-      { title: "Progress at a glance", detail: "Continue where the review stopped.", x: 1238, y: 730, delay: 42 },
-      { title: "Local details", detail: "Metadata and tags without an account.", x: 1330, y: 214, delay: 58 },
+      { title: "Continue reading", detail: "Pick up where you left off.", x: 1238, y: 730, delay: 42 },
+      { title: "Details nearby", detail: "Tags, notes, and file info stay close.", x: 1330, y: 214, delay: 58 },
     ],
   },
   {
     start: 86,
     end: 186,
-    eyebrow: "Native viewer",
+    eyebrow: "Reader",
     title: "Read long documents without losing place.",
-    body: "Search, page controls, outline, thumbnails, and metadata are always close to the document.",
+    body: "Search, page controls, thumbnails, and notes stay close while the document stays first.",
     screenshot: assets.viewer,
     crop: cropFrom(50, 47),
     accent: colors.blue,
     calls: [
-      { title: "Find in document", detail: "Matches stay connected to the page.", x: 1144, y: 184, delay: 34 },
-      { title: "Outline and info", detail: "Context stays visible while reading.", x: 1330, y: 628, delay: 52 },
+      { title: "Find text fast", detail: "Matches stay connected to the page.", x: 1144, y: 184, delay: 34 },
+      { title: "Helpful panels", detail: "Context stays visible while reading.", x: 1330, y: 628, delay: 52 },
     ],
   },
   {
     start: 176,
     end: 276,
     eyebrow: "Markup",
-    title: "Highlights and notes stay precise.",
-    body: "Color highlights, comments, signatures, and bookmarks are stored beside the original PDF.",
+    title: "Mark exactly what matters.",
+    body: "Highlight text, add notes, bookmark pages, and place signatures without changing the original.",
     screenshot: assets.annotations,
     crop: cropFrom(48, 47),
     accent: colors.green,
     calls: [
-      { title: "Color palette", detail: "Pick the right mark for the job.", x: 1240, y: 320, delay: 34 },
-      { title: "Sidecar notes", detail: "Original files stay untouched.", x: 1324, y: 610, delay: 52 },
+      { title: "Choose a color", detail: "Pick the right mark for the job.", x: 1240, y: 320, delay: 34 },
+      { title: "Notes stay editable", detail: "Original files stay unchanged.", x: 1324, y: 610, delay: 52 },
     ],
   },
   {
     start: 266,
     end: 360,
-    eyebrow: "Compare and export",
-    title: "Check versions, then send the useful copy.",
-    body: "Compare revisions side by side and export annotated copies, page images, text, or Markdown.",
+    eyebrow: "Compare",
+    title: "Check versions before you share.",
+    body: "Review two versions side by side and export a clean copy when you are done.",
     screenshot: assets.compare,
     crop: cropFrom(50, 47),
     accent: colors.rose,
     calls: [
-      { title: "Synced compare", detail: "Two versions without losing place.", x: 1170, y: 246, delay: 32 },
-      { title: "Export options", detail: "Annotated PDF, images, text, Markdown.", x: 1290, y: 646, delay: 50 },
+      { title: "Compare versions", detail: "Two documents without losing place.", x: 1170, y: 246, delay: 32 },
+      { title: "Share a clean copy", detail: "Export when the review is done.", x: 1290, y: 646, delay: 50 },
     ],
   },
 ];
@@ -459,8 +458,8 @@ const HeroCopy = ({ beat, frame }: { beat: HeroBeat; frame: number }) => {
       </p>
       <div style={{ ...rise(local, 36, 58, 18), display: "flex", gap: 14, marginTop: 42 }}>
         <Tag color={beat.accent}>Private</Tag>
-        <Tag>Local-first</Tag>
-        <Tag>No upload</Tag>
+        <Tag>On your Mac</Tag>
+        <Tag>No account</Tag>
       </div>
     </div>
   );
@@ -704,10 +703,10 @@ const FeatureRecap = ({ frame }: { frame: number }) => {
   const inFrame = frame - 780;
   const opacity = ease(frame, 780, 818);
   const items = [
-    ["Read", "Native PDFKit with search, outline, thumbnails, and metadata."],
-    ["Annotate", "Color highlights, comments, bookmarks, and signature placement."],
-    ["Compare", "Side-by-side revision checks with focused navigation."],
-    ["Export", "Annotated PDFs, page images, text, and Markdown."],
+    ["Read", "Search, pages, thumbnails, and notes stay close."],
+    ["Mark up", "Highlight text, add notes, bookmark pages, and sign."],
+    ["Compare", "Review versions side by side."],
+    ["Share", "Export a clean copy when you are done."],
   ];
 
   return (
@@ -737,7 +736,7 @@ const FeatureRecap = ({ frame }: { frame: number }) => {
             lineHeight: 1,
           }}
         >
-          Private PDF review, end to end.
+          All your PDF review, in one place.
         </h2>
         <p
           style={{
@@ -750,7 +749,7 @@ const FeatureRecap = ({ frame }: { frame: number }) => {
             lineHeight: 1.45,
           }}
         >
-          A calm Mac workspace for documents that should stay on your machine.
+          A calm Mac app for documents that should stay on your machine.
         </p>
       </div>
       <div style={{ display: "grid", gap: 16 }}>
@@ -813,44 +812,44 @@ export const AcaciaAppPreview = () => {
         end={190}
         label="Library"
         title="Bring every working PDF into view."
-        body="Recents, collections, tags, reading progress, and document details stay visible without crowding the workspace."
+        body="Recent files, folders, tags, and reading progress stay visible without crowding the screen."
         screenshot={assets.library}
         accent={colors.yellow}
         crop={cropFrom(50, 48)}
         chips={["Recents", "Tags", "Progress"]}
         callouts={[
           { title: "Continue reading", detail: "Progress follows each document.", x: 1080, y: 240, delay: 44 },
-          { title: "Detail rail", detail: "Tags, metadata, and quick actions stay close.", x: 1326, y: 636, delay: 74 },
+          { title: "Details nearby", detail: "Tags, notes, and quick actions stay close.", x: 1326, y: 636, delay: 74 },
         ]}
       />
       <ShowcaseScene
         start={176}
         end={378}
         label="Viewer"
-        title="Read without losing document context."
-        body="Search, page controls, zoom, thumbnails, outline, and info panels are built around sustained review."
+        title="Read without losing your place."
+        body="Search, page controls, zoom, thumbnails, and notes are built around careful reading."
         screenshot={assets.viewer}
         accent={colors.blue}
         crop={cropFrom(50, 47)}
-        chips={["Search", "Outline", "Metadata"]}
+        chips={["Search", "Pages", "Notes"]}
         callouts={[
-          { title: "Search and page state", detail: "Find matches while keeping the page number visible.", x: 1078, y: 190, delay: 46 },
-          { title: "Panels stay useful", detail: "Outline, notes, ask, and info stay one click away.", x: 1332, y: 610, delay: 82 },
+          { title: "Find text fast", detail: "Search results stay tied to the page.", x: 1078, y: 190, delay: 46 },
+          { title: "Panels stay useful", detail: "Notes and page context stay one click away.", x: 1332, y: 610, delay: 82 },
         ]}
       />
       <ShowcaseScene
         start={364}
         end={574}
         label="Annotations"
-        title="Mark the exact point, not the whole page."
-        body="Color highlights, notes, signatures, comments, and bookmarks are stored locally beside the original PDF."
+        title="Mark the exact point."
+        body="Highlight text, add notes, sign, comment, and bookmark while the original PDF stays unchanged."
         screenshot={assets.annotations}
         accent={colors.green}
         crop={cropFrom(48, 47)}
         chips={["Highlights", "Notes", "Signatures"]}
         callouts={[
-          { title: "Color palette", detail: "Use distinct colors for pull, risk, tone, and marks.", x: 1056, y: 272, delay: 48 },
-          { title: "Sidecar comments", detail: "Notes and highlights remain editable without changing the source.", x: 1288, y: 590, delay: 88 },
+          { title: "Choose a color", detail: "Use different colors for different kinds of notes.", x: 1056, y: 272, delay: 48 },
+          { title: "Editable notes", detail: "Notes and highlights remain easy to adjust.", x: 1288, y: 590, delay: 88 },
         ]}
       />
       <ShowcaseScene
@@ -858,14 +857,14 @@ export const AcaciaAppPreview = () => {
         end={790}
         label="Compare"
         title="Review changes before anything leaves your desk."
-        body="Compare versions side by side, check page differences, then export the useful copy."
+        body="Compare versions side by side, check what changed, then export the copy you want to share."
         screenshot={assets.compare}
         accent={colors.rose}
         crop={cropFrom(50, 47)}
-        chips={["Compare", "Export", "Markdown"]}
+        chips={["Compare", "Review", "Share"]}
         callouts={[
           { title: "Side-by-side review", detail: "Inspect revisions without bouncing between windows.", x: 1030, y: 216, delay: 52 },
-          { title: "Export when ready", detail: "Annotated PDF, images, text, and Markdown outputs.", x: 1288, y: 642, delay: 90 },
+          { title: "Export when ready", detail: "Share the reviewed version.", x: 1288, y: 642, delay: 90 },
         ]}
       />
       <Cursor frame={frame} start={cursorStart} end={cursorEnd} from={[1498, 198]} to={[1042, 734]} />
