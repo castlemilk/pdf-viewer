@@ -1,16 +1,16 @@
 # Acacia Direct Distribution Packet
 
-Prepared on 2026-05-23.
+Prepared on 2026-05-24.
 
 ## Status
 
 Direct Developer ID distribution is technically ready for the Acacia brand.
 
 Artifact:
-dist/macos/Acacia-0.0.1.dmg
+dist/macos/Acacia-1.0.3.dmg
 
 SHA-256:
-6d0ec7078a74f2f48601bdc0c2c663691136889c29e05343d497b563d05c3b5c
+235fa5fc571847cc11f087922f2774b88fef525a591a87debd62aa91ddb5ae17
 
 Bundle ID:
 com.benebsworth.acacia
@@ -19,10 +19,10 @@ Team ID:
 WFTX6CN23F
 
 Notarization submission:
-df6a4c4f-e86b-4b1c-bf96-a61da66ca5db
+926cd38d-409d-415a-8bc8-540e4ac45e12
 
 Public download:
-https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-0.0.1.dmg
+https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-1.0.3.dmg
 
 Launch page:
 https://acacia-eta.vercel.app
@@ -41,7 +41,7 @@ https://acacia-eta.vercel.app
 
 ## Release Notes
 
-Acacia 0.0.1 introduces the first macOS release:
+Acacia 1.0.3 is the launch-ready macOS release:
 
 - Local-first PDF library with tags, collections, favorites, recents, and reading progress
 - Native PDFKit viewer with thumbnails, zoom, page navigation, search, and metadata
@@ -73,7 +73,7 @@ Security:
 Signed and notarized with Apple Developer ID.
 
 Checksum:
-6d0ec7078a74f2f48601bdc0c2c663691136889c29e05343d497b563d05c3b5c
+235fa5fc571847cc11f087922f2774b88fef525a591a87debd62aa91ddb5ae17
 
 ## Support Page Copy
 

@@ -17,7 +17,7 @@ test("presents a focused Acacia landing page with direct download links", async 
   const primaryDownloadLinks = page.getByRole("link", { name: /download for mac/i });
   await expect(primaryDownloadLinks.first()).toHaveAttribute(
     "href",
-    "https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-0.0.1.dmg",
+    "https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-1.0.3.dmg",
   );
   await expect(primaryDownloadLinks.first()).toHaveAttribute("download", "");
 

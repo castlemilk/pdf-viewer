@@ -22,8 +22,8 @@ const release = {
   appName: "Acacia",
   href:
     import.meta.env.VITE_DOWNLOAD_URL ??
-    "https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-0.0.1.dmg",
-  size: import.meta.env.VITE_DOWNLOAD_SIZE ?? "10.7 MB",
+    "https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-1.0.3.dmg",
+  size: import.meta.env.VITE_DOWNLOAD_SIZE ?? "13 MB",
 };
 
 const logoSrc = "/logo.png";

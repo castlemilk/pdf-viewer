@@ -35,7 +35,7 @@ scripts/deploy-gcp-direct-download.sh
 The public download URL has this shape:
 
 ```text
-https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-0.0.1.dmg
+https://storage.googleapis.com/acacia-496104-downloads/downloads/Acacia-1.0.3.dmg
 ```
 
 ## S3-Compatible Access
