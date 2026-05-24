@@ -28,12 +28,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       ProcessInfo.processInfo.arguments.contains("--uitesting")
     let isProPurchaseTestingLaunch =
       ProcessInfo.processInfo.environment["PDFVIEWER_PRO_PURCHASE_TESTING"] == "1"
+    let screenshotMode = ProcessInfo.processInfo.arguments
+      .first { $0.hasPrefix("--screenshot=") }?
+      .replacingOccurrences(of: "--screenshot=", with: "")
     var initialProperties: [String: Any]? = nil
     if isUITestingLaunch || isProPurchaseTestingLaunch {
       initialProperties = [
         "isUiTestingLaunch": isUITestingLaunch,
         "isProPurchaseTestingLaunch": isProPurchaseTestingLaunch,
       ]
+    }
+    if let screenshotMode, !screenshotMode.isEmpty {
+      var properties = initialProperties ?? [:]
+      properties["screenshotMode"] = screenshotMode
+      initialProperties = properties
     }
 
     factory.startReactNative(

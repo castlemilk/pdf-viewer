@@ -18,12 +18,28 @@ Prepared on 2026-05-23 for macOS and iOS publishing.
 
 ## Screenshots
 
-Apple currently requires 1 to 10 screenshots for Mac apps in PNG/JPEG/JPG. These screenshots are all PNG and 2880 x 1800.
+Apple currently requires 1 to 10 screenshots per display set in PNG/JPEG/JPG.
+
+Mac screenshots are PNG files at 2880 x 1800:
 
 1. publishing/screenshots/app-store/01-library.png
 2. publishing/screenshots/app-store/02-viewer-info.png
 3. publishing/screenshots/app-store/03-comments-annotations.png
 4. publishing/screenshots/app-store/04-compare-changes.png
+
+iPhone 6.7" screenshots are PNG files at 1284 x 2778:
+
+1. publishing/screenshots/ios/iphone-67/01-library.png
+2. publishing/screenshots/ios/iphone-67/02-viewer.png
+3. publishing/screenshots/ios/iphone-67/03-annotations.png
+4. publishing/screenshots/ios/iphone-67/04-compare.png
+
+iPad 12.9" / 13" screenshots are PNG files at 2064 x 2752:
+
+1. publishing/screenshots/ios/ipad-129/01-library.png
+2. publishing/screenshots/ios/ipad-129/02-viewer.png
+3. publishing/screenshots/ios/ipad-129/03-annotations.png
+4. publishing/screenshots/ios/ipad-129/04-compare.png
 
 Recommended order:
 

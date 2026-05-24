@@ -1002,8 +1002,11 @@ function App({
     );
   }
 
+  const DesktopRoot =
+    Platform.OS === 'ios' && !isJestRuntime() ? SafeAreaView : View;
+
   return (
-    <View
+    <DesktopRoot
       style={styles.window}
       testID="app-window"
       accessible
@@ -1128,7 +1131,7 @@ function App({
           onSelectHighlightColor={setHighlightColor}
         />
       )}
-    </View>
+    </DesktopRoot>
   );
 }
 

@@ -34,6 +34,7 @@
     "publish:testflight:internal": "scripts/rollout-testflight-internal.sh",
     "publish:ios:testflight:internal": "scripts/rollout-testflight-internal.sh --platform IOS",
     "screenshots:publish": "scripts/capture-publishing-screenshots.sh",
+    "screenshots:ios": "scripts/capture-ios-app-store-screenshots.sh",
     "backend:pro:test": "cd backend/pro && go test ./...",
     "backend:pro:proto": "cd backend/pro && protoc -I proto --go_out=. --go_opt=module=github.com/benebsworth/acacia/backend/pro proto/acacia/pro/v1/account.proto",
     "icon:macos": "swift scripts/generate-app-icon.swift",
