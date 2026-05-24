@@ -27,7 +27,14 @@ Mac screenshots are PNG files at 2880 x 1800:
 3. publishing/screenshots/app-store/03-comments-annotations.png
 4. publishing/screenshots/app-store/04-compare-changes.png
 
-iPhone 6.7" screenshots are PNG files at 1284 x 2778:
+iPhone 6.5" screenshots are PNG files at 1284 x 2778:
+
+1. publishing/screenshots/ios/iphone-65/01-library.png
+2. publishing/screenshots/ios/iphone-65/02-viewer.png
+3. publishing/screenshots/ios/iphone-65/03-annotations.png
+4. publishing/screenshots/ios/iphone-65/04-compare.png
+
+iPhone 6.7" screenshots are PNG files at 1290 x 2796:
 
 1. publishing/screenshots/ios/iphone-67/01-library.png
 2. publishing/screenshots/ios/iphone-67/02-viewer.png

@@ -1991,6 +1991,9 @@ function MobileTagButton({
   testID?: string;
   onPress: () => void;
 }) {
+  const iconName = iconNameFor(icon);
+  const iconColor = active ? acacia.color.paper : '#2E3746';
+
   return (
     <Pressable
       testID={testID}
@@ -2001,7 +2004,18 @@ function MobileTagButton({
       }
       style={[mobileStyles.tagButton, active && mobileStyles.tagButtonActive]}
       onPress={onPress}>
-      {icon ? <Text style={mobileStyles.tagIcon}>{icon}</Text> : null}
+      {icon ? (
+        iconName ? (
+          <Icon
+            name={iconName}
+            size={13}
+            color={iconColor}
+            style={mobileStyles.tagIconFrame}
+          />
+        ) : (
+          <Text style={mobileStyles.tagIcon}>{icon}</Text>
+        )
+      ) : null}
       {tone ? <View style={[styles.tagDot, toneStyle(tone)]} /> : null}
       <Text
         style={[
@@ -6826,6 +6840,9 @@ const mobileStyles = StyleSheet.create({
   tagIcon: {
     color: '#2E3746',
     fontSize: 13,
+    marginRight: 6,
+  },
+  tagIconFrame: {
     marginRight: 6,
   },
   tagCount: {

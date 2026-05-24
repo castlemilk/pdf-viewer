@@ -6,7 +6,8 @@ All App Store screenshots are PNG files at 2880 x 1800, matching Apple's current
 
 iOS screenshot sets are captured from simulators with Apple's required App Store sizes:
 
-- `ios/iphone-67/` - 1284 x 2778, iPhone 6.7" display
+- `ios/iphone-65/` - 1284 x 2778, iPhone 6.5" display
+- `ios/iphone-67/` - 1290 x 2796, iPhone 6.7" display
 - `ios/ipad-129/` - 2064 x 2752, iPad Pro 12.9" / 13" display
 
 ## Files

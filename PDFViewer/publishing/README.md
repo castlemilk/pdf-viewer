@@ -108,6 +108,7 @@ npm run publish:appstore:screenshots -- --version 1.0.3 --platform MAC_OS
 Upload the iOS App Store screenshot sets after refreshing the PNGs:
 
 ```sh
+npm run publish:appstore:screenshots -- --version 1.0.3 --platform IOS --locale en-AU --display-type APP_IPHONE_65 --screenshots-dir publishing/screenshots/ios/iphone-65
 npm run publish:appstore:screenshots -- --version 1.0.3 --platform IOS --locale en-AU --display-type APP_IPHONE_67 --screenshots-dir publishing/screenshots/ios/iphone-67
 npm run publish:appstore:screenshots -- --version 1.0.3 --platform IOS --locale en-AU --display-type APP_IPAD_PRO_3GEN_129 --screenshots-dir publishing/screenshots/ios/ipad-129
 ```
@@ -127,6 +128,7 @@ The script captures:
 - `publishing/screenshots/app-store/02-viewer-info.png`
 - `publishing/screenshots/app-store/03-comments-annotations.png`
 - `publishing/screenshots/app-store/04-compare-changes.png`
+- `publishing/screenshots/ios/iphone-65/*.png`
 - `publishing/screenshots/ios/iphone-67/*.png`
 - `publishing/screenshots/ios/ipad-129/*.png`
 
