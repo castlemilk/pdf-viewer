@@ -355,24 +355,24 @@ main:focus {
 
 .video-section {
   display: grid;
-  grid-template-columns: minmax(260px, 0.44fr) minmax(0, 0.96fr);
-  gap: 42px 54px;
-  align-items: start;
-  padding: 34px 0 82px;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  padding: 46px 0 86px;
   border-bottom: 1px solid var(--hairline);
 }
 
 .video-copy {
-  padding-top: 8px;
+  max-width: 760px;
 }
 
 .video-copy h2 {
-  font-size: 42px;
-  line-height: 1.08;
+  font-size: 48px;
+  line-height: 1.04;
   text-wrap: balance;
 }
 
 .video-copy p:not(.section-eyebrow) {
+  max-width: 680px;
   margin: 20px 0 0;
   color: var(--muted);
   font-size: 16px;
@@ -381,9 +381,9 @@ main:focus {
 
 .video-frame {
   min-width: 0;
-  padding: 8px;
+  padding: 10px;
   border: 1px solid var(--hairline);
-  border-radius: 14px;
+  border-radius: 16px;
   background: color-mix(in srgb, var(--paper) 86%, transparent);
   box-shadow: 0 26px 74px rgba(17, 17, 16, 0.12);
 }
@@ -392,17 +392,16 @@ main:focus {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--ink);
   object-fit: cover;
 }
 
 .video-links {
-  grid-column: 2;
   display: flex;
   flex-wrap: wrap;
+  justify-content: end;
   gap: 10px;
-  margin-top: -26px;
 }
 
 .video-links a {
@@ -694,7 +693,6 @@ main:focus {
   }
 
   .section-heading,
-  .video-section,
   .workflow-section,
   .download-section,
   .site-footer {
@@ -840,8 +838,7 @@ main:focus {
   }
 
   .video-links {
-    grid-column: auto;
-    margin-top: 0;
+    justify-content: start;
   }
 
   .video-links a {

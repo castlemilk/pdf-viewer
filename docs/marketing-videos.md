@@ -4,7 +4,7 @@ Remotion source lives in `remotion/` and renders two launch assets into `public/
 
 ## Outputs
 
-- `public/video/acacia-launch-hero.mp4` - 8 second homepage cut, 1920 x 1080.
+- `public/video/acacia-launch-hero.mp4` - 12 second homepage cut, 1920 x 1080.
 - `public/video/acacia-app-preview.mp4` - 30 second store and release post cut, 1920 x 1080.
 
 ## Commands

@@ -231,7 +231,9 @@ function ProductVideo() {
       <div className="video-frame">
         <video
           aria-label="Acacia launch video"
+          autoPlay
           controls
+          loop
           muted
           playsInline
           poster={heroScreenshot}
@@ -243,7 +245,7 @@ function ProductVideo() {
       <div className="video-links" aria-label="Acacia video assets">
         <a href={launchVideo} download="">
           Launch Hero
-          <span>8 seconds · 1920 x 1080</span>
+          <span>12 seconds · 1920 x 1080</span>
         </a>
         <a href={previewVideo} download="">
           App Preview

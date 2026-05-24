@@ -47,7 +47,7 @@ test("publishes Remotion video assets on the landing page", async ({ page }) => 
     "src",
     "/video/acacia-launch-hero.mp4",
   );
-  await expect(page.getByRole("link", { name: "Launch Hero 8 seconds · 1920 x 1080" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Launch Hero 12 seconds · 1920 x 1080" })).toHaveAttribute(
     "href",
     "/video/acacia-launch-hero.mp4",
   );
