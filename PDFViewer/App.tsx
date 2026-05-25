@@ -529,6 +529,7 @@ function App({
   );
   const menuOpenHandlerRef = useRef<(imported: ImportedPdf) => void>(() => {});
   const persistenceHydratedRef = useRef(false);
+  const userFilterChangedRef = useRef(false);
   const proActivationGenerationRef = useRef(0);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -649,6 +650,11 @@ function App({
     setViewerState(current => viewerReducer(current, action));
   }
 
+  function updateFilterFromUser(update: React.SetStateAction<LibraryFilter>) {
+    userFilterChangedRef.current = true;
+    setFilter(update);
+  }
+
   function openDocument(document: DocumentRecord, mode: ScreenMode = 'viewer') {
     setSearchHighlightSet(undefined);
     dispatchLibrary({
@@ -727,7 +733,9 @@ function App({
 
   function applyPersistedState(state: ReturnType<typeof createPersistedAppState>) {
     dispatchLibrary({type: 'replaceState', state: state.libraryState});
-    setFilter(state.filter);
+    setFilter(current =>
+      userFilterChangedRef.current ? current : state.filter,
+    );
     setScreenMode(state.screenMode);
     setSelectedDocumentId(state.selectedDocumentId);
     setViewerState(state.viewerState);
@@ -1356,9 +1364,13 @@ function App({
           signatures={signatures}
           activeSignatureId={activeSignatureId}
           highlightColor={highlightColor}
-          onQueryChange={query => setFilter(current => ({...current, query}))}
+          onQueryChange={query =>
+            updateFilterFromUser(current => ({...current, query}))
+          }
           onSearchSubmit={submitSearch}
-          onFilterChange={patch => setFilter(current => ({...current, ...patch}))}
+          onFilterChange={patch =>
+            updateFilterFromUser(current => ({...current, ...patch}))
+          }
           onOpenFile={openImportedPdf}
           onSelectDocument={document => setSelectedDocumentId(document.id)}
           onOpenDocument={openDocument}
@@ -1405,7 +1417,7 @@ function App({
           query={screenMode === 'library' ? filter.query : viewerState.searchQuery}
           onQueryChange={query =>
             screenMode === 'library'
-              ? setFilter(current => ({...current, query}))
+              ? updateFilterFromUser(current => ({...current, query}))
               : updateViewer({type: 'setSearchQuery', query})
           }
           onSearchSubmit={submitSearch}
@@ -1419,7 +1431,9 @@ function App({
             documents={commandPaletteDocuments}
             onOpenFile={openImportedPdf}
             onAddCollection={addCollection}
-            onClose={() => setFilter(current => ({...current, query: ''}))}
+            onClose={() =>
+              updateFilterFromUser(current => ({...current, query: ''}))
+            }
             onAsk={() =>
               showLocalAction(
                 'Ask across library',
@@ -1444,10 +1458,10 @@ function App({
             canShowStorage={canUseReviewFeatures}
             onOpenFile={openImportedPdf}
             onFilterChange={patch =>
-              setFilter(current => ({...current, ...patch}))
+              updateFilterFromUser(current => ({...current, ...patch}))
             }
             onClearFilters={() =>
-              setFilter(current => ({
+              updateFilterFromUser(current => ({
                 ...current,
                 query: '',
                 tagId: 'all',
@@ -1458,7 +1472,7 @@ function App({
             onToggleFilterPanel={() => setFilterPanelOpen(current => !current)}
             onAddCollection={addCollection}
             onSelectScope={scope =>
-              setFilter(current => ({
+              updateFilterFromUser(current => ({
                 ...current,
                 query: '',
                 tagId: 'all',
@@ -3251,7 +3265,7 @@ function LibraryScreen({
     <View
       style={styles.body}
       testID="library-screen"
-      accessible={false}
+      accessible={Platform.OS === 'macos'}
       accessibilityLabel="Library screen"
       accessibilityHint="Shows documents, filters, and document details">
       <Sidebar
@@ -3435,7 +3449,9 @@ function LibraryResultsSummary({
   return (
     <View
       testID="library-results-summary"
-      accessible={false}
+      accessible={Platform.OS === 'macos'}
+      accessibilityLabel={summaryText}
+      accessibilityHint="Summarizes the active library filters"
       style={styles.summaryStrip}>
       <View style={styles.summaryIcon}>
         <Icon
@@ -3491,7 +3507,9 @@ function LibraryEmptyState({
   return (
     <View
       testID="library-empty-state"
-      accessible={false}
+      accessible={Platform.OS === 'macos'}
+      accessibilityLabel="No documents found"
+      accessibilityHint="Shows recovery actions for an empty filtered library"
       style={styles.emptyState}>
       <View style={styles.emptyStateIcon}>
         <Icon name="search" size={20} color={acacia.color.ink3} />
@@ -3544,7 +3562,9 @@ function CommandPalette({
   return (
     <View
       testID="command-palette"
-      accessible={false}
+      accessible={Platform.OS === 'macos'}
+      accessibilityLabel="Command palette"
+      accessibilityHint="Searches documents and shows quick actions"
       accessibilityViewIsModal
       accessibilityLanguage="en"
       onAccessibilityEscape={onClose}
@@ -3723,7 +3743,7 @@ function ViewerScreen({
           styles.accessibilityOpaqueSurface,
       ]}
       testID="viewer-screen"
-      accessible={false}
+      accessible={Platform.OS === 'macos'}
       accessibilityLabel={`Viewer screen ${document.title}`}
       accessibilityHint="Shows the PDF reader, annotation tools, and inspector"
       accessibilityLanguage="en"
@@ -3826,7 +3846,7 @@ function CompareScreen({
           styles.accessibilityOpaqueSurface,
       ]}
       testID="compare-screen"
-      accessible={false}
+      accessible={Platform.OS === 'macos'}
       accessibilityLabel={`Compare screen ${leftDocument.title}`}
       accessibilityHint="Shows two document versions and a change summary"
       accessibilityLanguage="en"
@@ -4180,7 +4200,9 @@ function FilterPanel({
     <View
       testID="filter-panel"
       style={styles.filterPanel}
-      accessible={false}>
+      accessible={Platform.OS === 'macos'}
+      accessibilityLabel="Filter panel"
+      accessibilityHint="Filters documents by tag and collection">
       <View style={styles.filterGroup}>
         <Text style={styles.filterLabel}>Tags</Text>
         <ButtonChrome
@@ -4610,7 +4632,9 @@ function ReaderToolbar({
         />
         <View
           testID="viewer-page-meter"
-          accessible={false}
+          accessible={Platform.OS === 'macos'}
+          accessibilityLabel={`Page ${viewer.pageIndex + 1} of ${viewer.pageCount}`}
+          accessibilityHint="Shows and edits the current page number"
           style={styles.pageMeter}>
           <TextInput
             testID="viewer-page-input"
@@ -4778,7 +4802,9 @@ function ThumbnailRail({
     <View
       style={styles.thumbnailRail}
       testID={compare ? 'compare-thumbnail-rail' : 'thumbnail-rail'}
-      accessible={false}>
+      accessible={Platform.OS === 'macos'}
+      accessibilityLabel="Page thumbnails"
+      accessibilityHint="Shows thumbnail previews for document pages">
       <Text style={styles.inspectorCaption}>Pages</Text>
       <ScrollView>
         {pages.map(page => (
@@ -5249,7 +5275,10 @@ function ReviewFeatureGate({
   return (
     <Pressable
       testID="comments-paywall"
-      accessible={false}
+      accessible={Platform.OS === 'macos'}
+      accessibilityRole="button"
+      accessibilityLabel="Sign in to unlock comments"
+      accessibilityHint="Opens Pro sign-in for comments, notes, and review threads"
       onPress={onUnlock}
       style={[styles.paywallCard, mobile && mobileStyles.paywallCard]}>
       <Text style={styles.paywallIcon}>💬</Text>
@@ -5591,7 +5620,9 @@ function BottomScrubber({
     <View
       style={styles.bottomBar}
       testID="bottom-scrubber"
-      accessible={false}>
+      accessible={Platform.OS === 'macos'}
+      accessibilityLabel={pageLabel}
+      accessibilityHint="Shows page navigation controls">
       <Text
         style={styles.bottomLabel}
         testID="bottom-page-label"

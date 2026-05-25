@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import {AccessibilityInfo, Alert, StyleSheet} from 'react-native';
+import {AccessibilityInfo, Alert, Platform, StyleSheet} from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import App from '../App';
 import {createInitialLibraryState} from '../src/domain';
@@ -82,8 +82,27 @@ function highlightAnnotationIds(renderer: ReactTestRenderer.ReactTestRenderer) {
     .map(instance => instance.props.testID as string);
 }
 
+const originalPlatformOS = Platform.OS;
+
+function setPlatformOS(os: typeof Platform.OS | 'macos') {
+  Object.defineProperty(Platform, 'OS', {
+    configurable: true,
+    get: () => os,
+  });
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>(nextResolve => {
+    resolve = nextResolve;
+  });
+
+  return {promise, resolve};
+}
+
 afterEach(() => {
   jest.restoreAllMocks();
+  setPlatformOS(originalPlatformOS);
 });
 
 test('applies Apple accessibility preferences to shared controls', async () => {
@@ -1099,6 +1118,83 @@ test('desktop library surfaces active navigation context and empty results', asy
   expect(visibleGridDocumentIds(renderer!)).toHaveLength(8);
 });
 
+test('macOS exposes non-interactive landmarks without grouping them on iOS', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  setPlatformOS('macos');
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  expect(renderer!.root.findByProps({testID: 'library-screen'}).props.accessible).toBe(true);
+  expect(
+    renderer!.root.findByProps({testID: 'library-results-summary'}).props
+      .accessibilityLabel,
+  ).toBe('Showing 8 documents in Recent Documents');
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'filter-button'}).props.onPress();
+  });
+
+  expect(renderer!.root.findByProps({testID: 'filter-panel'}).props.accessible).toBe(true);
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findByProps({testID: 'library-search-input'})
+      .props.onChangeText('roadmap');
+  });
+
+  expect(renderer!.root.findByProps({testID: 'command-palette'}).props.accessible).toBe(true);
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'command-palette-close'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findAllByProps({testID: 'doc-card-q4-market-analysis'})[0]
+      .props.onPress();
+  });
+
+  expect(renderer!.root.findByProps({testID: 'viewer-screen'}).props.accessible).toBe(true);
+  expect(renderer!.root.findByProps({testID: 'viewer-page-meter'}).props.accessible).toBe(true);
+  expect(renderer!.root.findByProps({testID: 'thumbnail-rail'}).props.accessible).toBe(true);
+  expect(renderer!.root.findByProps({testID: 'bottom-scrubber'}).props.accessible).toBe(true);
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'inspector-tab-comments'}).props.onPress();
+  });
+
+  expect(renderer!.root.findByProps({testID: 'comments-paywall'}).props.accessible).toBe(true);
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'viewer-compare-button'}).props.onPress();
+  });
+
+  expect(renderer!.root.findByProps({testID: 'compare-screen'}).props.accessible).toBe(true);
+  expect(
+    renderer!.root.findByProps({testID: 'compare-thumbnail-rail'}).props.accessible,
+  ).toBe(true);
+
+  setPlatformOS('ios');
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  expect(renderer!.root.findByProps({testID: 'library-screen'}).props.accessible).toBe(false);
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findAllByProps({testID: 'doc-card-q4-market-analysis'})[0]
+      .props.onPress();
+  });
+
+  expect(renderer!.root.findByProps({testID: 'viewer-screen'}).props.accessible).toBe(false);
+  expect(renderer!.root.findByProps({testID: 'viewer-page-meter'}).props.accessible).toBe(false);
+  expect(renderer!.root.findByProps({testID: 'thumbnail-rail'}).props.accessible).toBe(false);
+  expect(renderer!.root.findByProps({testID: 'bottom-scrubber'}).props.accessible).toBe(false);
+});
+
 test('desktop sidebar exposes friendly navigation labels and counts', async () => {
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 
@@ -1156,6 +1252,51 @@ test('mobile library scope chips filter documents without relying on the desktop
   });
 
   expect(JSON.stringify(renderer?.toJSON())).toContain('Q4 Market Analysis Report');
+});
+
+test('mobile library keeps early scope changes after PDF seeding completes', async () => {
+  const seededPdfs = createDeferred<
+    Awaited<ReturnType<typeof PdfKitBridge.seedDemoPdfs>>
+  >();
+  jest.spyOn(PdfKitBridge, 'readSidecar').mockResolvedValueOnce(undefined);
+  jest.spyOn(PdfKitBridge, 'writeSidecar').mockResolvedValue(true);
+  jest.spyOn(PdfKitBridge, 'seedDemoPdfs').mockReturnValueOnce(seededPdfs.promise);
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(async () => {
+    renderer = ReactTestRenderer.create(<App forceCompactLayout />);
+    await Promise.resolve();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'mobile-scope-favorites'}).props.onPress();
+  });
+
+  expect(JSON.stringify(renderer?.toJSON())).toContain('Favorite Documents');
+
+  await ReactTestRenderer.act(async () => {
+    seededPdfs.resolve([
+      {
+        id: 'q4-market-analysis',
+        title: 'Q4 Market Analysis Report',
+        author: 'Analytics Team',
+        pageCount: 32,
+        sizeMb: 0.8,
+        createdAt: '2026-05-01T09:00:00.000Z',
+        modifiedAt: '2026-05-11T09:41:00.000Z',
+        path: '/tmp/acacia-q4-market-analysis.pdf',
+        bookmark: 'seeded-q4',
+      },
+    ]);
+    await seededPdfs.promise;
+    await Promise.resolve();
+  });
+
+  const output = JSON.stringify(renderer?.toJSON());
+
+  expect(output).toContain('Favorite Documents');
+  expect(output).toContain('Product Roadmap 2025');
+  expect(output).not.toContain('Q4 Market Analysis Report');
 });
 
 test('mobile library search submit opens the first matching document', async () => {
