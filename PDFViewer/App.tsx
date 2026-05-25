@@ -2228,6 +2228,10 @@ function MobileViewer({
           <MobileAnnotationSheet
             annotations={annotations}
             onClose={onDismissAnnotationSheet}
+            onNote={() => {
+              onSelectTool('comment');
+              onDismissAnnotationSheet();
+            }}
           />
         ) : null}
       </View>
@@ -2407,9 +2411,11 @@ function MobileCompare({
 function MobileAnnotationSheet({
   annotations,
   onClose,
+  onNote,
 }: {
   annotations: Annotation[];
   onClose: () => void;
+  onNote: () => void;
 }) {
   const accessibility = useAppleAccessibility();
   const highlight =
@@ -2489,24 +2495,31 @@ function MobileAnnotationSheet({
           label="Note"
           icon="comment"
           testID="mobile-annotation-note"
-          onPress={() => {}}
+          accessibilityHint="Starts note placement for this highlight"
+          onPress={onNote}
         />
         <MobileButton
           label="Ask"
           icon="sparkles"
           testID="mobile-annotation-ask"
+          disabled
+          accessibilityHint="Ask is unavailable in this version"
           onPress={() => {}}
         />
         <MobileButton
           label="Link"
           icon="link"
           testID="mobile-annotation-link"
+          disabled
+          accessibilityHint="Link is unavailable in this version"
           onPress={() => {}}
         />
         <MobileButton
           label="Share"
           icon="share"
           testID="mobile-annotation-share"
+          disabled
+          accessibilityHint="Share is unavailable in this version"
           onPress={() => {}}
         />
       </View>

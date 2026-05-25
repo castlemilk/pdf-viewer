@@ -2181,6 +2181,51 @@ test('mobile highlight creation opens the annotation action sheet', async () => 
   expect(output).toContain('mobile-annotation-ask');
   expect(output).toContain('mobile-annotation-link');
   expect(output).toContain('mobile-annotation-share');
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'mobile-annotation-note'}).props.onPress();
+  });
+
+  expect(renderer!.root.findAllByProps({testID: 'mobile-annotation-sheet'})).toHaveLength(0);
+  expect(JSON.stringify(renderer?.toJSON())).toContain(
+    'Note ready - click a page to place it',
+  );
+});
+
+test('mobile annotation sheet does not expose inert future actions as enabled buttons', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App forceCompactLayout />);
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findByProps({testID: 'mobile-doc-row-q4-market-analysis'})
+      .props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'mobile-highlight'}).props.onPress();
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props.onResponderRelease({
+      nativeEvent: {locationX: 150, locationY: 220},
+    });
+  });
+
+  for (const testID of [
+    'mobile-annotation-ask',
+    'mobile-annotation-link',
+    'mobile-annotation-share',
+  ]) {
+    const action = nativeButtonProps(renderer!, testID);
+    expect(action.accessibilityState).toEqual(
+      expect.objectContaining({disabled: true}),
+    );
+    expect(action.disabled).toBe(true);
+  }
 });
 
 test('mobile annotation sheet hides the underlying detail panel until dismissed', async () => {
