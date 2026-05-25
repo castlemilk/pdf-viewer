@@ -151,6 +151,45 @@ test('applies Apple accessibility preferences to shared controls', async () => {
   ).not.toEqual(expect.objectContaining({opacity: 0.74}));
 });
 
+test('supports dark interface and larger text for common tasks', async () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App forceColorScheme="dark" />);
+  });
+
+  expect(
+    StyleSheet.flatten(renderer!.root.findByProps({testID: 'app-window'}).props.style),
+  ).toEqual(expect.objectContaining({backgroundColor: '#111318'}));
+  expect(
+    StyleSheet.flatten(renderer!.root.findByProps({testID: 'search-box'}).props.style),
+  ).toEqual(expect.objectContaining({backgroundColor: '#1B1F26'}));
+  expect(
+    renderer!.root.findByProps({testID: 'library-search-input'}).props
+      .maxFontSizeMultiplier,
+  ).toBeGreaterThanOrEqual(2);
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root
+      .findAllByProps({testID: 'doc-card-q4-market-analysis'})[0]
+      .props.onPress();
+  });
+
+  expect(
+    renderer!.root.findByProps({testID: 'viewer-page-input'}).props
+      .maxFontSizeMultiplier,
+  ).toBeGreaterThanOrEqual(2);
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'tool-signature'}).props.onPress();
+  });
+
+  expect(
+    renderer!.root.findByProps({testID: 'signature-name-input'}).props
+      .maxFontSizeMultiplier,
+  ).toBeGreaterThanOrEqual(2);
+});
+
 test('renders the PDF library shell with core document workflows', async () => {
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 

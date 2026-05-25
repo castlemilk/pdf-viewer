@@ -75,6 +75,7 @@ type IconProps = {
   style?: StyleProp<ViewStyle>;
   decorative?: boolean;
   accessibilityLabel?: string;
+  accessibilityHint?: string;
 };
 
 function createIconXml(path: string, size: number, color: string, stroke: number) {
@@ -91,6 +92,7 @@ function IconComponent({
   style,
   decorative = true,
   accessibilityLabel,
+  accessibilityHint,
 }: IconProps) {
   const path = ICON_PATHS[name];
   const xml = useMemo(
@@ -108,6 +110,7 @@ function IconComponent({
             ? undefined
             : accessibilityLabel ?? `Missing icon ${String(name)}`
         }
+        accessibilityHint={decorative ? undefined : accessibilityHint ?? 'Icon'}
         accessibilityElementsHidden={decorative}
         importantForAccessibility={decorative ? 'no' : 'auto'}
         style={[styles.missing, {width: size, height: size}, style]}
@@ -122,6 +125,7 @@ function IconComponent({
       accessibilityLabel={
         decorative ? undefined : accessibilityLabel ?? `${name} icon`
       }
+      accessibilityHint={decorative ? undefined : accessibilityHint ?? 'Icon'}
       accessibilityElementsHidden={decorative}
       importantForAccessibility={decorative ? 'no' : 'auto'}
       xml={xml}

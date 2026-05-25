@@ -51,6 +51,43 @@
         color: #51586a;
         font-size: 17px;
       }
+      .feature-list {
+        display: grid;
+        gap: 14px;
+        padding: 0;
+        list-style: none;
+      }
+      .feature-list li {
+        padding: 16px 18px;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        background: #fff;
+      }
+      .feature-list strong {
+        display: block;
+        color: #151827;
+        margin-bottom: 4px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color: #f7f4ed;
+          background: #111318;
+        }
+        p,
+        li {
+          color: #d7dce6;
+        }
+        a {
+          color: #f7f4ed;
+        }
+        .feature-list li {
+          background: #1b1f26;
+          border-color: #39414d;
+        }
+        .feature-list strong {
+          color: #f7f4ed;
+        }
+      }
     </style>
   </head>
   <body>
@@ -61,16 +98,57 @@
       </a>
       <h1>Accessibility</h1>
       <p>
-        Acacia aims to provide a clear, native macOS PDF workflow with labelled controls, keyboard-reachable actions,
-        visible focus states, and system accessibility support where possible.
+        Acacia provides a clear PDF workflow for macOS, iPhone, and iPad with labelled controls, readable layouts,
+        keyboard-reachable actions, and support for Apple accessibility settings across common library, reading,
+        annotation, search, export, and account tasks.
       </p>
 
-      <h2>Supported Practices</h2>
-      <ul>
-        <li>Native macOS windows, menus, text inputs, and PDF rendering surfaces.</li>
-        <li>Accessible names for primary actions such as search, navigation, export, annotations, and settings.</li>
-        <li>Keyboard support for common library and viewer workflows.</li>
-        <li>High-contrast interface states and visible focus outlines on the website.</li>
+      <h2>Supported Features</h2>
+      <ul class="feature-list">
+        <li>
+          <strong>VoiceOver</strong>
+          Primary controls, tabs, document rows, reader actions, annotations, page controls, and status updates use
+          accessible names, roles, hints, values, and actions.
+        </li>
+        <li>
+          <strong>Voice Control</strong>
+          Controls expose clear labels such as Open PDF, Search documents, Highlight tool, Next page, Export, and
+          Restore purchases so they can be targeted with voice commands.
+        </li>
+        <li>
+          <strong>Larger Text</strong>
+          Text inputs and touch targets support larger text settings, including 200% sizing for key search, navigation,
+          page, signature, and annotation controls.
+        </li>
+        <li>
+          <strong>Dark Interface</strong>
+          The app follows the system dark appearance for common tasks, including the library, document viewer, mobile
+          controls, sheets, and annotation surfaces.
+        </li>
+        <li>
+          <strong>Differentiate Without Color Alone</strong>
+          Selection state is conveyed with labels, icons, borders, check states, page counters, and text, not only color.
+        </li>
+        <li>
+          <strong>Sufficient Contrast</strong>
+          Text, controls, and selected states use strong foreground and border contrast, and honor Increased Contrast
+          and Darker System Colors where available.
+        </li>
+        <li>
+          <strong>Reduced Motion</strong>
+          Press animations and transition effects are reduced or disabled when Reduce Motion or Prefer Cross-Fade
+          Transitions is enabled.
+        </li>
+        <li>
+          <strong>Captions</strong>
+          Acacia's core PDF workflow does not require audio or video. Any app-provided instructional or promotional
+          video is prepared to use captions or synchronized text alternatives.
+        </li>
+        <li>
+          <strong>Audio Descriptions</strong>
+          Acacia's core tasks are fully visual/textual and do not depend on video-only instructions. Any future
+          time-based visual media will include an audio description or equivalent text alternative.
+        </li>
       </ul>
 
       <h2>Feedback</h2>
@@ -79,7 +157,7 @@
         with the workflow, macOS version, and assistive technology you are using.
       </p>
 
-      <p>Last updated: May 22, 2026</p>
+      <p>Last updated: May 25, 2026</p>
     </main>
   </body>
 </html>

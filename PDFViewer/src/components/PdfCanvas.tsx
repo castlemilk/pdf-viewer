@@ -266,6 +266,7 @@ export function PdfCanvas({
         testID="pdf-demo-scroll"
         scrollEnabled={interactiveKind === undefined}
         accessibilityLabel={canvasA11yLabel}
+        accessibilityHint={nativeCanvasAccessibilityHint(interactiveKind)}
         accessibilityLanguage="en"
         accessibilityIgnoresInvertColors
         style={styles.demoScroll}
@@ -294,12 +295,6 @@ export function PdfCanvas({
             testID={`pdf-demo-page-frame-${pageIndex + 1}`}
             accessible={false}
             accessibilityIgnoresInvertColors
-            accessibilityLabel={pdfPageAccessibilityLabel(
-              document,
-              pageIndex,
-              annotations,
-              searchHighlights,
-            )}
             style={[
               styles.demoPageFrame,
               demoPageFrameStyle(
@@ -372,7 +367,12 @@ export function PdfCanvas({
                   pageIndex,
                 )}
                 accessibilityHint={toolHintCopy(interactiveKind)}
-                accessibilityActions={[toolActivationAction(interactiveKind)]}
+                accessibilityActions={[
+                  {
+                    name: 'activate',
+                    label: `Add ${annotationKindLabel(interactiveKind).toLowerCase()} at page center`,
+                  },
+                ]}
                 onAccessibilityAction={event => {
                   if (event.nativeEvent.actionName === 'activate') {
                     handleCenteredToolAnnotation(pageIndex);
@@ -503,6 +503,7 @@ function ToolHint({kind}: {kind?: InteractiveAnnotationKind}) {
       pointerEvents="none"
       accessible
       accessibilityLabel={copy}
+      accessibilityHint="Describes the active PDF annotation tool"
       accessibilityLiveRegion="polite"
       style={styles.toolHint}>
       <Text style={styles.toolHintText}>{copy}</Text>
@@ -531,22 +532,6 @@ function pdfCanvasAccessibilityLabel({
     : '';
 
   return `${document.title} PDF canvas, page ${pageIndex + 1} of ${document.pageCount}, zoom ${Math.round(zoom * 100)}%, ${pageAnnotations.length} annotations on this page${toolCopy}`;
-}
-
-function pdfPageAccessibilityLabel(
-  document: DocumentRecord,
-  pageIndex: number,
-  annotations: Annotation[],
-  searchHighlights: SearchHighlight[],
-) {
-  const pageAnnotations = annotations.filter(
-    annotation => annotation.pageIndex === pageIndex,
-  );
-  const pageSearchHighlights = searchHighlights.filter(
-    highlight => highlight.pageIndex === pageIndex,
-  );
-
-  return `${document.title}, page ${pageIndex + 1} of ${document.pageCount}, ${pageAnnotations.length} annotations, ${pageSearchHighlights.length} search matches`;
 }
 
 function nativeCanvasAccessibilityHint(kind?: InteractiveAnnotationKind) {
@@ -821,6 +806,9 @@ function DemoPageContent({
                 ? 'Quarterly growth chart, Q1 3.1%, Q2 4.0%, Q3 5.2%, Q4 6.1%, Q5 7.3%'
                 : undefined
             }
+            accessibilityHint={
+              pageIndex === 0 ? 'Summarizes the sample document chart' : undefined
+            }
             style={styles.chartBlock}>
             {[3.1, 4, 5.2, 6.1, 7.3].map((value, index) => (
               <View
@@ -851,6 +839,11 @@ function DemoPageContent({
                   ? 'Market share chart, Technology 34%, Healthcare 28%, Consumer Goods 22%, Financial Services 16%'
                   : undefined
               }
+              accessibilityHint={
+                pageIndex === 0
+                  ? 'Summarizes the sample document market share chart'
+                  : undefined
+              }
               style={styles.donut}>
               <Text style={styles.donutText}>34%</Text>
             </View>
@@ -875,6 +868,7 @@ function AnnotationOverlay({annotation}: {annotation: Annotation}) {
       accessible
       accessibilityRole="text"
       accessibilityLabel={annotationAccessibilityLabel(annotation)}
+      accessibilityHint="PDF annotation overlay"
       style={[
         styles.annotation,
         annotation.kind === 'note' && styles.annotationNote,
@@ -908,6 +902,7 @@ function SearchHighlightOverlay({highlight}: {highlight: SearchHighlight}) {
       accessible
       accessibilityRole="text"
       accessibilityLabel={`Search match on page ${highlight.pageIndex + 1}`}
+      accessibilityHint="Highlights matched search text on the page"
       style={[
         styles.searchHighlight,
         annotationBoundsToFallbackStyle(highlight.bounds) as ViewStyle,

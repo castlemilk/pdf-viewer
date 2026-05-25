@@ -3,6 +3,7 @@ import {
   type AccessibilityActionEvent,
   AccessibilityInfo,
   Alert,
+  type ColorSchemeName,
   Image,
   type TextProps,
   Platform,
@@ -12,6 +13,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useColorScheme,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -83,6 +85,7 @@ type ScreenshotMode =
 type AppProps = {
   screenshotMode?: ScreenshotMode;
   forceCompactLayout?: boolean;
+  forceColorScheme?: ColorSchemeName;
   isUiTestingLaunch?: boolean;
   isProPurchaseTestingLaunch?: boolean;
   proAccountSynchronizer?: ProAccountSynchronizer;
@@ -147,6 +150,8 @@ type AppleAccessibilityPreferences = {
   prefersCrossFadeTransitions: boolean;
   fontScale: number;
   largeTextEnabled: boolean;
+  colorScheme: 'light' | 'dark';
+  darkInterfaceEnabled: boolean;
 };
 
 const defaultAppleAccessibilityPreferences: AppleAccessibilityPreferences = {
@@ -160,6 +165,8 @@ const defaultAppleAccessibilityPreferences: AppleAccessibilityPreferences = {
   prefersCrossFadeTransitions: false,
   fontScale: 1,
   largeTextEnabled: false,
+  colorScheme: 'light',
+  darkInterfaceEnabled: false,
 };
 
 const AppleAccessibilityContext = React.createContext(
@@ -184,12 +191,18 @@ function AppleAccessibilityProvider({
   );
 }
 
-function useAppleAccessibilityPreferences(fontScale = 1) {
+function useAppleAccessibilityPreferences(
+  fontScale = 1,
+  colorScheme: ColorSchemeName = 'light',
+) {
+  const resolvedColorScheme = colorScheme === 'dark' ? 'dark' : 'light';
   const [preferences, setPreferences] =
     useState<AppleAccessibilityPreferences>(() => ({
       ...defaultAppleAccessibilityPreferences,
       fontScale,
       largeTextEnabled: fontScale >= 1.2,
+      colorScheme: resolvedColorScheme,
+      darkInterfaceEnabled: resolvedColorScheme === 'dark',
     }));
 
   useEffect(() => {
@@ -197,8 +210,10 @@ function useAppleAccessibilityPreferences(fontScale = 1) {
       ...current,
       fontScale,
       largeTextEnabled: fontScale >= 1.2,
+      colorScheme: resolvedColorScheme,
+      darkInterfaceEnabled: resolvedColorScheme === 'dark',
     }));
-  }, [fontScale]);
+  }, [fontScale, resolvedColorScheme]);
 
   useEffect(() => {
     let isMounted = true;
@@ -344,6 +359,13 @@ function accessibilityControlHitSlop(
   return compact ? compactControlHitSlop : controlHitSlop;
 }
 
+function iconColor(
+  preferences: AppleAccessibilityPreferences,
+  fallback = acacia.color.ink2,
+) {
+  return preferences.darkInterfaceEnabled ? '#EDEAE3' : fallback;
+}
+
 function pageAccessibilityActionHandler({
   pageIndex,
   pageCount,
@@ -445,6 +467,7 @@ const initialAnnotations: Annotation[] = [
 function App({
   screenshotMode,
   forceCompactLayout = false,
+  forceColorScheme,
   isUiTestingLaunch = false,
   isProPurchaseTestingLaunch = false,
   proAccountSynchronizer,
@@ -499,8 +522,10 @@ function App({
     [proAccountSynchronizer],
   );
   const windowMetrics = useWindowDimensions();
+  const systemColorScheme = useColorScheme();
   const appleAccessibility = useAppleAccessibilityPreferences(
     windowMetrics.fontScale ?? 1,
+    forceColorScheme ?? systemColorScheme,
   );
   const menuOpenHandlerRef = useRef<(imported: ImportedPdf) => void>(() => {});
   const persistenceHydratedRef = useRef(false);
@@ -1361,12 +1386,17 @@ function App({
       <DesktopRoot
         style={[
           styles.window,
+          appleAccessibility.darkInterfaceEnabled &&
+            styles.accessibilityDarkWindow,
           appleAccessibility.reduceTransparencyEnabled &&
             styles.accessibilityOpaqueSurface,
+          appleAccessibility.darkInterfaceEnabled &&
+            styles.accessibilityDarkWindow,
         ]}
         testID="app-window"
         accessible={false}
         accessibilityLabel="App window"
+        accessibilityHint="Main Acacia workspace"
         accessibilityLanguage="en">
         <TitleBar
           mode={screenMode}
@@ -1691,32 +1721,60 @@ function MobileExperience({
       <View
         style={[
           mobileStyles.shell,
+          accessibility.darkInterfaceEnabled &&
+            styles.accessibilityDarkWindow,
           accessibility.reduceTransparencyEnabled &&
             styles.accessibilityOpaqueSurface,
+          accessibility.darkInterfaceEnabled &&
+            styles.accessibilityDarkWindow,
         ]}
         testID="mobile-library-screen"
         accessibilityLabel="Mobile library screen"
+        accessibilityHint="Contains search, filters, and recent PDF documents"
         accessibilityLanguage="en">
-        <View style={mobileStyles.header}>
+        <View
+          style={[
+            mobileStyles.header,
+            accessibility.darkInterfaceEnabled &&
+              styles.accessibilityDarkWindow,
+          ]}>
           <View>
-            <Text style={mobileStyles.appTitle}>Acacia</Text>
+            <Text
+              style={[
+                mobileStyles.appTitle,
+                accessibility.darkInterfaceEnabled &&
+                  styles.accessibilityDarkText,
+              ]}>
+              Acacia
+            </Text>
           </View>
           <MobileButton label="Open" icon="plus" primary onPress={onOpenFile} />
         </View>
-        <View style={mobileStyles.searchBox}>
+        <View
+          style={[
+            mobileStyles.searchBox,
+            accessibility.darkInterfaceEnabled &&
+              styles.accessibilityDarkInput,
+          ]}>
           <TextInput
             testID="mobile-library-search-input"
             accessibilityLabel="Search documents"
             accessibilityHint="Search by title, author, tag, or collection"
             accessibilityLanguage="en"
-            maxFontSizeMultiplier={1.8}
+            maxFontSizeMultiplier={2}
             value={filter.query}
             onChangeText={onQueryChange}
             onSubmitEditing={event => onSearchSubmit(event.nativeEvent.text)}
             returnKeyType="search"
             placeholder="Search documents"
-            placeholderTextColor="#7A8393"
-            style={mobileStyles.searchInput}
+            placeholderTextColor={
+              accessibility.darkInterfaceEnabled ? '#AEB6C4' : '#7A8393'
+            }
+            style={[
+              mobileStyles.searchInput,
+              accessibility.darkInterfaceEnabled &&
+                styles.accessibilityDarkText,
+            ]}
           />
         </View>
         <ScrollView
@@ -1771,8 +1829,22 @@ function MobileExperience({
           {shouldShowContinueReading ? (
             <>
               <View style={mobileStyles.sectionHeader}>
-                <Text style={mobileStyles.sectionTitle}>Continue Reading</Text>
-                <Text style={mobileStyles.headerMeta}>{continueReading.length} in progress</Text>
+                <Text
+                  style={[
+                    mobileStyles.sectionTitle,
+                    accessibility.darkInterfaceEnabled &&
+                      styles.accessibilityDarkText,
+                  ]}>
+                  Continue Reading
+                </Text>
+                <Text
+                  style={[
+                    mobileStyles.headerMeta,
+                    accessibility.darkInterfaceEnabled &&
+                      styles.accessibilityDarkMutedText,
+                  ]}>
+                  {continueReading.length} in progress
+                </Text>
               </View>
               <ScrollView
                 horizontal
@@ -1795,11 +1867,24 @@ function MobileExperience({
           <Text
             testID="mobile-results-summary"
             accessibilityLabel={`${formatDocumentCount(documents.length)} in ${sectionTitle}`}
+            accessibilityHint="Summarizes the currently filtered mobile library results"
             style={mobileStyles.resultsSummary}>
             {formatDocumentCount(documents.length)} in {sectionTitle}
           </Text>
-          <Text style={mobileStyles.sectionTitle}>{sectionTitle}</Text>
-          <View style={mobileStyles.documentList}>
+          <Text
+            style={[
+              mobileStyles.sectionTitle,
+              accessibility.darkInterfaceEnabled &&
+                styles.accessibilityDarkText,
+            ]}>
+            {sectionTitle}
+          </Text>
+          <View
+            style={[
+              mobileStyles.documentList,
+              accessibility.darkInterfaceEnabled &&
+                styles.accessibilityDarkPanel,
+            ]}>
             {documents.map(document => (
               <MobileDocumentRow
                 key={document.id}
@@ -1869,11 +1954,16 @@ function MobileViewer({
       <View
         style={[
           mobileStyles.shell,
+          accessibility.darkInterfaceEnabled &&
+            styles.accessibilityDarkWindow,
           accessibility.reduceTransparencyEnabled &&
             styles.accessibilityOpaqueSurface,
+          accessibility.darkInterfaceEnabled &&
+            styles.accessibilityDarkWindow,
         ]}
         testID="mobile-viewer-screen"
         accessibilityLabel={`Mobile viewer, ${document.title}`}
+        accessibilityHint="Contains PDF reading, page navigation, zoom, and annotation tools"
         accessibilityLanguage="en"
         onAccessibilityEscape={onBack}
         onMagicTap={onCompare}>
@@ -1884,7 +1974,12 @@ function MobileViewer({
           actionLabel="Compare"
           onAction={onCompare}
         />
-        <View style={mobileStyles.viewerToolbar}>
+        <View
+          style={[
+            mobileStyles.viewerToolbar,
+            accessibility.darkInterfaceEnabled &&
+              styles.accessibilityDarkToolbar,
+          ]}>
           <MobileButton
             label="−"
             testID="mobile-zoom-out"
@@ -1894,7 +1989,13 @@ function MobileViewer({
               onViewerAction({type: 'setZoom', zoom: viewer.zoom - 0.1})
             }
           />
-          <Text testID="mobile-zoom-label" style={mobileStyles.zoomLabel}>
+          <Text
+            testID="mobile-zoom-label"
+            style={[
+              mobileStyles.zoomLabel,
+              accessibility.darkInterfaceEnabled &&
+                styles.accessibilityDarkText,
+            ]}>
             {Math.round(viewer.zoom * 100)}%
           </Text>
           <MobileButton
@@ -1958,7 +2059,12 @@ function MobileViewer({
             />
           </ScrollView>
         </View>
-        <View style={mobileStyles.mobileCanvasFrame}>
+        <View
+          style={[
+            mobileStyles.mobileCanvasFrame,
+            accessibility.darkInterfaceEnabled &&
+              styles.accessibilityDarkSunken,
+          ]}>
           <PdfCanvas
             document={document}
             viewer={viewer}
@@ -2009,13 +2115,44 @@ function MobileViewer({
               onPage: pageIndex =>
                 onViewerAction({type: 'setPage', pageIndex}),
             })}
-            style={mobileStyles.pageMeter}>
-            <Text testID="mobile-page-label" style={mobileStyles.pageLabel}>
-              <Text testID="mobile-page-current" style={mobileStyles.pageCurrent}>
+            style={[
+              mobileStyles.pageMeter,
+              accessibility.darkInterfaceEnabled &&
+                styles.accessibilityDarkInput,
+            ]}>
+            <Text
+              testID="mobile-page-label"
+              style={[
+                mobileStyles.pageLabel,
+                accessibility.darkInterfaceEnabled &&
+                  styles.accessibilityDarkText,
+              ]}>
+              <Text
+                testID="mobile-page-current"
+                style={[
+                  mobileStyles.pageCurrent,
+                  accessibility.darkInterfaceEnabled &&
+                    styles.accessibilityDarkText,
+                ]}>
                 {viewer.pageIndex + 1}
               </Text>
-              <Text style={mobileStyles.pageSlash}> / </Text>
-              <Text style={mobileStyles.pageTotal}>{viewer.pageCount}</Text>
+              <Text
+                style={[
+                  mobileStyles.pageSlash,
+                  accessibility.darkInterfaceEnabled &&
+                    styles.accessibilityDarkMutedText,
+                ]}>
+                {' '}
+                /{' '}
+              </Text>
+              <Text
+                style={[
+                  mobileStyles.pageTotal,
+                  accessibility.darkInterfaceEnabled &&
+                    styles.accessibilityDarkSubtleText,
+                ]}>
+                {viewer.pageCount}
+              </Text>
             </Text>
           </View>
           <View style={[mobileStyles.pageControlSlot, mobileStyles.pageControlSlotEnd]}>
@@ -2041,7 +2178,14 @@ function MobileViewer({
           accessibilityElementsHidden={annotationSheetOpen}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={mobileStyles.detailPanel}>
-          <Text style={mobileStyles.sectionTitle}>Information</Text>
+          <Text
+            style={[
+              mobileStyles.sectionTitle,
+              accessibility.darkInterfaceEnabled &&
+                styles.accessibilityDarkText,
+            ]}>
+            Information
+          </Text>
           <InfoGrid document={document} />
           {viewer.activeTool === 'signature' ? (
             <SignatureManager
@@ -2052,8 +2196,22 @@ function MobileViewer({
             />
           ) : null}
           <View style={mobileStyles.mobileCommentsHeader}>
-            <Text style={mobileStyles.sectionTitle}>Comments</Text>
-            <Text style={mobileStyles.headerMeta}>{annotations.length}</Text>
+            <Text
+              style={[
+                mobileStyles.sectionTitle,
+                accessibility.darkInterfaceEnabled &&
+                  styles.accessibilityDarkText,
+              ]}>
+              Comments
+            </Text>
+            <Text
+              style={[
+                mobileStyles.headerMeta,
+                accessibility.darkInterfaceEnabled &&
+                  styles.accessibilityDarkMutedText,
+              ]}>
+              {annotations.length}
+            </Text>
           </View>
           {canUseReviewFeatures ? (
             <CommentsPanel annotations={annotations} />
@@ -2101,8 +2259,12 @@ function MobileCompare({
       <View
         style={[
           mobileStyles.shell,
+          accessibility.darkInterfaceEnabled &&
+            styles.accessibilityDarkWindow,
           accessibility.reduceTransparencyEnabled &&
             styles.accessibilityOpaqueSurface,
+          accessibility.darkInterfaceEnabled &&
+            styles.accessibilityDarkWindow,
         ]}
         testID="mobile-compare-screen"
         accessibilityLanguage="en"
@@ -2115,7 +2277,12 @@ function MobileCompare({
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={mobileStyles.compareContent}>
-          <View style={mobileStyles.compareStats}>
+          <View
+            style={[
+              mobileStyles.compareStats,
+              accessibility.darkInterfaceEnabled &&
+                styles.accessibilityDarkPanel,
+            ]}>
             <ChangeStat label="Added" value={summary.added} tone="green" />
             <ChangeStat label="Removed" value={summary.removed} tone="red" />
             <ChangeStat
@@ -2124,8 +2291,20 @@ function MobileCompare({
               tone="amber"
             />
           </View>
-          <View style={mobileStyles.mobileCanvasFrameSmall}>
-            <Text style={mobileStyles.comparePaneLabel}>Version 1.0</Text>
+          <View
+            style={[
+              mobileStyles.mobileCanvasFrameSmall,
+              accessibility.darkInterfaceEnabled &&
+                styles.accessibilityDarkSunken,
+            ]}>
+            <Text
+              style={[
+                mobileStyles.comparePaneLabel,
+                accessibility.darkInterfaceEnabled &&
+                  styles.accessibilityDarkChip,
+              ]}>
+              Version 1.0
+            </Text>
             <PdfCanvas
               document={leftDocument}
               viewer={viewer}
@@ -2133,8 +2312,20 @@ function MobileCompare({
               compact
             />
           </View>
-          <View style={mobileStyles.mobileCanvasFrameSmall}>
-            <Text style={mobileStyles.comparePaneLabel}>Version 1.1</Text>
+          <View
+            style={[
+              mobileStyles.mobileCanvasFrameSmall,
+              accessibility.darkInterfaceEnabled &&
+                styles.accessibilityDarkSunken,
+            ]}>
+            <Text
+              style={[
+                mobileStyles.comparePaneLabel,
+                accessibility.darkInterfaceEnabled &&
+                  styles.accessibilityDarkChip,
+              ]}>
+              Version 1.1
+            </Text>
             <PdfCanvas
               document={rightDocument}
               viewer={viewer}
@@ -2169,7 +2360,11 @@ function MobileCompare({
                 onPage: pageIndex =>
                   onViewerAction({type: 'setPage', pageIndex}),
               })}
-              style={mobileStyles.pageLabel}>
+              style={[
+                mobileStyles.pageLabel,
+                accessibility.darkInterfaceEnabled &&
+                  styles.accessibilityDarkText,
+              ]}>
               Page {viewer.pageIndex + 1}
             </Text>
             <MobileButton
@@ -2183,7 +2378,12 @@ function MobileCompare({
               }
             />
           </View>
-          <Text style={mobileStyles.sectionTitle}>
+          <Text
+            style={[
+              mobileStyles.sectionTitle,
+              accessibility.darkInterfaceEnabled &&
+                styles.accessibilityDarkText,
+            ]}>
             {summary.totalChanges} changes
           </Text>
           {summary.pages.map(page => (
@@ -2225,26 +2425,43 @@ function MobileAnnotationSheet({
       testID="mobile-annotation-sheet"
       accessible={false}
       accessibilityLabel="Annotation actions"
+      accessibilityHint="Shows actions for the selected annotation"
       accessibilityViewIsModal
       accessibilityLanguage="en"
       onAccessibilityEscape={onClose}
       style={[
         mobileStyles.annotationSheet,
+        accessibility.darkInterfaceEnabled &&
+          styles.accessibilityDarkPanel,
         accessibility.reduceTransparencyEnabled &&
           styles.accessibilityReducedShadow,
       ]}>
-      <View style={mobileStyles.sheetGrabber} />
+      <View
+        style={[
+          mobileStyles.sheetGrabber,
+          accessibility.darkInterfaceEnabled &&
+            styles.accessibilityDarkGrabber,
+        ]}
+      />
       <View style={mobileStyles.sheetQuoteRow}>
         <View style={mobileStyles.sheetAccent} />
-        <Text style={mobileStyles.sheetQuote}>“{excerpt}”</Text>
+        <Text
+          style={[
+            mobileStyles.sheetQuote,
+            accessibility.darkInterfaceEnabled &&
+              styles.accessibilityDarkText,
+          ]}>
+          “{excerpt}”
+        </Text>
         <Pressable
           testID="mobile-annotation-close"
           accessible
           accessibilityRole="button"
           accessibilityLabel="Close annotation actions"
+          accessibilityHint="Closes annotation actions"
           onPress={onClose}
           style={mobileStyles.sheetClose}>
-          <Icon name="close" size={15} color={acacia.color.ink2} />
+          <Icon name="close" size={15} color={iconColor(accessibility)} />
         </Pressable>
       </View>
       <View style={mobileStyles.annotationSwatches}>
@@ -2311,8 +2528,12 @@ function MobileSafeArea({children}: {children: React.ReactNode}) {
     <Root
       style={[
         mobileStyles.safeArea,
+        accessibility.darkInterfaceEnabled &&
+          styles.accessibilityDarkWindow,
         accessibility.reduceTransparencyEnabled &&
           styles.accessibilityOpaqueSurface,
+        accessibility.darkInterfaceEnabled &&
+          styles.accessibilityDarkWindow,
       ]}
       accessibilityLanguage="en">
       {children}
@@ -2333,8 +2554,15 @@ function MobileTopBar({
   actionLabel?: string;
   onAction?: () => void;
 }) {
+  const accessibility = useAppleAccessibility();
+
   return (
-    <View style={mobileStyles.topBar}>
+    <View
+      style={[
+        mobileStyles.topBar,
+        accessibility.darkInterfaceEnabled &&
+          styles.accessibilityDarkToolbar,
+      ]}>
         <MobileButton
           label="Library"
           icon="▣"
@@ -2347,10 +2575,20 @@ function MobileTopBar({
           numberOfLines={1}
           testID="mobile-title-document-name"
           selectable
-          style={mobileStyles.readerTitle}>
+          style={[
+            mobileStyles.readerTitle,
+            accessibility.darkInterfaceEnabled &&
+              styles.accessibilityDarkText,
+          ]}>
           {title}
         </SelectableText>
-        <Text numberOfLines={1} style={mobileStyles.headerMeta}>
+        <Text
+          numberOfLines={1}
+          style={[
+            mobileStyles.headerMeta,
+            accessibility.darkInterfaceEnabled &&
+              styles.accessibilityDarkMutedText,
+          ]}>
           {subtitle}
         </Text>
       </View>
@@ -2402,7 +2640,7 @@ function MobileDocumentCard({
       accessibilityHint="Opens this document in the reader"
       accessibilityRole="button"
       accessibilityState={{selected}}
-      accessibilityActions={[documentAccessibilityActions[0]]}
+      accessibilityActions={[{name: 'activate', label: 'Open document'}]}
       accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
       accessibilityLargeContentTitle={document.title}
       accessibilityLanguage="en"
@@ -2414,10 +2652,20 @@ function MobileDocumentCard({
       onAccessibilityAction={documentAccessibilityActionHandler({onPress})}
       onPress={onPress}>
       <PdfCover document={document} large />
-      <Text numberOfLines={2} style={mobileStyles.documentTitle}>
+      <Text
+        numberOfLines={2}
+        style={[
+          mobileStyles.documentTitle,
+          accessibility.darkInterfaceEnabled && styles.accessibilityDarkText,
+        ]}>
         {document.title}
       </Text>
-      <Text style={mobileStyles.documentMeta}>
+      <Text
+        style={[
+          mobileStyles.documentMeta,
+          accessibility.darkInterfaceEnabled &&
+            styles.accessibilityDarkMutedText,
+        ]}>
         {document.pageCount} pages - {document.sizeMb.toFixed(1)} MB
       </Text>
     </Pressable>
@@ -2445,20 +2693,35 @@ function MobileDocumentRow({
       accessibilityHint="Opens this document in the reader"
       accessibilityRole="button"
       accessibilityState={{selected}}
-      accessibilityActions={[documentAccessibilityActions[0]]}
+      accessibilityActions={[{name: 'activate', label: 'Open document'}]}
       accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
       accessibilityLargeContentTitle={document.title}
       accessibilityLanguage="en"
       hitSlop={accessibilityControlHitSlop(accessibility)}
-      style={[mobileStyles.documentRow, selected && mobileStyles.rowSelected]}
+      style={[
+        mobileStyles.documentRow,
+        accessibility.darkInterfaceEnabled && styles.accessibilityDarkPanel,
+        selected && mobileStyles.rowSelected,
+      ]}
       onAccessibilityAction={documentAccessibilityActionHandler({onPress})}
       onPress={onPress}>
       <PdfCover document={document} />
       <View style={mobileStyles.documentRowBody}>
-        <Text numberOfLines={1} style={mobileStyles.rowTitle}>
+        <Text
+          numberOfLines={1}
+          style={[
+            mobileStyles.rowTitle,
+            accessibility.darkInterfaceEnabled && styles.accessibilityDarkText,
+          ]}>
           {document.title}
         </Text>
-        <Text numberOfLines={1} style={mobileStyles.documentMeta}>
+        <Text
+          numberOfLines={1}
+          style={[
+            mobileStyles.documentMeta,
+            accessibility.darkInterfaceEnabled &&
+              styles.accessibilityDarkMutedText,
+          ]}>
           {document.author} - {formatShortDate(document.modifiedAt)}
         </Text>
         <View style={styles.inlineTags}>
@@ -2468,7 +2731,14 @@ function MobileDocumentRow({
           })}
         </View>
       </View>
-      <Text style={mobileStyles.openChevron}>{'>'}</Text>
+      <Text
+        style={[
+          mobileStyles.openChevron,
+          accessibility.darkInterfaceEnabled &&
+            styles.accessibilityDarkMutedText,
+        ]}>
+        {'>'}
+      </Text>
     </Pressable>
   );
 }
@@ -2491,8 +2761,12 @@ function MobileTagButton({
   onPress: () => void;
 }) {
   const iconName = iconNameFor(icon);
-  const iconColor = active ? acacia.color.paper : '#2E3746';
   const accessibility = useAppleAccessibility();
+  const tagIconColor = active
+    ? accessibility.darkInterfaceEnabled
+      ? '#111318'
+      : acacia.color.paper
+    : iconColor(accessibility, '#2E3746');
 
   return (
     <Pressable
@@ -2510,11 +2784,15 @@ function MobileTagButton({
       hitSlop={accessibilityControlHitSlop(accessibility)}
       style={[
         mobileStyles.tagButton,
+        accessibility.darkInterfaceEnabled && styles.accessibilityDarkButton,
         (accessibility.largeTextEnabled || accessibility.screenReaderEnabled) &&
           styles.accessibilityLargeTarget,
         accessibility.darkerSystemColorsEnabled &&
           styles.accessibilityStrongBorder,
         active && mobileStyles.tagButtonActive,
+        active &&
+          accessibility.darkInterfaceEnabled &&
+          styles.accessibilityDarkButtonPrimary,
       ]}
       onPress={onPress}>
       {icon ? (
@@ -2522,24 +2800,43 @@ function MobileTagButton({
           <Icon
             name={iconName}
             size={13}
-            color={iconColor}
+              color={tagIconColor}
             style={mobileStyles.tagIconFrame}
           />
         ) : (
-          <Text style={mobileStyles.tagIcon}>{icon}</Text>
+          <Text
+            style={[
+              mobileStyles.tagIcon,
+              accessibility.darkInterfaceEnabled &&
+                styles.accessibilityDarkText,
+            ]}>
+            {icon}
+          </Text>
         )
       ) : null}
       {tone ? <View style={[styles.tagDot, toneStyle(tone)]} /> : null}
       <Text
         style={[
           mobileStyles.tagText,
+          accessibility.darkInterfaceEnabled && styles.accessibilityDarkText,
           active && mobileStyles.tagTextActive,
+          active &&
+            accessibility.darkInterfaceEnabled &&
+            styles.accessibilityDarkButtonPrimaryText,
           accessibility.boldTextEnabled && styles.accessibilityBoldText,
         ]}>
         {label}
       </Text>
       {count !== undefined ? (
-        <Text style={[mobileStyles.tagCount, active && mobileStyles.tagCountActive]}>
+        <Text
+          style={[
+            mobileStyles.tagCount,
+            accessibility.darkInterfaceEnabled && styles.accessibilityDarkChip,
+            active && mobileStyles.tagCountActive,
+            active &&
+              accessibility.darkInterfaceEnabled &&
+              styles.accessibilityDarkButtonPrimaryText,
+          ]}>
           {count}
         </Text>
       ) : null}
@@ -2587,6 +2884,7 @@ function MobileButton({
       hitSlop={accessibilityControlHitSlop(accessibility)}
       style={({pressed}) => [
         mobileStyles.button,
+        accessibility.darkInterfaceEnabled && styles.accessibilityDarkButton,
         (accessibility.largeTextEnabled || accessibility.screenReaderEnabled) &&
           styles.accessibilityLargeTarget,
         accessibility.darkerSystemColorsEnabled &&
@@ -2594,7 +2892,13 @@ function MobileButton({
         accessibility.reduceTransparencyEnabled &&
           styles.accessibilityOpaqueSurface,
         primary && mobileStyles.buttonPrimary,
+        primary &&
+          accessibility.darkInterfaceEnabled &&
+          styles.accessibilityDarkButtonPrimary,
         active && mobileStyles.buttonActive,
+        active &&
+          accessibility.darkInterfaceEnabled &&
+          styles.accessibilityDarkButtonActive,
         disabled && mobileStyles.buttonDisabled,
         pressed && !accessibility.reduceMotionEnabled && styles.buttonPressed,
       ]}
@@ -2604,14 +2908,24 @@ function MobileButton({
           <Icon
             name={iconName}
             size={15}
-            color={primary ? acacia.color.paper : acacia.color.ink2}
+            color={
+              primary
+                ? accessibility.darkInterfaceEnabled
+                  ? '#111318'
+                  : acacia.color.paper
+                : iconColor(accessibility, acacia.color.ink2)
+            }
             style={mobileStyles.buttonIconFrame}
           />
         ) : (
         <Text
           style={[
             mobileStyles.buttonIcon,
+            accessibility.darkInterfaceEnabled && styles.accessibilityDarkText,
             primary && mobileStyles.buttonTextPrimary,
+            primary &&
+              accessibility.darkInterfaceEnabled &&
+              styles.accessibilityDarkButtonPrimaryText,
             accessibility.boldTextEnabled && styles.accessibilityBoldText,
           ]}>
           {icon}
@@ -2621,7 +2935,11 @@ function MobileButton({
       <Text
         style={[
           mobileStyles.buttonText,
+          accessibility.darkInterfaceEnabled && styles.accessibilityDarkText,
           primary && mobileStyles.buttonTextPrimary,
+          primary &&
+            accessibility.darkInterfaceEnabled &&
+            styles.accessibilityDarkButtonPrimaryText,
           accessibility.boldTextEnabled && styles.accessibilityBoldText,
         ]}>
         {label}
@@ -2647,7 +2965,6 @@ function HighlightPalette({
     <View
       testID={`${testIDPrefix}-palette`}
       accessible={false}
-      accessibilityLabel="Highlight colors"
       style={[styles.highlightPalette, compact && styles.highlightPaletteCompact]}>
       {highlightColorOptions.map(option => {
         const active = option.color === selectedColor;
@@ -2719,13 +3036,18 @@ function TitleBar({
   const accessibility = useAppleAccessibility();
 
   return (
-    <View style={styles.titleBar}>
+    <View
+      style={[
+        styles.titleBar,
+        accessibility.darkInterfaceEnabled && styles.accessibilityDarkToolbar,
+      ]}>
       {isLibrary ? (
         <View style={styles.titleBlock}>
           <View
             style={styles.appBrand}
             accessible
-            accessibilityLabel={`Acacia library, ${documentCount} documents`}>
+            accessibilityLabel={`Acacia library, ${documentCount} documents`}
+            accessibilityHint="Shows the app name and document count">
             <View style={styles.appMark}>
               <Image
                 testID="app-logo-image"
@@ -2736,8 +3058,21 @@ function TitleBar({
                 style={styles.appLogoImage}
               />
             </View>
-            <Text style={styles.appName}>Acacia</Text>
-            <Text style={styles.commandHint}>⌘K</Text>
+            <Text
+              style={[
+                styles.appName,
+                accessibility.darkInterfaceEnabled && styles.accessibilityDarkText,
+              ]}>
+              Acacia
+            </Text>
+            <Text
+              style={[
+                styles.commandHint,
+                accessibility.darkInterfaceEnabled &&
+                  styles.accessibilityDarkMutedText,
+              ]}>
+              ⌘K
+            </Text>
           </View>
         </View>
       ) : (
@@ -2750,6 +3085,7 @@ function TitleBar({
             compact
             testID="title-back-button"
             accessibilityLabel="Back to library"
+            accessibilityHint="Returns to the library"
           />
           <ButtonChrome
             label="Forward"
@@ -2759,28 +3095,53 @@ function TitleBar({
             compact
             testID="title-forward-button"
             accessibilityLabel="Forward"
+            accessibilityHint="Moves forward in navigation history"
           />
           <View>
             <SelectableText
               testID="title-document-name"
               selectable
-              style={styles.titleText}>
+              style={[
+                styles.titleText,
+                accessibility.darkInterfaceEnabled && styles.accessibilityDarkText,
+              ]}>
               {selectedDocument.title}
             </SelectableText>
             {mode === 'compare' ? (
-              <Text style={styles.titleMeta}>Compare: v1.0 vs v1.1</Text>
+              <Text
+                style={[
+                  styles.titleMeta,
+                  accessibility.darkInterfaceEnabled &&
+                    styles.accessibilityDarkMutedText,
+                ]}>
+                Compare: v1.0 vs v1.1
+              </Text>
             ) : (
-              <Text style={styles.titleMeta}>PDF</Text>
+              <Text
+                style={[
+                  styles.titleMeta,
+                  accessibility.darkInterfaceEnabled &&
+                    styles.accessibilityDarkMutedText,
+                ]}>
+                PDF
+              </Text>
             )}
           </View>
         </View>
       )}
       <View
-        style={styles.searchBox}
+        style={[
+          styles.searchBox,
+          accessibility.darkInterfaceEnabled && styles.accessibilityDarkInput,
+        ]}
         testID="search-box"
-        accessible={false}
-        accessibilityLabel={isLibrary ? 'Library search box' : 'Document search box'}>
-        <Icon name="search" size={14} color={acacia.color.ink4} style={styles.searchIconFrame} />
+        accessible={false}>
+        <Icon
+          name="search"
+          size={14}
+          color={iconColor(accessibility, acacia.color.ink4)}
+          style={styles.searchIconFrame}
+        />
         <TextInput
           testID={isLibrary ? 'library-search-input' : 'document-search-input'}
           accessibilityLabel={isLibrary ? 'Library search' : 'Document search'}
@@ -2790,7 +3151,7 @@ function TitleBar({
               : 'Searches text in the current document'
           }
           accessibilityLanguage="en"
-          maxFontSizeMultiplier={1.8}
+          maxFontSizeMultiplier={2}
           value={query}
           onChangeText={onQueryChange}
           onSubmitEditing={event => onSearchSubmit(event.nativeEvent.text)}
@@ -2799,8 +3160,13 @@ function TitleBar({
               ? 'Search title, author, tag, collection'
               : 'Search this document'
           }
-          placeholderTextColor="#7A8393"
-          style={styles.searchInput}
+          placeholderTextColor={
+            accessibility.darkInterfaceEnabled ? '#AEB6C4' : '#7A8393'
+          }
+          style={[
+            styles.searchInput,
+            accessibility.darkInterfaceEnabled && styles.accessibilityDarkText,
+          ]}
         />
       </View>
       {isLibrary ? (
@@ -2873,7 +3239,8 @@ function LibraryScreen({
       style={styles.body}
       testID="library-screen"
       accessible={false}
-      accessibilityLabel="Library screen">
+      accessibilityLabel="Library screen"
+      accessibilityHint="Shows documents, filters, and document details">
       <Sidebar
         tags={stateTags}
         collections={collections}
@@ -2923,6 +3290,7 @@ function LibraryScreen({
                   ? `Filters, ${filterCount} active`
                   : 'Filters'
               }
+              accessibilityHint="Opens library filters"
               tooltip="Show tag and collection filters"
             />
             <ButtonChrome
@@ -2965,11 +3333,10 @@ function LibraryScreen({
           </View>
         </ScrollView>
         <View style={styles.recentHeader}>
-          <Text
-            testID="library-section-title"
-            accessibilityLabel={sectionTitle}
-            style={styles.sectionTitle}>
-            {sectionTitle}
+        <Text
+          testID="library-section-title"
+          style={styles.sectionTitle}>
+          {sectionTitle}
           </Text>
           <ButtonChrome
             label="Compare"
@@ -3056,7 +3423,6 @@ function LibraryResultsSummary({
     <View
       testID="library-results-summary"
       accessible={false}
-      accessibilityLabel={`Library results summary: ${summaryText}`}
       style={styles.summaryStrip}>
       <View style={styles.summaryIcon}>
         <Icon
@@ -3070,6 +3436,7 @@ function LibraryResultsSummary({
           testID="library-results-summary-text"
           accessible
           accessibilityLabel={summaryText}
+          accessibilityHint="Summarizes the active library filters"
           style={styles.summaryText}>
           {summaryText}
         </Text>
@@ -3084,6 +3451,7 @@ function LibraryResultsSummary({
               testID="clear-summary-filters"
               accessible
               accessibilityLabel="Clear active filters"
+              accessibilityHint="Removes all active library filters"
               accessibilityRole="button"
               {...tooltipProps('Clear active filters')}
               onPress={onClearFilters}>
@@ -3111,7 +3479,6 @@ function LibraryEmptyState({
     <View
       testID="library-empty-state"
       accessible={false}
-      accessibilityLabel="No documents found"
       style={styles.emptyState}>
       <View style={styles.emptyStateIcon}>
         <Icon name="search" size={20} color={acacia.color.ink3} />
@@ -3165,7 +3532,6 @@ function CommandPalette({
     <View
       testID="command-palette"
       accessible={false}
-      accessibilityLabel={`Command palette for ${normalizedQuery}`}
       accessibilityViewIsModal
       accessibilityLanguage="en"
       onAccessibilityEscape={onClose}
@@ -3346,6 +3712,7 @@ function ViewerScreen({
       testID="viewer-screen"
       accessible={false}
       accessibilityLabel={`Viewer screen ${document.title}`}
+      accessibilityHint="Shows the PDF reader, annotation tools, and inspector"
       accessibilityLanguage="en"
       onAccessibilityEscape={onBack}
       onMagicTap={onCompare}>
@@ -3448,6 +3815,7 @@ function CompareScreen({
       testID="compare-screen"
       accessible={false}
       accessibilityLabel={`Compare screen ${leftDocument.title}`}
+      accessibilityHint="Shows two document versions and a change summary"
       accessibilityLanguage="en"
       onAccessibilityEscape={onBack}
       onMagicTap={onViewChangeReport}>
@@ -3594,6 +3962,7 @@ function Sidebar({
         icon="📚"
         count={scopeCounts.library}
         accessibilityLabel={`Library, ${formatDocumentCount(scopeCounts.library)}`}
+        accessibilityHint="Changes the library section"
         active={selectedScope === 'library'}
         onPress={() => onSelectScope('library')}
         testID="nav-library"
@@ -3603,6 +3972,7 @@ function Sidebar({
         icon="🕘"
         count={scopeCounts.recent}
         accessibilityLabel={`Recent, ${formatDocumentCount(scopeCounts.recent)}`}
+        accessibilityHint="Changes the library section"
         active={selectedScope === 'recent'}
         onPress={() => onSelectScope('recent')}
         testID="nav-recent"
@@ -3612,6 +3982,7 @@ function Sidebar({
         icon="⭐"
         count={scopeCounts.favorites}
         accessibilityLabel={`Favorites, ${formatDocumentCount(scopeCounts.favorites)}`}
+        accessibilityHint="Changes the library section"
         active={selectedScope === 'favorites'}
         onPress={() => onSelectScope('favorites')}
         testID="nav-favorites"
@@ -3621,6 +3992,7 @@ function Sidebar({
         icon="📤"
         count={scopeCounts.shared}
         accessibilityLabel={`Shared, ${formatDocumentCount(scopeCounts.shared)}`}
+        accessibilityHint="Changes the library section"
         active={selectedScope === 'shared'}
         onPress={() => onSelectScope('shared')}
         testID="nav-shared"
@@ -3691,6 +4063,7 @@ function Sidebar({
           testID="add-collection-button"
           accessible
           accessibilityLabel="Add collection"
+          accessibilityHint="Creates a local collection"
           accessibilityRole="button"
           accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
           accessibilityLargeContentTitle="Add collection"
@@ -3794,8 +4167,7 @@ function FilterPanel({
     <View
       testID="filter-panel"
       style={styles.filterPanel}
-      accessible={false}
-      accessibilityLabel="Library filters">
+      accessible={false}>
       <View style={styles.filterGroup}>
         <Text style={styles.filterLabel}>Tags</Text>
         <ButtonChrome
@@ -3855,6 +4227,7 @@ function NavItem({
   icon,
   count,
   accessibilityLabel,
+  accessibilityHint,
   active = false,
   onPress,
   testID,
@@ -3863,6 +4236,7 @@ function NavItem({
   icon: string;
   count?: number;
   accessibilityLabel?: string;
+  accessibilityHint?: string;
   active?: boolean;
   onPress: () => void;
   testID: string;
@@ -3880,7 +4254,7 @@ function NavItem({
         (count === undefined ? label : `${label}, ${formatDocumentCount(count)}`)
       }
       accessibilityRole="button"
-      accessibilityHint="Changes the library section"
+      accessibilityHint={accessibilityHint ?? 'Changes the library section'}
       accessibilityState={{selected: active}}
       accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
       accessibilityLargeContentTitle={largeContentTitle}
@@ -4111,6 +4485,7 @@ function LibraryInspector({
           testID="add-tag-button"
           accessible
           accessibilityLabel="Add tag"
+          accessibilityHint="Adds a tag to this document"
           accessibilityRole="button"
           {...tooltipProps('Add the next useful tag')}
           onPress={onAddTag}>
@@ -4183,6 +4558,7 @@ function ReaderToolbar({
         compact
         testID="viewer-library-button"
         accessibilityLabel="Back to library"
+        accessibilityHint="Returns to the library"
         tooltip="Back to library"
       />
         <ButtonChrome
@@ -4235,7 +4611,7 @@ function ReaderToolbar({
             accessibilityHint={`Enter a page number from 1 to ${viewer.pageCount}`}
             accessibilityLiveRegion="polite"
             accessibilityLanguage="en"
-            maxFontSizeMultiplier={1.8}
+            maxFontSizeMultiplier={2}
             onAccessibilityAction={pageAccessibilityActionHandler({
               pageIndex: viewer.pageIndex,
               pageCount: viewer.pageCount,
@@ -4297,6 +4673,7 @@ function ReaderToolbar({
         compact
         testID="viewer-compare-button"
         accessibilityLabel="Compare versions"
+        accessibilityHint="Opens the comparison view"
       />
     </View>
   );
@@ -4388,8 +4765,7 @@ function ThumbnailRail({
     <View
       style={styles.thumbnailRail}
       testID={compare ? 'compare-thumbnail-rail' : 'thumbnail-rail'}
-      accessible={false}
-      accessibilityLabel={compare ? 'Compare thumbnail rail' : 'Thumbnail rail'}>
+      accessible={false}>
       <Text style={styles.inspectorCaption}>Pages</Text>
       <ScrollView>
         {pages.map(page => (
@@ -4426,6 +4802,7 @@ function PageThumbnail({
   document: DocumentRecord;
   pageIndex: number;
 }) {
+  const accessibility = useAppleAccessibility();
   const thumbnailPath = document.pageThumbnailPaths?.[pageIndex];
 
   if (!thumbnailPath) {
@@ -4453,6 +4830,8 @@ function PageThumbnail({
       testID={`thumbnail-image-page-${pageIndex + 1}`}
       accessible
       accessibilityLabel={`Rendered page ${pageIndex + 1} thumbnail`}
+      accessibilityHint="Shows a preview image for this page"
+      accessibilityIgnoresInvertColors={accessibility.invertColorsEnabled}
       source={{uri: fileUriForPath(thumbnailPath)}}
       style={styles.thumbnailImage}
       resizeMode="contain"
@@ -4538,6 +4917,7 @@ function ViewerInspector({
             testID={`inspector-tab-${tab}`}
             accessible
             accessibilityLabel={`${capitalize(tab)} tab`}
+            accessibilityHint={`Shows ${label.toLowerCase()} details`}
             accessibilityRole="button"
             accessibilityState={{selected: viewer.inspectorTab === tab}}
             hitSlop={controlHitSlop}
@@ -4783,7 +5163,8 @@ function ChangesPanel({
       style={styles.readerInspector}
       testID="changes-panel"
       accessible
-      accessibilityLabel="Changes panel">
+      accessibilityLabel="Changes panel"
+      accessibilityHint="Shows document comparison changes">
       <View style={styles.inspectorTabs}>
         <View style={styles.inspectorTab}>
           <Text style={styles.inspectorTabText}>Outline</Text>
@@ -4821,7 +5202,8 @@ function ChangesPanel({
           style={styles.changeRow}
           testID={`change-row-page-${page.pageIndex + 1}`}
           accessible
-          accessibilityLabel={`Page ${page.pageIndex + 1} change row`}>
+          accessibilityLabel={`Page ${page.pageIndex + 1} change row`}
+          accessibilityHint="Summarizes changes for this page">
           <View style={[styles.changeDot, changeDotStyle(page.status)]} />
           <View style={styles.changeTextBlock}>
             <Text style={styles.rowTitle}>Page {page.pageIndex + 1}</Text>
@@ -4855,7 +5237,6 @@ function ReviewFeatureGate({
     <Pressable
       testID="comments-paywall"
       accessible={false}
-      accessibilityLabel="Sign in to unlock comments"
       onPress={onUnlock}
       style={[styles.paywallCard, mobile && mobileStyles.paywallCard]}>
       <Text style={styles.paywallIcon}>💬</Text>
@@ -4930,13 +5311,15 @@ function SignatureManager({
       testID="signature-manager"
       style={styles.signaturePanel}
       accessible
-      accessibilityLabel="Signature manager">
+      accessibilityLabel="Signature manager"
+      accessibilityHint="Create and select signatures for stamping PDFs">
       <Text style={styles.inspectorCaption}>Signature</Text>
       <TextInput
         testID="signature-name-input"
         accessibilityLabel="Signature text"
+        accessibilityHint="Type the signature text to save"
         accessibilityLanguage="en"
-        maxFontSizeMultiplier={1.8}
+        maxFontSizeMultiplier={2}
         value={draft}
         onChangeText={setDraft}
         placeholder="Type your signature"
@@ -4953,6 +5336,7 @@ function SignatureManager({
             testID={`signature-option-${signature.id}`}
             accessible
             accessibilityLabel={`Use ${signature.label}`}
+            accessibilityHint="Selects this saved signature"
             accessibilityRole="button"
             accessibilityState={{selected: signature.id === activeSignatureId}}
             hitSlop={controlHitSlop}
@@ -5044,7 +5428,8 @@ function CommentsPanel({annotations}: {annotations: Annotation[]}) {
               style={styles.commentItem}
               testID={testID}
               accessible
-              accessibilityLabel={commentAnnotationAccessibilityLabel(annotation)}>
+              accessibilityLabel={commentAnnotationAccessibilityLabel(annotation)}
+              accessibilityHint="Shows annotation details">
               <View style={[styles.annotationTypeDot, {backgroundColor: annotation.color}]}>
                 <Text style={styles.annotationTypeIcon}>
                   {annotationIcon(annotation)}
@@ -5193,13 +5578,13 @@ function BottomScrubber({
     <View
       style={styles.bottomBar}
       testID="bottom-scrubber"
-      accessible={false}
-      accessibilityLabel={pageLabel}>
+      accessible={false}>
       <Text
         style={styles.bottomLabel}
         testID="bottom-page-label"
         accessible
-        accessibilityLabel={pageLabel}>
+        accessibilityLabel={pageLabel}
+        accessibilityHint="Shows the current reader page">
         {pageLabel}
       </Text>
       <View style={styles.scrubberTrack}>
@@ -5209,6 +5594,7 @@ function BottomScrubber({
             testID={`scrubber-page-${step + 1}`}
             accessible
             accessibilityLabel={`Go to page ${step + 1}`}
+            accessibilityHint="Moves the reader to this page"
             accessibilityRole="button"
             accessibilityState={{selected: step === viewer.pageIndex}}
             hitSlop={compactControlHitSlop}
@@ -5526,6 +5912,7 @@ function SegmentedControl({
           accessible
           accessibilityRole="button"
           accessibilityLabel={option.label}
+          accessibilityHint="Changes the selected view"
           accessibilityState={{selected: value === option.value}}
           accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
           accessibilityLargeContentTitle={option.label}
@@ -5579,6 +5966,7 @@ function TagLike({
       testID={testID}
       accessible
       accessibilityLabel={label}
+      accessibilityHint="Filters the annotation list"
       accessibilityRole="button"
       accessibilityState={{selected: active}}
       accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
@@ -5622,7 +6010,8 @@ function ChangeStat({
       style={styles.changeStat}
       testID={testID}
       accessible
-      accessibilityLabel={`${value} ${label}`}>
+      accessibilityLabel={`${value} ${label}`}
+      accessibilityHint="Comparison summary count">
       <Text style={[styles.changeStatNumber, tagTextToneStyle(tone)]}>
         {value}
       </Text>
@@ -6067,6 +6456,59 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     shadowRadius: 0,
     shadowOffset: {width: 0, height: 0},
+  },
+  accessibilityDarkWindow: {
+    backgroundColor: '#111318',
+  },
+  accessibilityDarkPanel: {
+    backgroundColor: '#1B1F26',
+    borderColor: '#39414D',
+  },
+  accessibilityDarkToolbar: {
+    backgroundColor: '#151922',
+    borderColor: '#2E3540',
+    borderBottomColor: '#2E3540',
+  },
+  accessibilityDarkSunken: {
+    backgroundColor: '#20252D',
+    borderColor: '#39414D',
+  },
+  accessibilityDarkInput: {
+    backgroundColor: '#1B1F26',
+    borderColor: '#4A5565',
+    color: '#F7F4ED',
+  },
+  accessibilityDarkText: {
+    color: '#F7F4ED',
+  },
+  accessibilityDarkMutedText: {
+    color: '#D7DCE6',
+  },
+  accessibilityDarkSubtleText: {
+    color: '#AEB6C4',
+  },
+  accessibilityDarkButton: {
+    backgroundColor: '#1B1F26',
+    borderColor: '#4A5565',
+  },
+  accessibilityDarkButtonActive: {
+    backgroundColor: '#2A303A',
+    borderColor: '#F7F4ED',
+  },
+  accessibilityDarkButtonPrimary: {
+    backgroundColor: '#F7F4ED',
+    borderColor: '#F7F4ED',
+  },
+  accessibilityDarkButtonPrimaryText: {
+    color: '#111318',
+  },
+  accessibilityDarkChip: {
+    backgroundColor: '#252B35',
+    borderColor: '#4A5565',
+    color: '#F7F4ED',
+  },
+  accessibilityDarkGrabber: {
+    backgroundColor: '#D7DCE6',
   },
   titleBar: {
     position: 'relative',
