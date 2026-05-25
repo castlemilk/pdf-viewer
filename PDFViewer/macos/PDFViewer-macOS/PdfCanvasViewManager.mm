@@ -1432,11 +1432,15 @@ static NSBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     currentPage = [_pdfView.document indexForPage:_pdfView.currentPage] + 1;
   }
 
-  NSString *summary = [NSString stringWithFormat:@"Page %lu of %lu, zoom %.0f%%, annotations %lu",
+  NSString *toolSummary = _activeTool.length > 0
+    ? [NSString stringWithFormat:@", %@ tool active", _activeTool]
+    : @"";
+  NSString *summary = [NSString stringWithFormat:@"Page %lu of %lu, zoom %.0f%%, annotations %lu%@",
     (unsigned long)currentPage,
     (unsigned long)pageCount,
     _pdfView.scaleFactor * 100.0,
-    (unsigned long)_annotations.count];
+    (unsigned long)_annotations.count,
+    toolSummary];
   NSString *label = [NSString stringWithFormat:@"PDF canvas, %@", summary];
   [self setAccessibilityLabel:label];
   [_pdfView setAccessibilityLabel:label];

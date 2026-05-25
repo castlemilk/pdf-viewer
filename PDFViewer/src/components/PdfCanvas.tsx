@@ -29,6 +29,7 @@ import type {
 
 type NativePdfCanvasProps = {
   testID?: string;
+  accessible?: boolean;
   documentPath?: string;
   documentBookmark?: string;
   pageIndex: number;
@@ -37,6 +38,14 @@ type NativePdfCanvasProps = {
   annotations: Annotation[];
   searchHighlights: SearchHighlight[];
   signaturePreviewText?: string;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  accessibilityValue?: {
+    min: number;
+    max: number;
+    now: number;
+    text: string;
+  };
   onCanvasPress?: (event: {
     nativeEvent: CanvasAnnotationRequest;
   }) => void;
@@ -106,6 +115,19 @@ export function PdfCanvas({
   const scaledPageHeight = roundLayout(pageHeight * viewer.zoom);
   const pageGap = compact ? 18 : 26;
   const interactiveKind = canvasAnnotationKindForTool(viewer.activeTool);
+  const canvasA11yLabel = pdfCanvasAccessibilityLabel({
+    document,
+    pageIndex: viewer.pageIndex,
+    zoom: viewer.zoom,
+    annotations,
+    interactiveKind,
+  });
+  const canvasA11yValue = {
+    min: 1,
+    max: document.pageCount,
+    now: viewer.pageIndex + 1,
+    text: `Page ${viewer.pageIndex + 1} of ${document.pageCount}`,
+  };
   const signaturePreviewSize = annotationSizeForKind('signature');
   const gestureStartRef = useRef<{
     pageIndex: number;
@@ -136,6 +158,10 @@ export function PdfCanvas({
       <View style={styles.nativeCanvasFrame} testID="pdf-canvas-native-frame">
         <NativePdfCanvas
           testID="pdf-canvas-native"
+          accessible
+          accessibilityLabel={canvasA11yLabel}
+          accessibilityHint={nativeCanvasAccessibilityHint(interactiveKind)}
+          accessibilityValue={canvasA11yValue}
           documentPath={document.path}
           documentBookmark={document.bookmark}
           pageIndex={viewer.pageIndex}
@@ -164,8 +190,8 @@ export function PdfCanvas({
   return (
     <View
       testID="pdf-canvas-fallback"
-      accessible
-      accessibilityLabel="Demo PDF canvas"
+      accessible={false}
+      accessibilityLabel={canvasA11yLabel}
       onLayout={(event: LayoutChangeEvent) => {
         const {width, height} = event.nativeEvent.layout;
         setViewportSize({width, height});
@@ -176,6 +202,8 @@ export function PdfCanvas({
         ref={scrollRef}
         testID="pdf-demo-scroll"
         scrollEnabled={interactiveKind === undefined}
+        accessibilityLabel={canvasA11yLabel}
+        accessibilityValue={canvasA11yValue}
         style={styles.demoScroll}
         contentContainerStyle={[
           styles.demoScrollContent,
@@ -200,6 +228,13 @@ export function PdfCanvas({
           <View
             key={pageIndex}
             testID={`pdf-demo-page-frame-${pageIndex + 1}`}
+            accessible={false}
+            accessibilityLabel={pdfPageAccessibilityLabel(
+              document,
+              pageIndex,
+              annotations,
+              searchHighlights,
+            )}
             style={[
               styles.demoPageFrame,
               demoPageFrameStyle(
@@ -265,6 +300,13 @@ export function PdfCanvas({
             {interactiveKind ? (
               <View
                 testID={`pdf-demo-page-hitbox-${pageIndex + 1}`}
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel={pageToolActionAccessibilityLabel(
+                  interactiveKind,
+                  pageIndex,
+                )}
+                accessibilityHint={toolHintCopy(interactiveKind)}
                 onStartShouldSetResponder={() => true}
                 onMoveShouldSetResponder={() => true}
                 onResponderGrant={(event: GestureResponderEvent) => {
@@ -390,10 +432,79 @@ function ToolHint({kind}: {kind?: InteractiveAnnotationKind}) {
       pointerEvents="none"
       accessible
       accessibilityLabel={copy}
+      accessibilityLiveRegion="polite"
       style={styles.toolHint}>
       <Text style={styles.toolHintText}>{copy}</Text>
     </View>
   );
+}
+
+function pdfCanvasAccessibilityLabel({
+  document,
+  pageIndex,
+  zoom,
+  annotations,
+  interactiveKind,
+}: {
+  document: DocumentRecord;
+  pageIndex: number;
+  zoom: number;
+  annotations: Annotation[];
+  interactiveKind?: InteractiveAnnotationKind;
+}) {
+  const pageAnnotations = annotations.filter(
+    annotation => annotation.pageIndex === pageIndex,
+  );
+  const toolCopy = interactiveKind
+    ? `, ${annotationKindLabel(interactiveKind)} tool active`
+    : '';
+
+  return `${document.title} PDF canvas, page ${pageIndex + 1} of ${document.pageCount}, zoom ${Math.round(zoom * 100)}%, ${pageAnnotations.length} annotations on this page${toolCopy}`;
+}
+
+function pdfPageAccessibilityLabel(
+  document: DocumentRecord,
+  pageIndex: number,
+  annotations: Annotation[],
+  searchHighlights: SearchHighlight[],
+) {
+  const pageAnnotations = annotations.filter(
+    annotation => annotation.pageIndex === pageIndex,
+  );
+  const pageSearchHighlights = searchHighlights.filter(
+    highlight => highlight.pageIndex === pageIndex,
+  );
+
+  return `${document.title}, page ${pageIndex + 1} of ${document.pageCount}, ${pageAnnotations.length} annotations, ${pageSearchHighlights.length} search matches`;
+}
+
+function nativeCanvasAccessibilityHint(kind?: InteractiveAnnotationKind) {
+  if (!kind) {
+    return 'Scroll to read the PDF page';
+  }
+
+  return toolHintCopy(kind);
+}
+
+function pageToolActionAccessibilityLabel(
+  kind: InteractiveAnnotationKind,
+  pageIndex: number,
+) {
+  return `${annotationKindLabel(kind)} on page ${pageIndex + 1}`;
+}
+
+function annotationKindLabel(kind: InteractiveAnnotationKind) {
+  switch (kind) {
+    case 'signature':
+      return 'Signature';
+    case 'note':
+      return 'Note';
+    case 'drawing':
+      return 'Pen drawing';
+    case 'highlight':
+    default:
+      return 'Highlight';
+  }
 }
 
 const pageAspectRatio = 0.707;
@@ -609,6 +720,9 @@ function AnnotationOverlay({annotation}: {annotation: Annotation}) {
   return (
     <View
       testID={`pdf-annotation-${annotation.id}`}
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={annotationAccessibilityLabel(annotation)}
       style={[
         styles.annotation,
         annotation.kind === 'note' && styles.annotationNote,
@@ -639,12 +753,30 @@ function SearchHighlightOverlay({highlight}: {highlight: SearchHighlight}) {
     <View
       testID={`pdf-search-highlight-${highlight.id}`}
       pointerEvents="none"
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={`Search match on page ${highlight.pageIndex + 1}`}
       style={[
         styles.searchHighlight,
         annotationBoundsToFallbackStyle(highlight.bounds) as ViewStyle,
       ]}
     />
   );
+}
+
+function annotationAccessibilityLabel(annotation: Annotation) {
+  const kind = annotation.kind === 'note'
+    ? 'Note'
+    : annotation.kind === 'drawing'
+      ? 'Drawing'
+      : annotation.kind === 'signature'
+        ? 'Signature'
+        : annotation.kind === 'bookmark'
+          ? 'Bookmark'
+          : 'Highlight';
+  const copy = annotation.text ? `, ${annotation.text}` : '';
+
+  return `${kind} annotation on page ${annotation.pageIndex + 1}${copy}`;
 }
 
 const styles = StyleSheet.create({

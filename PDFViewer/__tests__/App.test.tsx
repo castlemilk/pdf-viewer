@@ -19,6 +19,17 @@ function pressSidebarItem(
   navItem.props.onPress();
 }
 
+function nativeButtonProps(
+  renderer: ReactTestRenderer.ReactTestRenderer,
+  testID: string,
+) {
+  return renderer.root.find(
+    instance =>
+      instance.props.testID === testID &&
+      instance.props.accessibilityRole === 'button',
+  ).props;
+}
+
 function visibleGridDocumentIds(renderer: ReactTestRenderer.ReactTestRenderer) {
   const grid = renderer.root.findByProps({testID: 'recent-grid'});
 
@@ -294,6 +305,13 @@ test('renders a compact mobile shell when requested', async () => {
     testID: 'mobile-doc-row-q4-market-analysis',
   });
 
+  expect(documentRow.props.accessibilityLabel).toContain(
+    'Q4 Market Analysis Report, Analytics Team, 32 pages',
+  );
+  expect(documentRow.props.accessibilityHint).toBe(
+    'Opens this document in the reader',
+  );
+
   await ReactTestRenderer.act(() => {
     documentRow.props.onPress();
   });
@@ -326,6 +344,15 @@ test('mobile viewer controls page, zoom, and highlight state', async () => {
   expect(
     renderer!.root.findByProps({testID: 'mobile-page-current'}).props.children,
   ).toBe(2);
+  expect(
+    renderer!.root.findByProps({testID: 'mobile-page-meter'}).props
+      .accessibilityValue,
+  ).toEqual({
+    min: 1,
+    max: 32,
+    now: 2,
+    text: 'Page 2 of 32',
+  });
   expect(
     renderer!.root.findByProps({testID: 'mobile-page-label'}).props.children[2]
       .props.children,
@@ -362,6 +389,12 @@ test('mobile viewer controls page, zoom, and highlight state', async () => {
     renderer!.root.findByProps({testID: 'mobile-highlight'}).props.onPress();
   });
 
+  expect(
+    nativeButtonProps(renderer!, 'mobile-highlight').accessibilityState,
+  ).toEqual({selected: true, disabled: false});
+  expect(
+    nativeButtonProps(renderer!, 'mobile-page-previous').accessibilityState,
+  ).toEqual({selected: false, disabled: true});
   expect(JSON.stringify(renderer?.toJSON())).toContain('pdf-tool-hint');
   expect(JSON.stringify(renderer?.toJSON())).not.toContain(
     'comment-item-local-highlight',
@@ -605,12 +638,28 @@ test('desktop document clicks open the reader and controls update visible state'
     'Viewer screen Q4 Market Analysis Report',
   );
   expect(JSON.stringify(renderer?.toJSON())).toContain('Page 1 of 32');
+  expect(
+    nativeButtonProps(renderer!, 'viewer-page-previous').accessibilityState,
+  ).toEqual({selected: false, disabled: true});
+  expect(
+    renderer!.root.findByProps({testID: 'viewer-page-input'}).props
+      .accessibilityValue,
+  ).toEqual({
+    min: 1,
+    max: 32,
+    now: 1,
+    text: 'Page 1 of 32',
+  });
 
   await ReactTestRenderer.act(() => {
     renderer!.root.findByProps({testID: 'viewer-page-next'}).props.onPress();
   });
 
   expect(JSON.stringify(renderer?.toJSON())).toContain('Page 2 of 32');
+  expect(
+    renderer!.root.findByProps({testID: 'viewer-page-input'}).props
+      .accessibilityValue.text,
+  ).toBe('Page 2 of 32');
 
   await ReactTestRenderer.act(() => {
     renderer!.root.findByProps({testID: 'viewer-zoom-in'}).props.onPress();
@@ -919,6 +968,12 @@ test('desktop sidebar exposes friendly navigation labels and counts', async () =
     renderer!.root.findByProps({testID: 'nav-library'}).props
       .accessibilityLabel,
   ).toBe('Library, 8 documents');
+  expect(
+    nativeButtonProps(renderer!, 'nav-library').accessibilityState,
+  ).toEqual({selected: true});
+  expect(
+    nativeButtonProps(renderer!, 'nav-recent').accessibilityState,
+  ).toEqual({selected: false});
   expect(
     renderer!.root.findByProps({testID: 'nav-favorites'}).props
       .accessibilityLabel,

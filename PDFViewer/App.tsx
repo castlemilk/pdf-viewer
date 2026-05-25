@@ -1,5 +1,6 @@
 import React, {useEffect, useMemo, useReducer, useRef, useState} from 'react';
 import {
+  AccessibilityInfo,
   Alert,
   Image,
   type TextProps,
@@ -126,6 +127,35 @@ const highlightColorOptions = [
   {id: 'gray', label: 'Gray highlight', color: '#CFCFCB'},
 ] as const;
 
+const controlHitSlop = {top: 8, right: 8, bottom: 8, left: 8};
+const compactControlHitSlop = {top: 10, right: 10, bottom: 10, left: 10};
+
+function announceForAccessibility(message: string) {
+  if (isJestRuntime()) {
+    return;
+  }
+
+  AccessibilityInfo.announceForAccessibility(message);
+}
+
+function pageAccessibilityValue(pageIndex: number, pageCount: number) {
+  const currentPage = pageIndex + 1;
+
+  return {
+    min: 1,
+    max: pageCount,
+    now: currentPage,
+    text: `Page ${currentPage} of ${pageCount}`,
+  };
+}
+
+function documentAccessibilityLabel(document: DocumentRecord) {
+  const progress = Math.round(document.progress * 100);
+  const progressCopy = progress > 0 ? `, ${progress}% read` : '';
+
+  return `${document.title}, ${document.author}, ${document.pageCount} pages, ${document.sizeMb.toFixed(1)} MB${progressCopy}`;
+}
+
 const initialAnnotations: Annotation[] = [
   createAnnotation({
     id: 'future-work-highlight',
@@ -217,6 +247,10 @@ function App({
   >(undefined);
   const lastViewerSearchKeyRef = useRef('');
   const localIdSequenceRef = useRef(0);
+  const lastPageAnnouncementRef = useRef({
+    documentId: selectedDocumentId,
+    pageIndex: viewerState.pageIndex,
+  });
   const initialPersistedSnapshotRef = useRef<
     ReturnType<typeof createPersistedAppState> | undefined
   >(undefined);
@@ -292,6 +326,34 @@ function App({
     [],
   );
 
+  useEffect(() => {
+    if (screenMode === 'library') {
+      return;
+    }
+
+    const previous = lastPageAnnouncementRef.current;
+    if (
+      previous.documentId === selectedDocument.id &&
+      previous.pageIndex === viewerState.pageIndex
+    ) {
+      return;
+    }
+
+    lastPageAnnouncementRef.current = {
+      documentId: selectedDocument.id,
+      pageIndex: viewerState.pageIndex,
+    };
+    announceForAccessibility(
+      `${selectedDocument.title}, page ${viewerState.pageIndex + 1} of ${selectedDocument.pageCount}`,
+    );
+  }, [
+    screenMode,
+    selectedDocument.id,
+    selectedDocument.pageCount,
+    selectedDocument.title,
+    viewerState.pageIndex,
+  ]);
+
   function updateViewer(action: Parameters<typeof viewerReducer>[1]) {
     setViewerState(current => viewerReducer(current, action));
   }
@@ -307,6 +369,7 @@ function App({
       },
     });
     setSelectedDocumentId(document.id);
+    announceForAccessibility(`Opened ${document.title}`);
     setViewerState(current =>
       current.documentId === document.id
         ? {
@@ -560,6 +623,7 @@ function App({
 
   function selectViewerTool(tool: ViewerTool) {
     updateViewer({type: 'setTool', tool});
+    announceForAccessibility(`${viewerToolLabel(tool)} selected`);
 
     if (tool === 'comment') {
       updateViewer({type: 'setInspectorTab', tab: 'comments'});
@@ -568,6 +632,12 @@ function App({
     if (tool === 'signature') {
       updateViewer({type: 'setInspectorTab', tab: 'info'});
     }
+  }
+
+  function selectHighlightColor(color: string) {
+    setHighlightColor(color);
+    const option = highlightColorOptions.find(item => item.color === color);
+    announceForAccessibility(`${option?.label ?? 'Highlight color'} selected`);
   }
 
   function nextLocalId(prefix: string) {
@@ -603,6 +673,9 @@ function App({
     });
 
     setAnnotations(current => [...current, annotation]);
+    announceForAccessibility(
+      `${annotationLabel(annotation)} added on page ${request.pageIndex + 1}`,
+    );
     if (request.kind === 'highlight') {
       setMobileAnnotationSheetOpen(true);
     }
@@ -631,6 +704,7 @@ function App({
     });
 
     setAnnotations(current => [...current, annotation]);
+    announceForAccessibility(`Bookmark added on page ${viewerState.pageIndex + 1}`);
     updateViewer({type: 'setInspectorTab', tab: 'comments'});
   }
 
@@ -767,7 +841,10 @@ function App({
         query,
       })[0];
       if (firstMatch) {
+        announceForAccessibility(`Opening first result, ${firstMatch.title}`);
         openDocument(firstMatch);
+      } else {
+        announceForAccessibility(`No library results for ${query}`);
       }
       return;
     }
@@ -785,8 +862,12 @@ function App({
           highlights: searchHighlightsFromMatches(selectedDocument, query, matches),
         });
         updateViewer({type: 'setPage', pageIndex: matches[0].pageIndex});
+        announceForAccessibility(
+          `${matches.length} ${matches.length === 1 ? 'match' : 'matches'} for ${query}`,
+        );
       } else {
         setSearchHighlightSet(undefined);
+        announceForAccessibility(`No matches for ${query}`);
       }
       return;
     }
@@ -799,8 +880,10 @@ function App({
         highlights: [demoMatch.highlight],
       });
       updateViewer({type: 'setPage', pageIndex: demoMatch.pageIndex});
+      announceForAccessibility(`1 match for ${query}`);
     } else {
       setSearchHighlightSet(undefined);
+      announceForAccessibility(`No matches for ${query}`);
     }
   }
 
@@ -997,7 +1080,7 @@ function App({
         onRestoreReviewFeatures={restoreReviewFeatures}
         onSelectSignature={setActiveSignatureId}
         onSaveSignature={saveSignature}
-        onSelectHighlightColor={setHighlightColor}
+        onSelectHighlightColor={selectHighlightColor}
       />
     );
   }
@@ -1009,7 +1092,7 @@ function App({
     <DesktopRoot
       style={styles.window}
       testID="app-window"
-      accessible
+      accessible={false}
       accessibilityLabel="App window">
       <TitleBar
         mode={screenMode}
@@ -1128,7 +1211,7 @@ function App({
           onSelectSignature={setActiveSignatureId}
           onSaveSignature={saveSignature}
           onExport={exportCurrentDocument}
-          onSelectHighlightColor={setHighlightColor}
+          onSelectHighlightColor={selectHighlightColor}
         />
       )}
     </DesktopRoot>
@@ -1330,7 +1413,8 @@ function MobileExperience({
     <MobileSafeArea>
       <View
         style={mobileStyles.shell}
-        testID="mobile-library-screen">
+        testID="mobile-library-screen"
+        accessibilityLabel="Mobile library screen">
         <View style={mobileStyles.header}>
           <View>
             <Text style={mobileStyles.appTitle}>Acacia</Text>
@@ -1341,6 +1425,7 @@ function MobileExperience({
           <TextInput
             testID="mobile-library-search-input"
             accessibilityLabel="Search documents"
+            accessibilityHint="Search by title, author, tag, or collection"
             value={filter.query}
             onChangeText={onQueryChange}
             onSubmitEditing={event => onSearchSubmit(event.nativeEvent.text)}
@@ -1497,7 +1582,8 @@ function MobileViewer({
     <MobileSafeArea>
       <View
         style={mobileStyles.shell}
-        testID="mobile-viewer-screen">
+        testID="mobile-viewer-screen"
+        accessibilityLabel={`Mobile viewer, ${document.title}`}>
         <MobileTopBar
           title={document.title}
           subtitle={`Page ${viewer.pageIndex + 1} of ${document.pageCount}`}
@@ -1509,6 +1595,8 @@ function MobileViewer({
           <MobileButton
             label="−"
             testID="mobile-zoom-out"
+            accessibilityLabel="Zoom out"
+            accessibilityHint="Decreases the PDF zoom level"
             onPress={() =>
               onViewerAction({type: 'setZoom', zoom: viewer.zoom - 0.1})
             }
@@ -1519,6 +1607,8 @@ function MobileViewer({
           <MobileButton
             label="+"
             testID="mobile-zoom-in"
+            accessibilityLabel="Zoom in"
+            accessibilityHint="Increases the PDF zoom level"
             onPress={() =>
               onViewerAction({type: 'setZoom', zoom: viewer.zoom + 0.1})
             }
@@ -1532,7 +1622,10 @@ function MobileViewer({
               label="Highlight"
               icon="highlighter"
               primary
+              active={viewer.activeTool === 'highlight'}
               testID="mobile-highlight"
+              accessibilityLabel="Highlight tool"
+              accessibilityHint="Selects the highlighter. Drag on the page or select text, then use Highlight."
               onPress={() => onSelectTool('highlight')}
             />
             {viewer.activeTool === 'highlight' ? (
@@ -1547,18 +1640,27 @@ function MobileViewer({
               label="Note"
               icon="comment"
               testID="mobile-note"
+              active={viewer.activeTool === 'comment'}
+              accessibilityLabel="Note tool"
+              accessibilityHint="Selects note placement on the page"
               onPress={() => onSelectTool('comment')}
             />
             <MobileButton
               label="Draw"
               icon="pen"
               testID="mobile-draw"
+              active={viewer.activeTool === 'pen'}
+              accessibilityLabel="Pen tool"
+              accessibilityHint="Selects freehand drawing on the page"
               onPress={() => onSelectTool('pen')}
             />
             <MobileButton
               label="Sign"
               icon="signature"
               testID="mobile-signature"
+              active={viewer.activeTool === 'signature'}
+              accessibilityLabel="Signature tool"
+              accessibilityHint="Selects signature stamping on the page"
               onPress={() => onSelectTool('signature')}
             />
           </ScrollView>
@@ -1585,6 +1687,9 @@ function MobileViewer({
               label="Previous"
               icon="‹"
               testID="mobile-page-previous"
+              accessibilityLabel="Previous page"
+              accessibilityHint="Moves to the previous page"
+              disabled={viewer.pageIndex <= 0}
               onPress={() =>
                 onViewerAction({
                   type: 'setPage',
@@ -1593,7 +1698,18 @@ function MobileViewer({
               }
             />
           </View>
-          <View testID="mobile-page-meter" style={mobileStyles.pageMeter}>
+          <View
+            testID="mobile-page-meter"
+            accessible
+            accessibilityRole="adjustable"
+            accessibilityLabel="Current page"
+            accessibilityValue={pageAccessibilityValue(
+              viewer.pageIndex,
+              viewer.pageCount,
+            )}
+            accessibilityHint="Use Previous page and Next page to move through the document"
+            accessibilityLiveRegion="polite"
+            style={mobileStyles.pageMeter}>
             <Text testID="mobile-page-label" style={mobileStyles.pageLabel}>
               <Text testID="mobile-page-current" style={mobileStyles.pageCurrent}>
                 {viewer.pageIndex + 1}
@@ -1608,6 +1724,9 @@ function MobileViewer({
               icon="›"
               primary
               testID="mobile-page-next"
+              accessibilityLabel="Next page"
+              accessibilityHint="Moves to the next page"
+              disabled={viewer.pageIndex >= viewer.pageCount - 1}
               onPress={() =>
                 onViewerAction({
                   type: 'setPage',
@@ -1806,6 +1925,8 @@ function MobileAnnotationSheet({
         ].map((color, index) => (
           <View
             key={color}
+            accessibilityElementsHidden
+            importantForAccessibility="no"
             style={[
               mobileStyles.annotationSwatch,
               {backgroundColor: color},
@@ -1871,7 +1992,13 @@ function MobileTopBar({
 }) {
   return (
     <View style={mobileStyles.topBar}>
-      <MobileButton label="Library" icon="▣" onPress={onBack} />
+        <MobileButton
+          label="Library"
+          icon="▣"
+          accessibilityLabel="Back to library"
+          accessibilityHint="Returns to the document library"
+          onPress={onBack}
+        />
       <View style={mobileStyles.topBarTitle}>
         <SelectableText
           numberOfLines={1}
@@ -1889,6 +2016,11 @@ function MobileTopBar({
           label={actionLabel}
           icon={actionLabel === 'Compare' ? '⇄' : undefined}
           primary
+          accessibilityHint={
+            actionLabel === 'Compare'
+              ? 'Opens a side-by-side document comparison'
+              : undefined
+          }
           onPress={onAction}
         />
       ) : null}
@@ -1917,8 +2049,11 @@ function MobileDocumentCard({
     <Pressable
       testID={`mobile-doc-card-${document.id}`}
       accessible
-      accessibilityLabel={`Open ${document.title}`}
+      accessibilityLabel={`Open ${documentAccessibilityLabel(document)}`}
+      accessibilityHint="Opens this document in the reader"
       accessibilityRole="button"
+      accessibilityState={{selected}}
+      hitSlop={controlHitSlop}
       style={[
         mobileStyles.documentCard,
         selected && mobileStyles.documentCardSelected,
@@ -1950,8 +2085,11 @@ function MobileDocumentRow({
     <Pressable
       testID={`mobile-doc-row-${document.id}`}
       accessible
-      accessibilityLabel={`Open ${document.title}`}
+      accessibilityLabel={`Open ${documentAccessibilityLabel(document)}`}
+      accessibilityHint="Opens this document in the reader"
       accessibilityRole="button"
+      accessibilityState={{selected}}
+      hitSlop={controlHitSlop}
       style={[mobileStyles.documentRow, selected && mobileStyles.rowSelected]}
       onPress={onPress}>
       <PdfCover document={document} />
@@ -2002,6 +2140,9 @@ function MobileTagButton({
       accessibilityLabel={
         count === undefined ? label : `${label}, ${formatDocumentCount(count)}`
       }
+      accessibilityHint="Filters the document list"
+      accessibilityState={{selected: active}}
+      hitSlop={controlHitSlop}
       style={[mobileStyles.tagButton, active && mobileStyles.tagButtonActive]}
       onPress={onPress}>
       {icon ? (
@@ -2037,13 +2178,21 @@ function MobileButton({
   label,
   icon,
   primary = false,
+  active = false,
+  disabled = false,
   testID,
+  accessibilityLabel,
+  accessibilityHint,
   onPress,
 }: {
   label: string;
   icon?: string;
   primary?: boolean;
+  active?: boolean;
+  disabled?: boolean;
   testID?: string;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
   onPress: () => void;
 }) {
   const iconName = iconNameFor(icon);
@@ -2053,10 +2202,16 @@ function MobileButton({
       testID={testID}
       accessible
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{selected: active, disabled}}
+      disabled={disabled}
+      hitSlop={controlHitSlop}
       style={({pressed}) => [
         mobileStyles.button,
         primary && mobileStyles.buttonPrimary,
+        active && mobileStyles.buttonActive,
+        disabled && mobileStyles.buttonDisabled,
         pressed && styles.buttonPressed,
       ]}
       onPress={onPress}>
@@ -2103,6 +2258,8 @@ function HighlightPalette({
   return (
     <View
       testID={`${testIDPrefix}-palette`}
+      accessible={false}
+      accessibilityLabel="Highlight colors"
       style={[styles.highlightPalette, compact && styles.highlightPaletteCompact]}>
       {highlightColorOptions.map(option => {
         const active = option.color === selectedColor;
@@ -2113,7 +2270,9 @@ function HighlightPalette({
             accessible
             accessibilityRole="button"
             accessibilityLabel={option.label}
+            accessibilityHint="Changes the highlight color"
             accessibilityState={{selected: active}}
+            hitSlop={compact ? compactControlHitSlop : controlHitSlop}
             {...tooltipProps(option.label)}
             style={({pressed}) => [
               styles.highlightSwatchButton,
@@ -2216,12 +2375,17 @@ function TitleBar({
       <View
         style={styles.searchBox}
         testID="search-box"
-        accessible
+        accessible={false}
         accessibilityLabel={isLibrary ? 'Library search box' : 'Document search box'}>
         <Icon name="search" size={14} color={acacia.color.ink4} style={styles.searchIconFrame} />
         <TextInput
           testID={isLibrary ? 'library-search-input' : 'document-search-input'}
           accessibilityLabel={isLibrary ? 'Library search' : 'Document search'}
+          accessibilityHint={
+            isLibrary
+              ? 'Searches titles, authors, tags, and collections'
+              : 'Searches text in the current document'
+          }
           value={query}
           onChangeText={onQueryChange}
           onSubmitEditing={event => onSearchSubmit(event.nativeEvent.text)}
@@ -2303,7 +2467,7 @@ function LibraryScreen({
     <View
       style={styles.body}
       testID="library-screen"
-      accessible
+      accessible={false}
       accessibilityLabel="Library screen">
       <Sidebar
         tags={stateTags}
@@ -2486,7 +2650,7 @@ function LibraryResultsSummary({
   return (
     <View
       testID="library-results-summary"
-      accessible
+      accessible={false}
       accessibilityLabel={`Library results summary: ${summaryText}`}
       style={styles.summaryStrip}>
       <View style={styles.summaryIcon}>
@@ -2541,13 +2705,15 @@ function LibraryEmptyState({
   return (
     <View
       testID="library-empty-state"
-      accessible
+      accessible={false}
       accessibilityLabel="No documents found"
       style={styles.emptyState}>
       <View style={styles.emptyStateIcon}>
         <Icon name="search" size={20} color={acacia.color.ink3} />
       </View>
-      <Text style={styles.emptyStateTitle}>No documents found</Text>
+      <Text accessible accessibilityRole="text" style={styles.emptyStateTitle}>
+        No documents found
+      </Text>
       <Text style={styles.emptyStateCopy}>
         Try a broader search, clear the active filters, or import a local PDF.
       </Text>
@@ -2591,7 +2757,7 @@ function CommandPalette({
   return (
     <View
       testID="command-palette"
-      accessible
+      accessible={false}
       accessibilityLabel={`Command palette for ${normalizedQuery}`}
       style={styles.commandOverlay}>
       <View style={styles.commandPanel}>
@@ -2631,7 +2797,10 @@ function CommandPalette({
             testID={`command-result-${document.id}`}
             accessible
             accessibilityRole="button"
-            accessibilityLabel={`Open ${document.title}`}
+            accessibilityLabel={`Open ${documentAccessibilityLabel(document)}`}
+            accessibilityHint="Opens this search result in the reader"
+            accessibilityState={{selected: index === 0}}
+            hitSlop={controlHitSlop}
             onPress={() => onOpenDocument(document)}
             style={[
               styles.commandResult,
@@ -2680,6 +2849,8 @@ function CommandAction({
       accessible
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint={`Runs ${label}`}
+      hitSlop={controlHitSlop}
       onPress={onPress}
       style={styles.commandAction}>
       <Icon name={icon} size={16} color={acacia.color.ink2} />
@@ -2746,7 +2917,7 @@ function ViewerScreen({
     <View
       style={styles.readerShell}
       testID="viewer-screen"
-      accessible
+      accessible={false}
       accessibilityLabel={`Viewer screen ${document.title}`}>
       <ReaderToolbar
         viewer={viewer}
@@ -2839,7 +3010,7 @@ function CompareScreen({
     <View
       style={styles.readerShell}
       testID="compare-screen"
-      accessible
+      accessible={false}
       accessibilityLabel={`Compare screen ${leftDocument.title}`}>
       <View style={styles.readerToolbar} testID="compare-toolbar">
         <ButtonChrome
@@ -2870,8 +3041,21 @@ function CompareScreen({
               onViewerAction({type: 'setPage', pageIndex: viewer.pageIndex - 1})
             }
             testID="compare-page-previous"
+            disabled={viewer.pageIndex <= 0}
+            accessibilityHint="Moves both comparison panes to the previous page"
           />
-          <View testID="compare-page-meter" style={styles.pageMeter}>
+          <View
+            testID="compare-page-meter"
+            accessible
+            accessibilityRole="adjustable"
+            accessibilityLabel="Current comparison page"
+            accessibilityValue={pageAccessibilityValue(
+              viewer.pageIndex,
+              leftDocument.pageCount,
+            )}
+            accessibilityHint="Use Previous page and Next page to move both comparison panes"
+            accessibilityLiveRegion="polite"
+            style={styles.pageMeter}>
             <Text style={styles.pageMeterCurrent}>{viewer.pageIndex + 1}</Text>
             <Text style={styles.pageMeterDivider}>/</Text>
             <Text style={styles.pageMeterTotal}>{leftDocument.pageCount}</Text>
@@ -2884,6 +3068,8 @@ function CompareScreen({
               onViewerAction({type: 'setPage', pageIndex: viewer.pageIndex + 1})
             }
             testID="compare-page-next"
+            disabled={viewer.pageIndex >= leftDocument.pageCount - 1}
+            accessibilityHint="Moves both comparison panes to the next page"
           />
         </View>
       </View>
@@ -3000,6 +3186,9 @@ function Sidebar({
           accessible
           accessibilityLabel={`Filter by ${tag.label}`}
           accessibilityRole="button"
+          accessibilityHint="Filters documents by tag"
+          accessibilityState={{selected: selectedTagId === tag.id}}
+          hitSlop={controlHitSlop}
           style={styles.sidebarTag}
           onPress={() => onSelectTag(tag.id)}>
           <View style={[styles.tagDot, toneStyle(tag.tone)]} />
@@ -3017,6 +3206,9 @@ function Sidebar({
         accessible
         accessibilityLabel="Show all tags"
         accessibilityRole="button"
+        accessibilityHint="Clears the selected tag filter"
+        accessibilityState={{selected: selectedTagId === 'all'}}
+        hitSlop={controlHitSlop}
         style={styles.sidebarTag}
         onPress={() => onSelectTag('all')}>
         <Icon name="tag" size={14} color={acacia.color.ink4} style={styles.sidebarIconFrame} />
@@ -3036,6 +3228,7 @@ function Sidebar({
           accessible
           accessibilityLabel="Add collection"
           accessibilityRole="button"
+          hitSlop={compactControlHitSlop}
           {...tooltipProps('Add a local collection')}
           onPress={onAddCollection}>
           <Text style={styles.addText}>＋</Text>
@@ -3048,6 +3241,9 @@ function Sidebar({
           accessible
           accessibilityLabel={`Collection ${collection.label} ${collection.count} documents`}
           accessibilityRole="button"
+          accessibilityHint="Filters documents by collection"
+          accessibilityState={{selected: selectedCollectionId === collection.id}}
+          hitSlop={controlHitSlop}
           style={styles.collectionItem}
           onPress={() => onSelectCollection(collection.id)}>
           <Text
@@ -3066,6 +3262,9 @@ function Sidebar({
         accessible
         accessibilityLabel="Show all collections"
         accessibilityRole="button"
+        accessibilityHint="Clears the selected collection filter"
+        accessibilityState={{selected: selectedCollectionId === 'all'}}
+        hitSlop={controlHitSlop}
         style={styles.collectionItem}
         onPress={() => onSelectCollection('all')}>
         <Text
@@ -3112,7 +3311,7 @@ function FilterPanel({
     <View
       testID="filter-panel"
       style={styles.filterPanel}
-      accessible
+      accessible={false}
       accessibilityLabel="Library filters">
       <View style={styles.filterGroup}>
         <Text style={styles.filterLabel}>Tags</Text>
@@ -3196,6 +3395,9 @@ function NavItem({
         (count === undefined ? label : `${label}, ${formatDocumentCount(count)}`)
       }
       accessibilityRole="button"
+      accessibilityHint="Changes the library section"
+      accessibilityState={{selected: active}}
+      hitSlop={controlHitSlop}
       style={[styles.navItem, active && styles.navItemActive]}
       onPress={onPress}>
       {iconName ? (
@@ -3239,8 +3441,11 @@ function DocumentCard({
     <Pressable
       testID={`doc-card-${document.id}`}
       accessible
-      accessibilityLabel={`Document card ${document.title}`}
+      accessibilityLabel={`Open ${documentAccessibilityLabel(document)}`}
+      accessibilityHint="Opens this document in the reader. Long press selects it for the details panel."
       accessibilityRole="button"
+      accessibilityState={{selected}}
+      hitSlop={controlHitSlop}
       style={[styles.documentCard, selected && styles.documentCardSelected]}
       onPress={onPress}
       onLongPress={onOpen}>
@@ -3272,8 +3477,11 @@ function DocumentRow({
     <Pressable
       testID={`doc-row-${document.id}`}
       accessible
-      accessibilityLabel={`Document row ${document.title}`}
+      accessibilityLabel={`Open ${documentAccessibilityLabel(document)}`}
+      accessibilityHint="Opens this document in the reader. Long press selects it for the details panel."
       accessibilityRole="button"
+      accessibilityState={{selected}}
+      hitSlop={controlHitSlop}
       style={[styles.tableRow, selected && styles.tableRowSelected]}
       onPress={onPress}
       onLongPress={onOpen}>
@@ -3454,14 +3662,15 @@ function ReaderToolbar({
         accessibilityLabel="Back to library"
         tooltip="Back to library"
       />
-      <ButtonChrome
-        label="Zoom out"
-        icon="−"
-        compact
-        onPress={() => onAction({type: 'setZoom', zoom: viewer.zoom - 0.1})}
-        testID="viewer-zoom-out"
-        accessibilityLabel="Zoom out"
-      />
+        <ButtonChrome
+          label="Zoom out"
+          icon="−"
+          compact
+          onPress={() => onAction({type: 'setZoom', zoom: viewer.zoom - 0.1})}
+          testID="viewer-zoom-out"
+          accessibilityLabel="Zoom out"
+          accessibilityHint="Decreases the PDF zoom level"
+        />
       <Text testID="viewer-zoom-label" style={styles.zoomText}>
         {Math.round(viewer.zoom * 100)}%
       </Text>
@@ -3469,10 +3678,11 @@ function ReaderToolbar({
         label="Zoom in"
         icon="+"
         compact
-        onPress={() => onAction({type: 'setZoom', zoom: viewer.zoom + 0.1})}
-        testID="viewer-zoom-in"
-        accessibilityLabel="Zoom in"
-      />
+          onPress={() => onAction({type: 'setZoom', zoom: viewer.zoom + 0.1})}
+          testID="viewer-zoom-in"
+          accessibilityLabel="Zoom in"
+          accessibilityHint="Increases the PDF zoom level"
+        />
       <View style={styles.pageStepper}>
         <ButtonChrome
           label="Previous page"
@@ -3483,11 +3693,22 @@ function ReaderToolbar({
           }
           testID="viewer-page-previous"
           accessibilityLabel="Previous page"
+          accessibilityHint="Moves to the previous page"
+          disabled={viewer.pageIndex <= 0}
         />
-        <View testID="viewer-page-meter" style={styles.pageMeter}>
+        <View
+          testID="viewer-page-meter"
+          accessible={false}
+          style={styles.pageMeter}>
           <TextInput
             testID="viewer-page-input"
             accessibilityLabel="Current page"
+            accessibilityValue={pageAccessibilityValue(
+              viewer.pageIndex,
+              viewer.pageCount,
+            )}
+            accessibilityHint={`Enter a page number from 1 to ${viewer.pageCount}`}
+            accessibilityLiveRegion="polite"
             style={styles.pageInput}
             value={`${viewer.pageIndex + 1}`}
             onChangeText={value => {
@@ -3509,6 +3730,8 @@ function ReaderToolbar({
           }
           testID="viewer-page-next"
           accessibilityLabel="Next page"
+          accessibilityHint="Moves to the next page"
+          disabled={viewer.pageIndex >= viewer.pageCount - 1}
         />
       </View>
       <View style={styles.toolGroup}>
@@ -3522,6 +3745,7 @@ function ReaderToolbar({
             active={viewer.activeTool === tool.value}
             testID={`tool-${tool.value}`}
             accessibilityLabel={`${tool.label} tool`}
+            accessibilityHint={`Selects the ${tool.label.toLowerCase()} tool`}
             tooltip={`${tool.label} tool`}
           />
         ))}
@@ -3632,7 +3856,7 @@ function ThumbnailRail({
     <View
       style={styles.thumbnailRail}
       testID={compare ? 'compare-thumbnail-rail' : 'thumbnail-rail'}
-      accessible
+      accessible={false}
       accessibilityLabel={compare ? 'Compare thumbnail rail' : 'Thumbnail rail'}>
       <Text style={styles.inspectorCaption}>Pages</Text>
       <ScrollView>
@@ -3643,6 +3867,9 @@ function ThumbnailRail({
             accessible
             accessibilityLabel={`Page ${page + 1} thumbnail`}
             accessibilityRole="button"
+            accessibilityHint="Moves the reader to this page"
+            accessibilityState={{selected: pageIndex === page}}
+            hitSlop={controlHitSlop}
             style={[
               styles.thumbnail,
               pageIndex === page && styles.thumbnailActive,
@@ -3780,6 +4007,8 @@ function ViewerInspector({
             accessible
             accessibilityLabel={`${capitalize(tab)} tab`}
             accessibilityRole="button"
+            accessibilityState={{selected: viewer.inspectorTab === tab}}
+            hitSlop={controlHitSlop}
             style={[
               styles.inspectorTab,
               viewer.inspectorTab === tab && styles.inspectorTabActive,
@@ -3965,6 +4194,9 @@ function OutlinePanel({
           accessible
           accessibilityRole="button"
           accessibilityLabel={`${row.label}, page ${row.pageIndex + 1}`}
+          accessibilityHint="Moves the reader to this section"
+          accessibilityState={{selected: currentPageIndex === row.pageIndex}}
+          hitSlop={controlHitSlop}
           onPress={() => onPage(row.pageIndex)}
           style={[
             styles.outlineRow,
@@ -4090,9 +4322,8 @@ function ReviewFeatureGate({
   return (
     <Pressable
       testID="comments-paywall"
-      accessible
+      accessible={false}
       accessibilityLabel="Sign in to unlock comments"
-      accessibilityRole="button"
       onPress={onUnlock}
       style={[styles.paywallCard, mobile && mobileStyles.paywallCard]}>
       <Text style={styles.paywallIcon}>💬</Text>
@@ -4189,6 +4420,8 @@ function SignatureManager({
             accessible
             accessibilityLabel={`Use ${signature.label}`}
             accessibilityRole="button"
+            accessibilityState={{selected: signature.id === activeSignatureId}}
+            hitSlop={controlHitSlop}
             {...tooltipProps(`Use ${signature.label}`)}
             style={[
               styles.signatureChip,
@@ -4321,6 +4554,24 @@ function countAnnotationsByKind(
   return annotations.filter(annotation => annotation.kind === kind).length;
 }
 
+function viewerToolLabel(tool: ViewerTool) {
+  switch (tool) {
+    case 'highlight':
+      return 'Highlight tool';
+    case 'comment':
+      return 'Comment tool';
+    case 'pen':
+      return 'Pen tool';
+    case 'signature':
+      return 'Signature tool';
+    case 'pan':
+      return 'Pan tool';
+    case 'select':
+    default:
+      return 'Select tool';
+  }
+}
+
 function annotationCopyForRequest(
   request: CanvasAnnotationRequest,
   signatureValue?: string,
@@ -4402,7 +4653,7 @@ function BottomScrubber({
     <View
       style={styles.bottomBar}
       testID="bottom-scrubber"
-      accessible
+      accessible={false}
       accessibilityLabel={pageLabel}>
       <Text
         style={styles.bottomLabel}
@@ -4419,6 +4670,8 @@ function BottomScrubber({
             accessible
             accessibilityLabel={`Go to page ${step + 1}`}
             accessibilityRole="button"
+            accessibilityState={{selected: step === viewer.pageIndex}}
+            hitSlop={compactControlHitSlop}
             style={[
               styles.scrubberTick,
               step <= viewer.pageIndex && styles.scrubberTickActive,
@@ -4503,8 +4756,9 @@ function ActionRow({
       testID={testID}
       accessible
       accessibilityLabel={label}
-      accessibilityHint={label}
+      accessibilityHint={`Runs ${label}`}
       {...tooltipProps(label)}
+      hitSlop={controlHitSlop}
       accessibilityRole="button">
       <View style={styles.actionTextGroup}>
         {icon ? (
@@ -4534,10 +4788,12 @@ function ButtonChrome({
   primary = false,
   quiet = false,
   active = false,
+  disabled = false,
   compact = false,
   flush = false,
   testID,
   accessibilityLabel,
+  accessibilityHint,
   tooltip,
 }: {
   label: string;
@@ -4546,10 +4802,12 @@ function ButtonChrome({
   primary?: boolean;
   quiet?: boolean;
   active?: boolean;
+  disabled?: boolean;
   compact?: boolean;
   flush?: boolean;
   testID?: string;
   accessibilityLabel?: string;
+  accessibilityHint?: string;
   tooltip?: string;
 }) {
   const iconName = iconNameFor(icon);
@@ -4559,8 +4817,11 @@ function ButtonChrome({
       testID={testID}
       accessible
       accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityHint={tooltip ?? accessibilityLabel ?? label}
+      accessibilityHint={accessibilityHint ?? tooltip}
       accessibilityRole="button"
+      accessibilityState={{selected: active, disabled}}
+      disabled={disabled}
+      hitSlop={compact ? compactControlHitSlop : controlHitSlop}
       {...tooltipProps(tooltip ?? accessibilityLabel ?? label)}
       style={({pressed}) => [
         styles.button,
@@ -4569,6 +4830,7 @@ function ButtonChrome({
         active && styles.buttonActive,
         compact && styles.buttonCompact,
         flush && styles.buttonFlush,
+        disabled && styles.buttonDisabled,
         pressed && styles.buttonPressed,
       ]}
       onPress={onPress}>
@@ -4695,6 +4957,8 @@ function SegmentedControl({
           accessible
           accessibilityRole="button"
           accessibilityLabel={option.label}
+          accessibilityState={{selected: value === option.value}}
+          hitSlop={controlHitSlop}
           style={[
             styles.segment,
             value === option.value && styles.segmentActive,
@@ -4738,6 +5002,8 @@ function TagLike({
       accessible
       accessibilityLabel={label}
       accessibilityRole="button"
+      accessibilityState={{selected: active}}
+      hitSlop={controlHitSlop}
       onPress={onPress}
       style={[styles.commentFilter, active && styles.commentFilterActive]}>
       <Text style={[styles.commentFilterText, active && styles.commentFilterTextActive]}>
@@ -6030,6 +6296,9 @@ const styles = StyleSheet.create({
     borderColor: acacia.color.ink,
     backgroundColor: acacia.color.sunken,
   },
+  buttonDisabled: {
+    opacity: 0.4,
+  },
   buttonPressed: {
     opacity: 0.74,
   },
@@ -7209,6 +7478,13 @@ const mobileStyles = StyleSheet.create({
   buttonPrimary: {
     borderColor: acacia.color.ink,
     backgroundColor: acacia.color.ink,
+  },
+  buttonActive: {
+    borderColor: acacia.color.ink,
+    backgroundColor: acacia.color.sunken,
+  },
+  buttonDisabled: {
+    opacity: 0.42,
   },
   buttonText: {
     color: '#303948',

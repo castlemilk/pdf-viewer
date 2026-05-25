@@ -73,6 +73,8 @@ type IconProps = {
   color?: string;
   stroke?: number;
   style?: StyleProp<ViewStyle>;
+  decorative?: boolean;
+  accessibilityLabel?: string;
 };
 
 function createIconXml(path: string, size: number, color: string, stroke: number) {
@@ -87,6 +89,8 @@ function IconComponent({
   color = '#111110',
   stroke = 1.5,
   style,
+  decorative = true,
+  accessibilityLabel,
 }: IconProps) {
   const path = ICON_PATHS[name];
   const xml = useMemo(
@@ -98,7 +102,14 @@ function IconComponent({
     return (
       <View
         testID={`icon-missing-${String(name)}`}
-        accessibilityLabel={`Missing icon ${String(name)}`}
+        accessible={!decorative}
+        accessibilityLabel={
+          decorative
+            ? undefined
+            : accessibilityLabel ?? `Missing icon ${String(name)}`
+        }
+        accessibilityElementsHidden={decorative}
+        importantForAccessibility={decorative ? 'no' : 'auto'}
         style={[styles.missing, {width: size, height: size}, style]}
       />
     );
@@ -107,7 +118,12 @@ function IconComponent({
   return (
     <SvgXml
       testID={`icon-${name}`}
-      accessibilityLabel={`${name} icon`}
+      accessible={!decorative}
+      accessibilityLabel={
+        decorative ? undefined : accessibilityLabel ?? `${name} icon`
+      }
+      accessibilityElementsHidden={decorative}
+      importantForAccessibility={decorative ? 'no' : 'auto'}
       xml={xml}
       width={size}
       height={size}

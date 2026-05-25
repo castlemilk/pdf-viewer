@@ -13,10 +13,35 @@ test('renders the Acacia SVG icon registry through a stable React Native compone
   expect(ICON_PATHS.search).toContain('circle');
   expect(renderer.root.findByProps({testID: 'icon-search'}).props).toEqual(
     expect.objectContaining({
-      accessibilityLabel: 'search icon',
+      accessible: false,
+      accessibilityLabel: undefined,
+      importantForAccessibility: 'no',
     }),
   );
   expect(JSON.stringify(renderer.toJSON())).toContain('#111110');
+});
+
+test('can expose an SVG icon when the icon itself carries meaning', () => {
+  let renderer!: ReactTestRenderer.ReactTestRenderer;
+  act(() => {
+    renderer = ReactTestRenderer.create(
+      <Icon
+        name="search"
+        size={18}
+        color="#111110"
+        decorative={false}
+        accessibilityLabel="Search"
+      />,
+    );
+  });
+
+  expect(renderer.root.findByProps({testID: 'icon-search'}).props).toEqual(
+    expect.objectContaining({
+      accessible: true,
+      accessibilityLabel: 'Search',
+      importantForAccessibility: 'auto',
+    }),
+  );
 });
 
 test('uses a visible missing-icon fallback instead of silently rendering nothing', () => {

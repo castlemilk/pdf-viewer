@@ -27,7 +27,9 @@ describe('iOS native PDF canvas behavior', () => {
     expect(source).toContain('visibleAnnotationBoundsForRequestedBounds');
     expect(source).toContain('annotation.quadrilateralPoints');
     expect(source).toContain('self.accessibilityValue');
+    expect(source).toContain('self.accessibilityLabel');
     expect(source).toContain('annotations %lu');
+    expect(source).toContain('tool active');
   });
 
   it('supports native ink drawing gestures instead of square stamps', () => {

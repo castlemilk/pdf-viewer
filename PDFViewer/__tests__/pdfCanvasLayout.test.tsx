@@ -21,6 +21,10 @@ test('fallback PDF canvas fits inside the desktop reader viewport', async () => 
   });
 
   const canvas = renderer!.root.findByProps({testID: 'pdf-canvas-fallback'});
+  expect(canvas.props.accessible).toBe(false);
+  expect(canvas.props.accessibilityLabel).toContain(
+    `${document.title} PDF canvas, page 1 of ${document.pageCount}`,
+  );
   expect(StyleSheet.flatten(canvas.props.style)).toEqual(
     expect.objectContaining({
       flex: 1,
@@ -31,6 +35,12 @@ test('fallback PDF canvas fits inside the desktop reader viewport', async () => 
   );
 
   const scroll = renderer!.root.findByProps({testID: 'pdf-demo-scroll'});
+  expect(scroll.props.accessibilityValue).toEqual({
+    min: 1,
+    max: document.pageCount,
+    now: 1,
+    text: `Page 1 of ${document.pageCount}`,
+  });
   expect(StyleSheet.flatten(scroll.props.style)).toEqual(
     expect.objectContaining({
       flex: 1,
@@ -103,6 +113,10 @@ test('fallback PDF canvas positions annotations from canonical page coordinates'
   const highlight = renderer!.root.findByProps({
     testID: 'pdf-annotation-test-highlight',
   });
+
+  expect(highlight.props.accessibilityLabel).toBe(
+    'Highlight annotation on page 1, A precisely placed highlight',
+  );
 
   expect(StyleSheet.flatten(highlight.props.style)).toEqual(
     expect.objectContaining({
@@ -415,6 +429,15 @@ test('fallback PDF canvas creates highlight annotations at the clicked page posi
       nativeEvent: {locationX: 190, locationY: 260},
     });
   });
+
+  expect(
+    renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props
+      .accessibilityLabel,
+  ).toBe('Highlight on page 1');
+  expect(
+    renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props
+      .accessibilityHint,
+  ).toContain('Highlighter ready');
 
   expect(onCreateAnnotation).toHaveBeenCalledWith(
     expect.objectContaining({
