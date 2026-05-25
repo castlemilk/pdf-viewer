@@ -39,4 +39,12 @@ describe('iOS native PDF canvas behavior', () => {
     expect(source).toContain('PDFAnnotationSubtypeInk');
     expect(source).toContain('addBezierPath');
   });
+
+  it('exposes native annotations as accessibility elements on the active page', () => {
+    expect(source).toContain('updateAnnotationAccessibilityViews');
+    expect(source).toContain('AcaciaAnnotationAccessibilityIdentifierForKind');
+    expect(source).toContain('pdf-annotation-signature');
+    expect(source).toContain('AcaciaAnnotationAccessibilityLabel');
+    expect(source).toContain('UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification');
+  });
 });

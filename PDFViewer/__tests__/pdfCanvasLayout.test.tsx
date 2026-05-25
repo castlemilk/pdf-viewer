@@ -85,6 +85,11 @@ test('fallback PDF canvas fits inside the desktop reader viewport', async () => 
   expect(pageStyle.minHeight).toBeUndefined();
 
   const chart = renderer!.root.findByProps({testID: 'pdf-canvas-chart'});
+  expect(chart.props.accessible).toBe(true);
+  expect(chart.props.accessibilityRole).toBe('image');
+  expect(chart.props.accessibilityLabel).toBe(
+    'Quarterly growth chart, Q1 3.1%, Q2 4.0%, Q3 5.2%, Q4 6.1%, Q5 7.3%',
+  );
   expect(StyleSheet.flatten(chart.props.style)).toEqual(
     expect.objectContaining({
       height: 132,
@@ -93,12 +98,77 @@ test('fallback PDF canvas fits inside the desktop reader viewport', async () => 
   );
 
   const donut = renderer!.root.findByProps({testID: 'pdf-canvas-donut'});
+  expect(donut.props.accessible).toBe(true);
+  expect(donut.props.accessibilityRole).toBe('image');
+  expect(donut.props.accessibilityLabel).toBe(
+    'Market share chart, Technology 34%, Healthcare 28%, Consumer Goods 22%, Financial Services 16%',
+  );
   expect(StyleSheet.flatten(donut.props.style)).toEqual(
     expect.objectContaining({
       width: 96,
       height: 96,
     }),
   );
+});
+
+test('fallback PDF canvas supports screen reader activation for active annotation tools', async () => {
+  const document = demoDocuments[0];
+  const viewer = {
+    ...createInitialViewerState(document.id, document.pageCount),
+    activeTool: 'highlight' as const,
+  };
+  const onCreateAnnotation = jest.fn();
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(
+      <PdfCanvas
+        document={document}
+        viewer={viewer}
+        annotations={[]}
+        onCreateAnnotation={onCreateAnnotation}
+      />,
+    );
+  });
+
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'pdf-canvas-fallback'}).props.onLayout({
+      nativeEvent: {layout: {width: 760, height: 580}},
+    });
+  });
+
+  const canvas = renderer!.root.findByProps({testID: 'pdf-canvas-fallback'});
+  expect(canvas.props.accessibilityActions).toContainEqual({
+    name: 'activate',
+    label: 'Add highlight at page center',
+  });
+
+  await ReactTestRenderer.act(() => {
+    canvas.props.onAccessibilityAction({
+      nativeEvent: {actionName: 'activate'},
+    });
+  });
+
+  expect(onCreateAnnotation).toHaveBeenCalledWith(
+    expect.objectContaining({
+      kind: 'highlight',
+      pageIndex: 0,
+      bounds: expect.objectContaining({
+        x: expect.any(Number),
+        y: expect.any(Number),
+        width: expect.any(Number),
+        height: expect.any(Number),
+      }),
+    }),
+  );
+
+  const pageHitbox = renderer!.root.findByProps({
+    testID: 'pdf-demo-page-hitbox-1',
+  });
+  expect(pageHitbox.props.accessibilityActions).toContainEqual({
+    name: 'activate',
+    label: 'Add highlight at page center',
+  });
 });
 
 test('fallback PDF canvas positions annotations from canonical page coordinates', async () => {

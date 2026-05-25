@@ -1389,6 +1389,7 @@ function App({
             documents={commandPaletteDocuments}
             onOpenFile={openImportedPdf}
             onAddCollection={addCollection}
+            onClose={() => setFilter(current => ({...current, query: ''}))}
             onAsk={() =>
               showLocalAction(
                 'Ask across library',
@@ -3146,6 +3147,7 @@ function CommandPalette({
   documents,
   onOpenFile,
   onAddCollection,
+  onClose,
   onAsk,
   onOpenDocument,
 }: {
@@ -3153,6 +3155,7 @@ function CommandPalette({
   documents: DocumentRecord[];
   onOpenFile: () => void;
   onAddCollection: () => void;
+  onClose: () => void;
   onAsk: () => void;
   onOpenDocument: (document: DocumentRecord) => void;
 }) {
@@ -3163,6 +3166,9 @@ function CommandPalette({
       testID="command-palette"
       accessible={false}
       accessibilityLabel={`Command palette for ${normalizedQuery}`}
+      accessibilityViewIsModal
+      accessibilityLanguage="en"
+      onAccessibilityEscape={onClose}
       style={styles.commandOverlay}>
       <View style={styles.commandPanel}>
         <View style={styles.commandSearchRow}>
@@ -3172,6 +3178,17 @@ function CommandPalette({
             <Icon name="filter" size={13} color={acacia.color.ink3} />
             <Text style={styles.commandScopeText}>Briefs</Text>
           </View>
+          <Pressable
+            testID="command-palette-close"
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Close command palette"
+            accessibilityHint="Closes search results"
+            hitSlop={controlHitSlop}
+            onPress={onClose}
+            style={styles.commandClose}>
+            <Icon name="close" size={15} color={acacia.color.ink2} />
+          </Pressable>
         </View>
         <Text style={styles.commandSectionLabel}>Suggested Actions</Text>
         <CommandAction
@@ -5027,7 +5044,7 @@ function CommentsPanel({annotations}: {annotations: Annotation[]}) {
               style={styles.commentItem}
               testID={testID}
               accessible
-              accessibilityLabel={annotation.text ?? 'Review this annotation'}>
+              accessibilityLabel={commentAnnotationAccessibilityLabel(annotation)}>
               <View style={[styles.annotationTypeDot, {backgroundColor: annotation.color}]}>
                 <Text style={styles.annotationTypeIcon}>
                   {annotationIcon(annotation)}
@@ -5051,6 +5068,12 @@ function CommentsPanel({annotations}: {annotations: Annotation[]}) {
       )}
     </ScrollView>
   );
+}
+
+function commentAnnotationAccessibilityLabel(annotation: Annotation) {
+  const copy = annotation.text ? `, ${annotation.text}` : '';
+
+  return `${annotationLabel(annotation)} annotation on page ${annotation.pageIndex + 1}${copy}`;
 }
 
 function commentFilterMatchesAnnotation(
@@ -7533,6 +7556,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  commandClose: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    marginLeft: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   commandScopeText: {
     color: acacia.color.ink2,

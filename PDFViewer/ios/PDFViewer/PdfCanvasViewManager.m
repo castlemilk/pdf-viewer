@@ -44,6 +44,62 @@ static NSString *AcaciaAnnotationSubtypeForKind(NSString *kind)
   return PDFAnnotationSubtypeHighlight;
 }
 
+static NSString *AcaciaAnnotationAccessibilityIdentifierForKind(NSString *kind)
+{
+  if ([kind isEqualToString:@"signature"]) {
+    return @"pdf-annotation-signature";
+  }
+  if ([kind isEqualToString:@"note"]) {
+    return @"pdf-annotation-note";
+  }
+  if ([kind isEqualToString:@"drawing"]) {
+    return @"pdf-annotation-drawing";
+  }
+  if ([kind isEqualToString:@"highlight"]) {
+    return @"pdf-annotation-highlight";
+  }
+  return @"pdf-annotation";
+}
+
+static NSString *AcaciaAnnotationKindAccessibilityLabel(NSString *kind)
+{
+  if ([kind isEqualToString:@"signature"]) {
+    return @"Signature";
+  }
+  if ([kind isEqualToString:@"note"]) {
+    return @"Note";
+  }
+  if ([kind isEqualToString:@"drawing"]) {
+    return @"Drawing";
+  }
+  if ([kind isEqualToString:@"highlight"]) {
+    return @"Highlight";
+  }
+  return @"Annotation";
+}
+
+static NSString *AcaciaAnnotationAccessibilityLabel(NSDictionary *annotationInfo)
+{
+  NSString *kind = [RCTConvert NSString:annotationInfo[@"kind"]];
+  NSString *text = [RCTConvert NSString:annotationInfo[@"text"]];
+  if ([kind isEqualToString:@"signature"] && text.length > 0) {
+    return text;
+  }
+
+  NSNumber *pageIndex = [RCTConvert NSNumber:annotationInfo[@"pageIndex"]];
+  NSUInteger pageNumber = pageIndex == nil ? 1 : pageIndex.unsignedIntegerValue + 1;
+  NSString *kindLabel = AcaciaAnnotationKindAccessibilityLabel(kind);
+  if (text.length > 0) {
+    return [NSString stringWithFormat:@"%@ annotation on page %lu, %@",
+                                      kindLabel,
+                                      (unsigned long)pageNumber,
+                                      text];
+  }
+  return [NSString stringWithFormat:@"%@ annotation on page %lu",
+                                    kindLabel,
+                                    (unsigned long)pageNumber];
+}
+
 static NSURL *AcaciaDocumentURLForPath(NSString *path)
 {
   if (path.length == 0) {
@@ -422,6 +478,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   PDFSelection *_pendingTextSelection;
   UIPanGestureRecognizer *_highlightPanRecognizer;
   UIPanGestureRecognizer *_drawingPanRecognizer;
+  NSMutableArray<UIView *> *_annotationAccessibilityViews;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -457,6 +514,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
     _drawingPanRecognizer.delegate = self;
     _drawingPanRecognizer.cancelsTouchesInView = YES;
     [self addGestureRecognizer:_drawingPanRecognizer];
+    _annotationAccessibilityViews = [NSMutableArray array];
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(pdfSelectionChanged:)
                                                  name:PDFViewSelectionChangedNotification
@@ -487,6 +545,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   _annotationOverlayView.frame = self.bounds;
   [self applyZoom];
   [self goToCurrentPage];
+  [self updateAnnotationAccessibilityViews];
 }
 
 - (void)setDocumentPath:(NSString *)documentPath
@@ -528,6 +587,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   }
   [_annotationOverlayView setNeedsDisplay];
   [self refreshAccessibilityValue];
+  [self updateAnnotationAccessibilityViews];
 }
 
 - (void)setZoom:(NSNumber *)zoom
@@ -572,6 +632,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   _pdfView.scaleFactor = targetScale;
   [_annotationOverlayView setNeedsDisplay];
   [self refreshAccessibilityValue];
+  [self updateAnnotationAccessibilityViews];
 }
 
 - (void)setAnnotations:(NSArray *)annotations
@@ -579,6 +640,7 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
   _annotations = [annotations copy];
   _annotationOverlayView.annotations = _annotations;
   [self applyAnnotations];
+  [self updateAnnotationAccessibilityViews];
 }
 
 - (void)setSearchHighlights:(NSArray *)searchHighlights
@@ -1081,6 +1143,66 @@ static UIBezierPath *AcaciaBezierPathForInkPoints(NSArray *points, PDFPage *page
 
   [self refreshAccessibilityValue];
   [_annotationOverlayView setNeedsDisplay];
+}
+
+- (void)updateAnnotationAccessibilityViews
+{
+  for (UIView *view in _annotationAccessibilityViews) {
+    [view removeFromSuperview];
+  }
+  [_annotationAccessibilityViews removeAllObjects];
+
+  PDFDocument *document = _pdfView.document;
+  PDFPage *currentPage = _pdfView.currentPage;
+  if (document == nil || currentPage == nil || _annotations.count == 0) {
+    return;
+  }
+
+  NSUInteger currentPageIndex = [document indexForPage:currentPage];
+  for (NSDictionary *annotationInfo in _annotations) {
+    NSNumber *pageIndex = [RCTConvert NSNumber:annotationInfo[@"pageIndex"]];
+    if (pageIndex == nil || pageIndex.unsignedIntegerValue != currentPageIndex) {
+      continue;
+    }
+
+    PDFPage *page = [document pageAtIndex:pageIndex.unsignedIntegerValue];
+    NSDictionary *boundsInfo = [RCTConvert NSDictionary:annotationInfo[@"bounds"]];
+    if (page == nil || boundsInfo == nil) {
+      continue;
+    }
+
+    CGRect requestedBounds = CGRectMake(
+      [RCTConvert CGFloat:boundsInfo[@"x"]],
+      [RCTConvert CGFloat:boundsInfo[@"y"]],
+      [RCTConvert CGFloat:boundsInfo[@"width"]],
+      [RCTConvert CGFloat:boundsInfo[@"height"]]
+    );
+    CGRect pdfBounds = [self visibleAnnotationBoundsForRequestedBounds:requestedBounds page:page];
+    CGRect pdfViewBounds = [_pdfView convertRect:pdfBounds fromPage:page];
+    CGRect viewBounds = [self convertRect:pdfViewBounds fromView:_pdfView];
+    if (CGRectIsEmpty(viewBounds) || !CGRectIntersectsRect(viewBounds, self.bounds)) {
+      continue;
+    }
+
+    NSString *kind = [RCTConvert NSString:annotationInfo[@"kind"]];
+    NSString *labelText = AcaciaAnnotationAccessibilityLabel(annotationInfo);
+    UILabel *label = [[UILabel alloc] initWithFrame:CGRectInset(viewBounds, -6.0, -6.0)];
+    label.isAccessibilityElement = YES;
+    label.accessibilityIdentifier = AcaciaAnnotationAccessibilityIdentifierForKind(kind);
+    label.accessibilityLabel = labelText;
+    label.accessibilityTraits = UIAccessibilityTraitStaticText;
+    label.backgroundColor = UIColor.clearColor;
+    label.textColor = UIColor.clearColor;
+    label.text = labelText;
+    label.numberOfLines = 1;
+    label.userInteractionEnabled = NO;
+    [self addSubview:label];
+    [_annotationAccessibilityViews addObject:label];
+  }
+
+  if (_annotationAccessibilityViews.count > 0) {
+    UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, _annotationAccessibilityViews.firstObject);
+  }
 }
 
 - (CGRect)visibleAnnotationBoundsForRequestedBounds:(CGRect)requestedBounds page:(PDFPage *)page

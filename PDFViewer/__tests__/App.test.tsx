@@ -663,6 +663,22 @@ test('opens the first matching search result from the inspector', async () => {
     searchInput.props.onChangeText('roadmap');
   });
 
+  const commandPalette = renderer!.root.findByProps({
+    testID: 'command-palette',
+  });
+  expect(commandPalette.props.accessibilityViewIsModal).toBe(true);
+  expect(commandPalette.props.onAccessibilityEscape).toEqual(expect.any(Function));
+  await ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({testID: 'command-palette-close'}).props.onPress();
+  });
+  expect(
+    renderer!.root.findAllByProps({testID: 'command-palette'}),
+  ).toHaveLength(0);
+
+  await ReactTestRenderer.act(() => {
+    searchInput.props.onChangeText('roadmap');
+  });
+
   const openAction = renderer!.root.findByProps({
     testID: 'inspector-open-action',
   });
@@ -781,6 +797,10 @@ test('desktop document clicks open the reader and controls update visible state'
   expect(JSON.stringify(renderer?.toJSON())).toContain(
     'Local non-destructive highlight',
   );
+  expect(
+    renderer!.root.findByProps({testID: 'comment-item-local-highlight'}).props
+      .accessibilityLabel,
+  ).toBe('Highlight annotation on page 9, Local non-destructive highlight');
 });
 
 test('document titles and inspector metadata are selectable for copy workflows', async () => {

@@ -127,6 +127,21 @@ export function PdfCanvas({
     now: viewer.pageIndex + 1,
     text: `Page ${viewer.pageIndex + 1} of ${document.pageCount}`,
   };
+  const canvasA11yActions = canvasAccessibilityActions(interactiveKind);
+  const handleCenteredToolAnnotation = (pageIndex: number) => {
+    if (!interactiveKind) {
+      return;
+    }
+
+    onCreateAnnotation?.(
+      centeredToolAnnotation(
+        interactiveKind,
+        pageIndex,
+        pageWidth,
+        pageHeight,
+      ),
+    );
+  };
   const handlePageAccessibilityAction = (event: AccessibilityActionEvent) => {
     const actionName = event.nativeEvent.actionName;
 
@@ -136,6 +151,10 @@ export function PdfCanvas({
 
     if (actionName === 'decrement' && viewer.pageIndex > 0) {
       onPageChange?.(viewer.pageIndex - 1);
+    }
+
+    if (actionName === 'activate') {
+      handleCenteredToolAnnotation(viewer.pageIndex);
     }
   };
   const signaturePreviewSize = annotationSizeForKind('signature');
@@ -172,7 +191,7 @@ export function PdfCanvas({
         accessibilityRole="adjustable"
         accessibilityLabel={canvasA11yLabel}
         accessibilityHint={nativeCanvasAccessibilityHint(interactiveKind)}
-        accessibilityActions={pageAccessibilityActions}
+        accessibilityActions={canvasA11yActions}
         accessibilityValue={canvasA11yValue}
         accessibilityLanguage="en"
         accessibilityIgnoresInvertColors
@@ -213,7 +232,7 @@ export function PdfCanvas({
       accessibilityRole="adjustable"
       accessibilityLabel={canvasA11yLabel}
       accessibilityHint={nativeCanvasAccessibilityHint(interactiveKind)}
-      accessibilityActions={pageAccessibilityActions}
+      accessibilityActions={canvasA11yActions}
       accessibilityValue={canvasA11yValue}
       accessibilityLanguage="en"
       accessibilityIgnoresInvertColors
@@ -335,6 +354,12 @@ export function PdfCanvas({
                   pageIndex,
                 )}
                 accessibilityHint={toolHintCopy(interactiveKind)}
+                accessibilityActions={[toolActivationAction(interactiveKind)]}
+                onAccessibilityAction={event => {
+                  if (event.nativeEvent.actionName === 'activate') {
+                    handleCenteredToolAnnotation(pageIndex);
+                  }
+                }}
                 onStartShouldSetResponder={() => true}
                 onMoveShouldSetResponder={() => true}
                 onResponderGrant={(event: GestureResponderEvent) => {
@@ -521,6 +546,21 @@ function pageToolActionAccessibilityLabel(
   return `${annotationKindLabel(kind)} on page ${pageIndex + 1}`;
 }
 
+function canvasAccessibilityActions(kind?: InteractiveAnnotationKind) {
+  if (!kind) {
+    return pageAccessibilityActions;
+  }
+
+  return [...pageAccessibilityActions, toolActivationAction(kind)];
+}
+
+function toolActivationAction(kind: InteractiveAnnotationKind) {
+  return {
+    name: 'activate',
+    label: `Add ${annotationKindLabel(kind).toLowerCase()} at page center`,
+  };
+}
+
 function annotationKindLabel(kind: InteractiveAnnotationKind) {
   switch (kind) {
     case 'signature':
@@ -601,6 +641,54 @@ function toolHintCopy(kind: InteractiveAnnotationKind) {
     default:
       return 'Highlighter ready - drag a page or select text, then press Highlight';
   }
+}
+
+function centeredToolAnnotation(
+  kind: InteractiveAnnotationKind,
+  pageIndex: number,
+  pageWidth: number,
+  pageHeight: number,
+) {
+  const center = {
+    x: pageWidth * 0.5,
+    y: pageHeight * 0.45,
+  };
+
+  if (kind === 'highlight') {
+    return canvasGestureToAnnotation(
+      kind,
+      pageIndex,
+      {x: pageWidth * 0.32, y: pageHeight * 0.42},
+      {x: pageWidth * 0.68, y: pageHeight * 0.45},
+      pageWidth,
+      pageHeight,
+    );
+  }
+
+  if (kind === 'drawing') {
+    return canvasGestureToAnnotation(
+      kind,
+      pageIndex,
+      {x: pageWidth * 0.38, y: pageHeight * 0.47},
+      {x: pageWidth * 0.62, y: pageHeight * 0.47},
+      pageWidth,
+      pageHeight,
+      [
+        {x: pageWidth * 0.38, y: pageHeight * 0.47},
+        center,
+        {x: pageWidth * 0.62, y: pageHeight * 0.47},
+      ],
+    );
+  }
+
+  return canvasGestureToAnnotation(
+    kind,
+    pageIndex,
+    center,
+    center,
+    pageWidth,
+    pageHeight,
+  );
 }
 
 function canvasGestureToAnnotation(
@@ -708,9 +796,20 @@ function DemoPageContent({
         <>
           <View
             testID={pageIndex === 0 ? 'pdf-canvas-chart' : undefined}
+            accessible={pageIndex === 0}
+            accessibilityRole={pageIndex === 0 ? 'image' : undefined}
+            accessibilityLabel={
+              pageIndex === 0
+                ? 'Quarterly growth chart, Q1 3.1%, Q2 4.0%, Q3 5.2%, Q4 6.1%, Q5 7.3%'
+                : undefined
+            }
             style={styles.chartBlock}>
             {[3.1, 4, 5.2, 6.1, 7.3].map((value, index) => (
-              <View style={styles.barColumn} key={`${pageIndex}-${value}`}>
+              <View
+                style={styles.barColumn}
+                key={`${pageIndex}-${value}`}
+                importantForAccessibility="no-hide-descendants"
+                accessibilityElementsHidden>
                 <Text style={styles.barLabel}>{value.toFixed(1)}%</Text>
                 <View
                   style={[
@@ -727,6 +826,13 @@ function DemoPageContent({
           <View style={styles.lowerPage}>
             <View
               testID={pageIndex === 0 ? 'pdf-canvas-donut' : undefined}
+              accessible={pageIndex === 0}
+              accessibilityRole={pageIndex === 0 ? 'image' : undefined}
+              accessibilityLabel={
+                pageIndex === 0
+                  ? 'Market share chart, Technology 34%, Healthcare 28%, Consumer Goods 22%, Financial Services 16%'
+                  : undefined
+              }
               style={styles.donut}>
               <Text style={styles.donutText}>34%</Text>
             </View>
