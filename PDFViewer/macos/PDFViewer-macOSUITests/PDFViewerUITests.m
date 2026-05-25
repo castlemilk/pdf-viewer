@@ -173,6 +173,16 @@
   return [self elementWithIdentifier:identifiers.firstObject];
 }
 
+- (void)waitForFilterPanel
+{
+  [self waitForFirstIdentifier:@[
+    @"filter-panel",
+    @"filter-tag-all",
+    @"filter-tag-finance",
+    @"filter-collection-all"
+  ]];
+}
+
 - (NSString *)contentForElement:(XCUIElement *)element
 {
   NSString *content = element.label;
@@ -839,7 +849,7 @@
   [self assertIdentifier:@"doc-row-q4-market-analysis" labelContains:@"Q4 Market Analysis Report"];
 
   [self tapIdentifier:@"filter-button"];
-  [self waitForIdentifier:@"filter-panel"];
+  [self waitForFilterPanel];
   [self tapIdentifier:@"filter-tag-finance"];
   [self waitForIdentifier:@"doc-row-annual-financial-report"];
   [self waitForIdentifier:@"doc-row-invoice-0042"];
@@ -872,7 +882,7 @@
   [self waitForIdentifier:@"library-results-summary"];
 
   [self tapIdentifier:@"filter-button"];
-  [self waitForIdentifier:@"filter-panel"];
+  [self waitForFilterPanel];
   [self tapIdentifier:@"filter-tag-finance"];
   [self waitForIdentifier:@"filter-button" labelContaining:@"1 active"];
   [self waitForIdentifier:@"doc-card-annual-financial-report"];

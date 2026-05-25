@@ -51,6 +51,32 @@ describe('macOS offline launch configuration', () => {
     expect(e2eScript).toContain('quit_interfering_apps()');
     expect(e2eScript).toContain('tell application "Simulator" to quit');
     expect(e2eScript).toContain('pkill -x "SimulatorTrampoline"');
+    expect(e2eScript).toContain('run_xcodebuild_with_heartbeat');
+    expect(e2eScript).toContain('E2E_HEARTBEAT_SECONDS');
+    expect(e2eScript).toContain('xcresulttool get test-results summary');
+    expect(e2eScript).toContain('Using result bundle');
+  });
+
+  it('keeps iOS UI tests observable with destination, result bundle, and heartbeat logging', () => {
+    const e2eScript = readFileSync(path.join(appRoot, 'scripts', 'run-ios-e2e.sh'), 'utf8');
+
+    expect(e2eScript).toContain('Using destination');
+    expect(e2eScript).toContain('RESULT_BUNDLE_PATH');
+    expect(e2eScript).toContain('run_xcodebuild_with_heartbeat');
+    expect(e2eScript).toContain('E2E_HEARTBEAT_SECONDS');
+    expect(e2eScript).toContain('xcresulttool get test-results summary');
+    expect(e2eScript).toContain('ONLY_TESTING');
+  });
+
+  it('waits for exposed macOS filter controls instead of the non-accessible wrapper', () => {
+    const uiTests = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOSUITests', 'PDFViewerUITests.m'),
+      'utf8',
+    );
+
+    expect(uiTests).toContain('- (void)waitForFilterPanel');
+    expect(uiTests).toContain('@"filter-tag-finance"');
+    expect(uiTests).toContain('[self waitForFilterPanel];');
   });
 
   it('declares export compliance in the macOS Info.plist for TestFlight', () => {
