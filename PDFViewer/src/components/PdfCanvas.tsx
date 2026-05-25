@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {
+  type AccessibilityActionEvent,
   type GestureResponderEvent,
   type LayoutChangeEvent,
   Platform,
@@ -38,14 +39,7 @@ type NativePdfCanvasProps = {
   annotations: Annotation[];
   searchHighlights: SearchHighlight[];
   signaturePreviewText?: string;
-  accessibilityLabel?: string;
-  accessibilityHint?: string;
-  accessibilityValue?: {
-    min: number;
-    max: number;
-    now: number;
-    text: string;
-  };
+  accessibilityIgnoresInvertColors?: boolean;
   onCanvasPress?: (event: {
     nativeEvent: CanvasAnnotationRequest;
   }) => void;
@@ -92,6 +86,11 @@ const NativePdfCanvas =
     ? requireNativeComponent<NativePdfCanvasProps>('PdfCanvas')
     : undefined;
 
+const pageAccessibilityActions = [
+  {name: 'decrement', label: 'Previous page'},
+  {name: 'increment', label: 'Next page'},
+];
+
 export function PdfCanvas({
   document,
   viewer,
@@ -128,6 +127,17 @@ export function PdfCanvas({
     now: viewer.pageIndex + 1,
     text: `Page ${viewer.pageIndex + 1} of ${document.pageCount}`,
   };
+  const handlePageAccessibilityAction = (event: AccessibilityActionEvent) => {
+    const actionName = event.nativeEvent.actionName;
+
+    if (actionName === 'increment' && viewer.pageIndex < document.pageCount - 1) {
+      onPageChange?.(viewer.pageIndex + 1);
+    }
+
+    if (actionName === 'decrement' && viewer.pageIndex > 0) {
+      onPageChange?.(viewer.pageIndex - 1);
+    }
+  };
   const signaturePreviewSize = annotationSizeForKind('signature');
   const gestureStartRef = useRef<{
     pageIndex: number;
@@ -155,13 +165,22 @@ export function PdfCanvas({
 
   if (document.path && NativePdfCanvas) {
     return (
-      <View style={styles.nativeCanvasFrame} testID="pdf-canvas-native-frame">
+      <View
+        style={styles.nativeCanvasFrame}
+        testID="pdf-canvas-native-frame"
+        accessible
+        accessibilityRole="adjustable"
+        accessibilityLabel={canvasA11yLabel}
+        accessibilityHint={nativeCanvasAccessibilityHint(interactiveKind)}
+        accessibilityActions={pageAccessibilityActions}
+        accessibilityValue={canvasA11yValue}
+        accessibilityLanguage="en"
+        accessibilityIgnoresInvertColors
+        onAccessibilityAction={handlePageAccessibilityAction}>
         <NativePdfCanvas
           testID="pdf-canvas-native"
-          accessible
-          accessibilityLabel={canvasA11yLabel}
-          accessibilityHint={nativeCanvasAccessibilityHint(interactiveKind)}
-          accessibilityValue={canvasA11yValue}
+          accessible={false}
+          accessibilityIgnoresInvertColors
           documentPath={document.path}
           documentBookmark={document.bookmark}
           pageIndex={viewer.pageIndex}
@@ -190,8 +209,15 @@ export function PdfCanvas({
   return (
     <View
       testID="pdf-canvas-fallback"
-      accessible={false}
+      accessible
+      accessibilityRole="adjustable"
       accessibilityLabel={canvasA11yLabel}
+      accessibilityHint={nativeCanvasAccessibilityHint(interactiveKind)}
+      accessibilityActions={pageAccessibilityActions}
+      accessibilityValue={canvasA11yValue}
+      accessibilityLanguage="en"
+      accessibilityIgnoresInvertColors
+      onAccessibilityAction={handlePageAccessibilityAction}
       onLayout={(event: LayoutChangeEvent) => {
         const {width, height} = event.nativeEvent.layout;
         setViewportSize({width, height});
@@ -203,7 +229,8 @@ export function PdfCanvas({
         testID="pdf-demo-scroll"
         scrollEnabled={interactiveKind === undefined}
         accessibilityLabel={canvasA11yLabel}
-        accessibilityValue={canvasA11yValue}
+        accessibilityLanguage="en"
+        accessibilityIgnoresInvertColors
         style={styles.demoScroll}
         contentContainerStyle={[
           styles.demoScrollContent,
@@ -229,6 +256,7 @@ export function PdfCanvas({
             key={pageIndex}
             testID={`pdf-demo-page-frame-${pageIndex + 1}`}
             accessible={false}
+            accessibilityIgnoresInvertColors
             accessibilityLabel={pdfPageAccessibilityLabel(
               document,
               pageIndex,

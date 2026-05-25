@@ -12,19 +12,42 @@ import {demoDocuments} from '../src/domain/fixtures';
 test('fallback PDF canvas fits inside the desktop reader viewport', async () => {
   const document = demoDocuments[0];
   const viewer = createInitialViewerState(document.id, document.pageCount);
+  const onPageChange = jest.fn();
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 
   await ReactTestRenderer.act(() => {
     renderer = ReactTestRenderer.create(
-      <PdfCanvas document={document} viewer={viewer} annotations={[]} />,
+      <PdfCanvas
+        document={document}
+        viewer={viewer}
+        annotations={[]}
+        onPageChange={onPageChange}
+      />,
     );
   });
 
   const canvas = renderer!.root.findByProps({testID: 'pdf-canvas-fallback'});
-  expect(canvas.props.accessible).toBe(false);
+  expect(canvas.props.accessible).toBe(true);
+  expect(canvas.props.accessibilityRole).toBe('adjustable');
   expect(canvas.props.accessibilityLabel).toContain(
     `${document.title} PDF canvas, page 1 of ${document.pageCount}`,
   );
+  expect(canvas.props.accessibilityActions).toEqual([
+    {name: 'decrement', label: 'Previous page'},
+    {name: 'increment', label: 'Next page'},
+  ]);
+  expect(canvas.props.accessibilityValue).toEqual({
+    min: 1,
+    max: document.pageCount,
+    now: 1,
+    text: `Page 1 of ${document.pageCount}`,
+  });
+  await ReactTestRenderer.act(() => {
+    canvas.props.onAccessibilityAction({
+      nativeEvent: {actionName: 'increment'},
+    });
+  });
+  expect(onPageChange).toHaveBeenCalledWith(1);
   expect(StyleSheet.flatten(canvas.props.style)).toEqual(
     expect.objectContaining({
       flex: 1,
@@ -35,12 +58,7 @@ test('fallback PDF canvas fits inside the desktop reader viewport', async () => 
   );
 
   const scroll = renderer!.root.findByProps({testID: 'pdf-demo-scroll'});
-  expect(scroll.props.accessibilityValue).toEqual({
-    min: 1,
-    max: document.pageCount,
-    now: 1,
-    text: `Page 1 of ${document.pageCount}`,
-  });
+  expect(scroll.props.onAccessibilityAction).toBeUndefined();
   expect(StyleSheet.flatten(scroll.props.style)).toEqual(
     expect.objectContaining({
       flex: 1,

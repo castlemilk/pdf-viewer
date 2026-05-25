@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import {Alert, StyleSheet} from 'react-native';
+import {AccessibilityInfo, Alert, StyleSheet} from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import App from '../App';
 import {createInitialLibraryState} from '../src/domain';
@@ -84,6 +84,71 @@ function highlightAnnotationIds(renderer: ReactTestRenderer.ReactTestRenderer) {
 
 afterEach(() => {
   jest.restoreAllMocks();
+});
+
+test('applies Apple accessibility preferences to shared controls', async () => {
+  const remove = jest.fn();
+  jest.spyOn(AccessibilityInfo, 'isBoldTextEnabled').mockResolvedValue(true);
+  jest.spyOn(AccessibilityInfo, 'isGrayscaleEnabled').mockResolvedValue(false);
+  jest.spyOn(AccessibilityInfo, 'isInvertColorsEnabled').mockResolvedValue(true);
+  jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+  jest
+    .spyOn(AccessibilityInfo, 'isDarkerSystemColorsEnabled')
+    .mockResolvedValue(true);
+  jest
+    .spyOn(AccessibilityInfo, 'isReduceTransparencyEnabled')
+    .mockResolvedValue(true);
+  jest
+    .spyOn(AccessibilityInfo, 'isScreenReaderEnabled')
+    .mockResolvedValue(true);
+  jest
+    .spyOn(AccessibilityInfo, 'prefersCrossFadeTransitions')
+    .mockResolvedValue(true);
+  const addEventListener = jest
+    .spyOn(AccessibilityInfo, 'addEventListener')
+    .mockReturnValue({remove} as never);
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(async () => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+  await ReactTestRenderer.act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  expect(AccessibilityInfo.isBoldTextEnabled).toHaveBeenCalled();
+  expect(addEventListener).toHaveBeenCalledWith(
+    'reduceMotionChanged',
+    expect.any(Function),
+  );
+  expect(addEventListener).toHaveBeenCalledWith(
+    'screenReaderChanged',
+    expect.any(Function),
+  );
+  expect(
+    renderer!.root.findByProps({testID: 'app-window'}).props
+      .accessibilityLanguage,
+  ).toBe('en');
+  expect(
+    renderer!.root.findByProps({testID: 'app-logo-image'}).props
+      .accessibilityIgnoresInvertColors,
+  ).toBe(true);
+
+  const openButton = nativeButtonProps(renderer!, 'open-file-button');
+  expect(openButton.accessibilityShowsLargeContentViewer).toBe(true);
+  expect(openButton.accessibilityLargeContentTitle).toBe('Open PDF');
+  expect(
+    StyleSheet.flatten(openButton.style({pressed: false})),
+  ).toEqual(
+    expect.objectContaining({
+      minHeight: 44,
+      borderColor: '#111110',
+    }),
+  );
+  expect(
+    StyleSheet.flatten(openButton.style({pressed: true})),
+  ).not.toEqual(expect.objectContaining({opacity: 0.74}));
 });
 
 test('renders the PDF library shell with core document workflows', async () => {
@@ -358,6 +423,13 @@ test('mobile viewer controls page, zoom, and highlight state', async () => {
       .props.children,
   ).toBe(32);
   expect(
+    renderer!.root.findByProps({testID: 'mobile-page-meter'}).props
+      .accessibilityActions,
+  ).toEqual([
+    {name: 'decrement', label: 'Previous page'},
+    {name: 'increment', label: 'Next page'},
+  ]);
+  expect(
     StyleSheet.flatten(
       renderer!.root.findByProps({testID: 'mobile-page-meter'}).props.style,
     ),
@@ -369,7 +441,9 @@ test('mobile viewer controls page, zoom, and highlight state', async () => {
   );
 
   await ReactTestRenderer.act(() => {
-    renderer!.root.findByProps({testID: 'mobile-page-previous'}).props.onPress();
+    renderer!.root
+      .findByProps({testID: 'mobile-page-meter'})
+      .props.onAccessibilityAction({nativeEvent: {actionName: 'decrement'}});
   });
 
   expect(JSON.stringify(renderer?.toJSON())).toContain('Page 1 of 32');
@@ -650,9 +724,18 @@ test('desktop document clicks open the reader and controls update visible state'
     now: 1,
     text: 'Page 1 of 32',
   });
+  expect(
+    renderer!.root.findByProps({testID: 'viewer-page-input'}).props
+      .accessibilityActions,
+  ).toEqual([
+    {name: 'decrement', label: 'Previous page'},
+    {name: 'increment', label: 'Next page'},
+  ]);
 
   await ReactTestRenderer.act(() => {
-    renderer!.root.findByProps({testID: 'viewer-page-next'}).props.onPress();
+    renderer!.root
+      .findByProps({testID: 'viewer-page-input'})
+      .props.onAccessibilityAction({nativeEvent: {actionName: 'increment'}});
   });
 
   expect(JSON.stringify(renderer?.toJSON())).toContain('Page 2 of 32');

@@ -1,5 +1,6 @@
 import React, {useEffect, useMemo, useReducer, useRef, useState} from 'react';
 import {
+  type AccessibilityActionEvent,
   AccessibilityInfo,
   Alert,
   Image,
@@ -129,9 +130,271 @@ const highlightColorOptions = [
 
 const controlHitSlop = {top: 8, right: 8, bottom: 8, left: 8};
 const compactControlHitSlop = {top: 10, right: 10, bottom: 10, left: 10};
+const expandedControlHitSlop = {top: 14, right: 14, bottom: 14, left: 14};
+const pageAccessibilityActions = [
+  {name: 'decrement', label: 'Previous page'},
+  {name: 'increment', label: 'Next page'},
+];
+
+type AppleAccessibilityPreferences = {
+  boldTextEnabled: boolean;
+  grayscaleEnabled: boolean;
+  invertColorsEnabled: boolean;
+  reduceMotionEnabled: boolean;
+  darkerSystemColorsEnabled: boolean;
+  reduceTransparencyEnabled: boolean;
+  screenReaderEnabled: boolean;
+  prefersCrossFadeTransitions: boolean;
+  fontScale: number;
+  largeTextEnabled: boolean;
+};
+
+const defaultAppleAccessibilityPreferences: AppleAccessibilityPreferences = {
+  boldTextEnabled: false,
+  grayscaleEnabled: false,
+  invertColorsEnabled: false,
+  reduceMotionEnabled: false,
+  darkerSystemColorsEnabled: false,
+  reduceTransparencyEnabled: false,
+  screenReaderEnabled: false,
+  prefersCrossFadeTransitions: false,
+  fontScale: 1,
+  largeTextEnabled: false,
+};
+
+const AppleAccessibilityContext = React.createContext(
+  defaultAppleAccessibilityPreferences,
+);
+
+function useAppleAccessibility() {
+  return React.useContext(AppleAccessibilityContext);
+}
+
+function AppleAccessibilityProvider({
+  preferences,
+  children,
+}: {
+  preferences: AppleAccessibilityPreferences;
+  children: React.ReactNode;
+}) {
+  return (
+    <AppleAccessibilityContext.Provider value={preferences}>
+      {children}
+    </AppleAccessibilityContext.Provider>
+  );
+}
+
+function useAppleAccessibilityPreferences(fontScale = 1) {
+  const [preferences, setPreferences] =
+    useState<AppleAccessibilityPreferences>(() => ({
+      ...defaultAppleAccessibilityPreferences,
+      fontScale,
+      largeTextEnabled: fontScale >= 1.2,
+    }));
+
+  useEffect(() => {
+    setPreferences(current => ({
+      ...current,
+      fontScale,
+      largeTextEnabled: fontScale >= 1.2,
+    }));
+  }, [fontScale]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function refreshPreferences() {
+      const [
+        boldTextEnabled,
+        grayscaleEnabled,
+        invertColorsEnabled,
+        reduceMotionEnabled,
+        darkerSystemColorsEnabled,
+        reduceTransparencyEnabled,
+        screenReaderEnabled,
+        prefersCrossFadeTransitions,
+      ] = await Promise.all([
+        queryAccessibilityPreference('isBoldTextEnabled'),
+        queryAccessibilityPreference('isGrayscaleEnabled'),
+        queryAccessibilityPreference('isInvertColorsEnabled'),
+        queryAccessibilityPreference('isReduceMotionEnabled'),
+        queryAccessibilityPreference('isDarkerSystemColorsEnabled'),
+        queryAccessibilityPreference('isReduceTransparencyEnabled'),
+        queryAccessibilityPreference('isScreenReaderEnabled'),
+        queryAccessibilityPreference('prefersCrossFadeTransitions'),
+      ]);
+
+      if (!isMounted) {
+        return;
+      }
+
+      setPreferences(current => ({
+        ...current,
+        boldTextEnabled,
+        grayscaleEnabled,
+        invertColorsEnabled,
+        reduceMotionEnabled,
+        darkerSystemColorsEnabled,
+        reduceTransparencyEnabled,
+        screenReaderEnabled,
+        prefersCrossFadeTransitions,
+      }));
+    }
+
+    refreshPreferences().catch(() => {});
+
+    const subscriptions = [
+      addAccessibilityPreferenceListener('boldTextChanged', value =>
+        setPreferenceIfMounted('boldTextEnabled', value),
+      ),
+      addAccessibilityPreferenceListener('grayscaleChanged', value =>
+        setPreferenceIfMounted('grayscaleEnabled', value),
+      ),
+      addAccessibilityPreferenceListener('invertColorsChanged', value =>
+        setPreferenceIfMounted('invertColorsEnabled', value),
+      ),
+      addAccessibilityPreferenceListener('reduceMotionChanged', value =>
+        setPreferenceIfMounted('reduceMotionEnabled', value),
+      ),
+      addAccessibilityPreferenceListener('darkerSystemColorsChanged', value =>
+        setPreferenceIfMounted('darkerSystemColorsEnabled', value),
+      ),
+      addAccessibilityPreferenceListener('reduceTransparencyChanged', value =>
+        setPreferenceIfMounted('reduceTransparencyEnabled', value),
+      ),
+      addAccessibilityPreferenceListener('screenReaderChanged', value =>
+        setPreferenceIfMounted('screenReaderEnabled', value),
+      ),
+    ];
+
+    function setPreferenceIfMounted(
+      key: keyof Omit<
+        AppleAccessibilityPreferences,
+        'fontScale' | 'largeTextEnabled' | 'prefersCrossFadeTransitions'
+      >,
+      value: boolean,
+    ) {
+      if (!isMounted) {
+        return;
+      }
+
+      setPreferences(current => ({...current, [key]: value}));
+    }
+
+    return () => {
+      isMounted = false;
+      for (const subscription of subscriptions) {
+        subscription?.remove();
+      }
+    };
+  }, []);
+
+  return preferences;
+}
+
+async function queryAccessibilityPreference(
+  method:
+    | 'isBoldTextEnabled'
+    | 'isGrayscaleEnabled'
+    | 'isInvertColorsEnabled'
+    | 'isReduceMotionEnabled'
+    | 'isDarkerSystemColorsEnabled'
+    | 'isReduceTransparencyEnabled'
+    | 'isScreenReaderEnabled'
+    | 'prefersCrossFadeTransitions',
+) {
+  try {
+    const query = AccessibilityInfo[method];
+    return typeof query === 'function' ? await query() : false;
+  } catch {
+    return false;
+  }
+}
+
+function addAccessibilityPreferenceListener(
+  eventName:
+    | 'boldTextChanged'
+    | 'grayscaleChanged'
+    | 'invertColorsChanged'
+    | 'reduceMotionChanged'
+    | 'darkerSystemColorsChanged'
+    | 'reduceTransparencyChanged'
+    | 'screenReaderChanged',
+  handler: (value: boolean) => void,
+) {
+  try {
+    return AccessibilityInfo.addEventListener(eventName, handler);
+  } catch {
+    return undefined;
+  }
+}
+
+function applePlatformSupportsLargeContentViewer() {
+  return Platform.OS === 'ios' || (Platform.OS as string) === 'macos';
+}
+
+function accessibilityControlHitSlop(
+  preferences: AppleAccessibilityPreferences,
+  compact = false,
+) {
+  if (preferences.largeTextEnabled || preferences.screenReaderEnabled) {
+    return expandedControlHitSlop;
+  }
+
+  return compact ? compactControlHitSlop : controlHitSlop;
+}
+
+function pageAccessibilityActionHandler({
+  pageIndex,
+  pageCount,
+  onPage,
+}: {
+  pageIndex: number;
+  pageCount: number;
+  onPage: (pageIndex: number) => void;
+}) {
+  return (event: AccessibilityActionEvent) => {
+    const actionName = event.nativeEvent.actionName;
+
+    if (actionName === 'increment' && pageIndex < pageCount - 1) {
+      onPage(pageIndex + 1);
+    }
+
+    if (actionName === 'decrement' && pageIndex > 0) {
+      onPage(pageIndex - 1);
+    }
+  };
+}
+
+const documentAccessibilityActions = [
+  {name: 'activate', label: 'Open document'},
+  {name: 'longpress', label: 'Show details'},
+];
+
+function documentAccessibilityActionHandler({
+  onPress,
+  onOpen,
+}: {
+  onPress: () => void;
+  onOpen?: () => void;
+}) {
+  return (event: AccessibilityActionEvent) => {
+    if (event.nativeEvent.actionName === 'longpress' && onOpen) {
+      onOpen();
+      return;
+    }
+
+    onPress();
+  };
+}
 
 function announceForAccessibility(message: string) {
   if (isJestRuntime()) {
+    return;
+  }
+
+  if (typeof AccessibilityInfo.announceForAccessibilityWithOptions === 'function') {
+    AccessibilityInfo.announceForAccessibilityWithOptions(message, {queue: true});
     return;
   }
 
@@ -236,6 +499,9 @@ function App({
     [proAccountSynchronizer],
   );
   const windowMetrics = useWindowDimensions();
+  const appleAccessibility = useAppleAccessibilityPreferences(
+    windowMetrics.fontScale ?? 1,
+  );
   const menuOpenHandlerRef = useRef<(imported: ImportedPdf) => void>(() => {});
   const persistenceHydratedRef = useRef(false);
   const proActivationGenerationRef = useRef(0);
@@ -1046,42 +1312,44 @@ function App({
 
   if (isCompactPhone) {
     return (
-      <MobileExperience
-        screenMode={screenMode}
-        filter={filter}
-        selectedDocument={selectedDocument}
-        rightDocument={compareRightDocument}
-        tags={libraryState.tags}
-        scopeCounts={scopeCounts}
-        documents={visibleDocuments}
-        continueReading={continueReading}
-        viewer={viewerState}
-        annotations={selectedAnnotations}
-        searchHighlights={selectedSearchHighlights}
-        annotationSheetOpen={mobileAnnotationSheetOpen}
-        canUseReviewFeatures={canUseReviewFeatures}
-        compareSummary={compareSummary}
-        signatures={signatures}
-        activeSignatureId={activeSignatureId}
-        highlightColor={highlightColor}
-        onQueryChange={query => setFilter(current => ({...current, query}))}
-        onSearchSubmit={submitSearch}
-        onFilterChange={patch => setFilter(current => ({...current, ...patch}))}
-        onOpenFile={openImportedPdf}
-        onSelectDocument={document => setSelectedDocumentId(document.id)}
-        onOpenDocument={openDocument}
-        onBack={() => setScreenMode('library')}
-        onCompare={() => setScreenMode('compare')}
-        onViewerAction={updateViewer}
-        onSelectTool={selectViewerTool}
-        onCanvasAnnotation={addCanvasAnnotation}
-        onDismissAnnotationSheet={() => setMobileAnnotationSheetOpen(false)}
-        onUnlockReviewFeatures={unlockReviewFeatures}
-        onRestoreReviewFeatures={restoreReviewFeatures}
-        onSelectSignature={setActiveSignatureId}
-        onSaveSignature={saveSignature}
-        onSelectHighlightColor={selectHighlightColor}
-      />
+      <AppleAccessibilityProvider preferences={appleAccessibility}>
+        <MobileExperience
+          screenMode={screenMode}
+          filter={filter}
+          selectedDocument={selectedDocument}
+          rightDocument={compareRightDocument}
+          tags={libraryState.tags}
+          scopeCounts={scopeCounts}
+          documents={visibleDocuments}
+          continueReading={continueReading}
+          viewer={viewerState}
+          annotations={selectedAnnotations}
+          searchHighlights={selectedSearchHighlights}
+          annotationSheetOpen={mobileAnnotationSheetOpen}
+          canUseReviewFeatures={canUseReviewFeatures}
+          compareSummary={compareSummary}
+          signatures={signatures}
+          activeSignatureId={activeSignatureId}
+          highlightColor={highlightColor}
+          onQueryChange={query => setFilter(current => ({...current, query}))}
+          onSearchSubmit={submitSearch}
+          onFilterChange={patch => setFilter(current => ({...current, ...patch}))}
+          onOpenFile={openImportedPdf}
+          onSelectDocument={document => setSelectedDocumentId(document.id)}
+          onOpenDocument={openDocument}
+          onBack={() => setScreenMode('library')}
+          onCompare={() => setScreenMode('compare')}
+          onViewerAction={updateViewer}
+          onSelectTool={selectViewerTool}
+          onCanvasAnnotation={addCanvasAnnotation}
+          onDismissAnnotationSheet={() => setMobileAnnotationSheetOpen(false)}
+          onUnlockReviewFeatures={unlockReviewFeatures}
+          onRestoreReviewFeatures={restoreReviewFeatures}
+          onSelectSignature={setActiveSignatureId}
+          onSaveSignature={saveSignature}
+          onSelectHighlightColor={selectHighlightColor}
+        />
+      </AppleAccessibilityProvider>
     );
   }
 
@@ -1089,132 +1357,139 @@ function App({
     Platform.OS === 'ios' && !isJestRuntime() ? SafeAreaView : View;
 
   return (
-    <DesktopRoot
-      style={styles.window}
-      testID="app-window"
-      accessible={false}
-      accessibilityLabel="App window">
-      <TitleBar
-        mode={screenMode}
-        selectedDocument={selectedDocument}
-        documentCount={libraryState.documents.length}
-        query={screenMode === 'library' ? filter.query : viewerState.searchQuery}
-        onQueryChange={query =>
-          screenMode === 'library'
-            ? setFilter(current => ({...current, query}))
-            : updateViewer({type: 'setSearchQuery', query})
-        }
-        onSearchSubmit={submitSearch}
-        onBack={() => setScreenMode('library')}
-        onForward={() => openAdjacentDocument(1)}
-        onOpenFile={openImportedPdf}
-      />
-      {screenMode === 'library' && filter.query.trim().length > 0 ? (
-        <CommandPalette
-          query={filter.query}
-          documents={commandPaletteDocuments}
-          onOpenFile={openImportedPdf}
-          onAddCollection={addCollection}
-          onAsk={() =>
-            showLocalAction(
-              'Ask across library',
-              `Acacia can search titles, OCR, highlights, and notes for “${filter.query.trim()}”.`,
-            )
-          }
-          onOpenDocument={document => openDocument(document)}
-        />
-      ) : null}
-      {screenMode === 'library' ? (
-        <LibraryScreen
-          filter={filter}
+    <AppleAccessibilityProvider preferences={appleAccessibility}>
+      <DesktopRoot
+        style={[
+          styles.window,
+          appleAccessibility.reduceTransparencyEnabled &&
+            styles.accessibilityOpaqueSurface,
+        ]}
+        testID="app-window"
+        accessible={false}
+        accessibilityLabel="App window"
+        accessibilityLanguage="en">
+        <TitleBar
+          mode={screenMode}
           selectedDocument={selectedDocument}
-          stateTags={libraryState.tags}
-          collections={libraryState.collections}
-          scopeCounts={scopeCounts}
-          documents={visibleDocuments}
-          continueReading={continueReading}
-          filterPanelOpen={filterPanelOpen}
-          storageUsedGb={libraryState.storageUsedGb}
-          storageLimitGb={libraryState.storageLimitGb}
-          canShowStorage={canUseReviewFeatures}
+          documentCount={libraryState.documents.length}
+          query={screenMode === 'library' ? filter.query : viewerState.searchQuery}
+          onQueryChange={query =>
+            screenMode === 'library'
+              ? setFilter(current => ({...current, query}))
+              : updateViewer({type: 'setSearchQuery', query})
+          }
+          onSearchSubmit={submitSearch}
+          onBack={() => setScreenMode('library')}
+          onForward={() => openAdjacentDocument(1)}
           onOpenFile={openImportedPdf}
-          onFilterChange={patch =>
-            setFilter(current => ({...current, ...patch}))
-          }
-          onClearFilters={() =>
-            setFilter(current => ({
-              ...current,
-              query: '',
-              tagId: 'all',
-              collectionId: 'all',
-              scope: 'library',
-            }))
-          }
-          onToggleFilterPanel={() => setFilterPanelOpen(current => !current)}
-          onAddCollection={addCollection}
-          onSelectScope={scope =>
-            setFilter(current => ({
-              ...current,
-              query: '',
-              tagId: 'all',
-              collectionId: 'all',
-              scope,
-              sortBy: scope === 'recent' ? 'lastOpened' : current.sortBy,
-            }))
-          }
-          onSelectDocument={document => setSelectedDocumentId(document.id)}
-          onOpenDocument={openDocument}
-          onAddTag={addTagToSelectedDocument}
-          onToggleFavorite={toggleFavorite}
-          onShare={document =>
-            showLocalAction('Share', `${document.title} is ready for local export or system sharing.`)
-          }
-          onCompare={() => setScreenMode('compare')}
         />
-      ) : screenMode === 'compare' ? (
-        <CompareScreen
-          leftDocument={selectedDocument}
-          rightDocument={compareRightDocument}
-          summary={compareSummary}
-          viewer={viewerState}
-          annotations={selectedAnnotations}
-          syncedScroll={compareSynced}
-          onPageThumbnail={cachePageThumbnail}
-          onBack={() => setScreenMode('library')}
-          onToggleSyncedScroll={() => setCompareSynced(current => !current)}
-          onViewerAction={updateViewer}
-          onViewChangeReport={() =>
-            showLocalAction('Change Report', 'The changes panel is showing the local comparison summary.')
-          }
-        />
-      ) : (
-        <ViewerScreen
-          document={selectedDocument}
-          documents={libraryState.documents}
-          tags={libraryState.tags}
-          viewer={viewerState}
-          annotations={selectedAnnotations}
-          searchHighlights={selectedSearchHighlights}
-          canUseReviewFeatures={canUseReviewFeatures}
-          onBack={() => setScreenMode('library')}
-          onCompare={() => setScreenMode('compare')}
-          onViewerAction={updateViewer}
-          onSelectTool={selectViewerTool}
-          onCanvasAnnotation={addCanvasAnnotation}
-          onAddBookmark={addBookmark}
-          onPageThumbnail={cachePageThumbnail}
-          onUnlockReviewFeatures={unlockReviewFeatures}
-          onRestoreReviewFeatures={restoreReviewFeatures}
-          signatures={signatures}
-          activeSignatureId={activeSignatureId}
-          highlightColor={highlightColor}
-          onSelectSignature={setActiveSignatureId}
-          onSaveSignature={saveSignature}
-          onExport={exportCurrentDocument}
-          onSelectHighlightColor={selectHighlightColor}
-        />
-      )}
-    </DesktopRoot>
+        {screenMode === 'library' && filter.query.trim().length > 0 ? (
+          <CommandPalette
+            query={filter.query}
+            documents={commandPaletteDocuments}
+            onOpenFile={openImportedPdf}
+            onAddCollection={addCollection}
+            onAsk={() =>
+              showLocalAction(
+                'Ask across library',
+                `Acacia can search titles, OCR, highlights, and notes for “${filter.query.trim()}”.`,
+              )
+            }
+            onOpenDocument={document => openDocument(document)}
+          />
+        ) : null}
+        {screenMode === 'library' ? (
+          <LibraryScreen
+            filter={filter}
+            selectedDocument={selectedDocument}
+            stateTags={libraryState.tags}
+            collections={libraryState.collections}
+            scopeCounts={scopeCounts}
+            documents={visibleDocuments}
+            continueReading={continueReading}
+            filterPanelOpen={filterPanelOpen}
+            storageUsedGb={libraryState.storageUsedGb}
+            storageLimitGb={libraryState.storageLimitGb}
+            canShowStorage={canUseReviewFeatures}
+            onOpenFile={openImportedPdf}
+            onFilterChange={patch =>
+              setFilter(current => ({...current, ...patch}))
+            }
+            onClearFilters={() =>
+              setFilter(current => ({
+                ...current,
+                query: '',
+                tagId: 'all',
+                collectionId: 'all',
+                scope: 'library',
+              }))
+            }
+            onToggleFilterPanel={() => setFilterPanelOpen(current => !current)}
+            onAddCollection={addCollection}
+            onSelectScope={scope =>
+              setFilter(current => ({
+                ...current,
+                query: '',
+                tagId: 'all',
+                collectionId: 'all',
+                scope,
+                sortBy: scope === 'recent' ? 'lastOpened' : current.sortBy,
+              }))
+            }
+            onSelectDocument={document => setSelectedDocumentId(document.id)}
+            onOpenDocument={openDocument}
+            onAddTag={addTagToSelectedDocument}
+            onToggleFavorite={toggleFavorite}
+            onShare={document =>
+              showLocalAction('Share', `${document.title} is ready for local export or system sharing.`)
+            }
+            onCompare={() => setScreenMode('compare')}
+          />
+        ) : screenMode === 'compare' ? (
+          <CompareScreen
+            leftDocument={selectedDocument}
+            rightDocument={compareRightDocument}
+            summary={compareSummary}
+            viewer={viewerState}
+            annotations={selectedAnnotations}
+            syncedScroll={compareSynced}
+            onPageThumbnail={cachePageThumbnail}
+            onBack={() => setScreenMode('library')}
+            onToggleSyncedScroll={() => setCompareSynced(current => !current)}
+            onViewerAction={updateViewer}
+            onViewChangeReport={() =>
+              showLocalAction('Change Report', 'The changes panel is showing the local comparison summary.')
+            }
+          />
+        ) : (
+          <ViewerScreen
+            document={selectedDocument}
+            documents={libraryState.documents}
+            tags={libraryState.tags}
+            viewer={viewerState}
+            annotations={selectedAnnotations}
+            searchHighlights={selectedSearchHighlights}
+            canUseReviewFeatures={canUseReviewFeatures}
+            onBack={() => setScreenMode('library')}
+            onCompare={() => setScreenMode('compare')}
+            onViewerAction={updateViewer}
+            onSelectTool={selectViewerTool}
+            onCanvasAnnotation={addCanvasAnnotation}
+            onAddBookmark={addBookmark}
+            onPageThumbnail={cachePageThumbnail}
+            onUnlockReviewFeatures={unlockReviewFeatures}
+            onRestoreReviewFeatures={restoreReviewFeatures}
+            signatures={signatures}
+            activeSignatureId={activeSignatureId}
+            highlightColor={highlightColor}
+            onSelectSignature={setActiveSignatureId}
+            onSaveSignature={saveSignature}
+            onExport={exportCurrentDocument}
+            onSelectHighlightColor={selectHighlightColor}
+          />
+        )}
+      </DesktopRoot>
+    </AppleAccessibilityProvider>
   );
 }
 
@@ -1367,6 +1642,7 @@ function MobileExperience({
     filter.tagId === 'all' &&
     filter.collectionId === 'all';
   const sectionTitle = librarySectionTitle(filter.scope);
+  const accessibility = useAppleAccessibility();
 
   if (screenMode === 'viewer') {
     return (
@@ -1412,9 +1688,14 @@ function MobileExperience({
   return (
     <MobileSafeArea>
       <View
-        style={mobileStyles.shell}
+        style={[
+          mobileStyles.shell,
+          accessibility.reduceTransparencyEnabled &&
+            styles.accessibilityOpaqueSurface,
+        ]}
         testID="mobile-library-screen"
-        accessibilityLabel="Mobile library screen">
+        accessibilityLabel="Mobile library screen"
+        accessibilityLanguage="en">
         <View style={mobileStyles.header}>
           <View>
             <Text style={mobileStyles.appTitle}>Acacia</Text>
@@ -1426,6 +1707,8 @@ function MobileExperience({
             testID="mobile-library-search-input"
             accessibilityLabel="Search documents"
             accessibilityHint="Search by title, author, tag, or collection"
+            accessibilityLanguage="en"
+            maxFontSizeMultiplier={1.8}
             value={filter.query}
             onChangeText={onQueryChange}
             onSubmitEditing={event => onSearchSubmit(event.nativeEvent.text)}
@@ -1578,12 +1861,21 @@ function MobileViewer({
   onSaveSignature: (value: string) => void;
   onSelectHighlightColor: (color: string) => void;
 }) {
+  const accessibility = useAppleAccessibility();
+
   return (
     <MobileSafeArea>
       <View
-        style={mobileStyles.shell}
+        style={[
+          mobileStyles.shell,
+          accessibility.reduceTransparencyEnabled &&
+            styles.accessibilityOpaqueSurface,
+        ]}
         testID="mobile-viewer-screen"
-        accessibilityLabel={`Mobile viewer, ${document.title}`}>
+        accessibilityLabel={`Mobile viewer, ${document.title}`}
+        accessibilityLanguage="en"
+        onAccessibilityEscape={onBack}
+        onMagicTap={onCompare}>
         <MobileTopBar
           title={document.title}
           subtitle={`Page ${viewer.pageIndex + 1} of ${document.pageCount}`}
@@ -1703,12 +1995,19 @@ function MobileViewer({
             accessible
             accessibilityRole="adjustable"
             accessibilityLabel="Current page"
+            accessibilityActions={pageAccessibilityActions}
             accessibilityValue={pageAccessibilityValue(
               viewer.pageIndex,
               viewer.pageCount,
             )}
             accessibilityHint="Use Previous page and Next page to move through the document"
             accessibilityLiveRegion="polite"
+            onAccessibilityAction={pageAccessibilityActionHandler({
+              pageIndex: viewer.pageIndex,
+              pageCount: viewer.pageCount,
+              onPage: pageIndex =>
+                onViewerAction({type: 'setPage', pageIndex}),
+            })}
             style={mobileStyles.pageMeter}>
             <Text testID="mobile-page-label" style={mobileStyles.pageLabel}>
               <Text testID="mobile-page-current" style={mobileStyles.pageCurrent}>
@@ -1794,11 +2093,19 @@ function MobileCompare({
   onBack: () => void;
   onViewerAction: (action: Parameters<typeof viewerReducer>[1]) => void;
 }) {
+  const accessibility = useAppleAccessibility();
+
   return (
     <MobileSafeArea>
       <View
-        style={mobileStyles.shell}
-        testID="mobile-compare-screen">
+        style={[
+          mobileStyles.shell,
+          accessibility.reduceTransparencyEnabled &&
+            styles.accessibilityOpaqueSurface,
+        ]}
+        testID="mobile-compare-screen"
+        accessibilityLanguage="en"
+        onAccessibilityEscape={onBack}>
         <MobileTopBar
           title="Compare"
           subtitle={`${leftDocument.title} vs ${rightDocument.title}`}
@@ -1844,7 +2151,24 @@ function MobileCompare({
                 })
               }
             />
-            <Text style={mobileStyles.pageLabel}>
+            <Text
+              accessible
+              accessibilityRole="adjustable"
+              accessibilityLabel="Current comparison page"
+              accessibilityActions={pageAccessibilityActions}
+              accessibilityValue={pageAccessibilityValue(
+                viewer.pageIndex,
+                leftDocument.pageCount,
+              )}
+              accessibilityHint="Use Previous page and Next page to move both comparison panes"
+              accessibilityLiveRegion="polite"
+              onAccessibilityAction={pageAccessibilityActionHandler({
+                pageIndex: viewer.pageIndex,
+                pageCount: leftDocument.pageCount,
+                onPage: pageIndex =>
+                  onViewerAction({type: 'setPage', pageIndex}),
+              })}
+              style={mobileStyles.pageLabel}>
               Page {viewer.pageIndex + 1}
             </Text>
             <MobileButton
@@ -1886,6 +2210,7 @@ function MobileAnnotationSheet({
   annotations: Annotation[];
   onClose: () => void;
 }) {
+  const accessibility = useAppleAccessibility();
   const highlight =
     annotations.find(annotation => annotation.kind === 'highlight') ??
     annotations[annotations.length - 1];
@@ -1900,7 +2225,13 @@ function MobileAnnotationSheet({
       accessible={false}
       accessibilityLabel="Annotation actions"
       accessibilityViewIsModal
-      style={mobileStyles.annotationSheet}>
+      accessibilityLanguage="en"
+      onAccessibilityEscape={onClose}
+      style={[
+        mobileStyles.annotationSheet,
+        accessibility.reduceTransparencyEnabled &&
+          styles.accessibilityReducedShadow,
+      ]}>
       <View style={mobileStyles.sheetGrabber} />
       <View style={mobileStyles.sheetQuoteRow}>
         <View style={mobileStyles.sheetAccent} />
@@ -1973,8 +2304,19 @@ function MobileAnnotationSheet({
 function MobileSafeArea({children}: {children: React.ReactNode}) {
   const Root =
     Platform.OS === 'ios' && !isJestRuntime() ? SafeAreaView : View;
+  const accessibility = useAppleAccessibility();
 
-  return <Root style={mobileStyles.safeArea}>{children}</Root>;
+  return (
+    <Root
+      style={[
+        mobileStyles.safeArea,
+        accessibility.reduceTransparencyEnabled &&
+          styles.accessibilityOpaqueSurface,
+      ]}
+      accessibilityLanguage="en">
+      {children}
+    </Root>
+  );
 }
 
 function MobileTopBar({
@@ -2030,7 +2372,11 @@ function MobileTopBar({
 
 function SelectableText({children, ...props}: TextProps) {
   return (
-    <Text {...props} selectable>
+    <Text
+      maxFontSizeMultiplier={2}
+      accessibilityLanguage="en"
+      {...props}
+      selectable>
       {children}
     </Text>
   );
@@ -2045,6 +2391,8 @@ function MobileDocumentCard({
   selected: boolean;
   onPress: () => void;
 }) {
+  const accessibility = useAppleAccessibility();
+
   return (
     <Pressable
       testID={`mobile-doc-card-${document.id}`}
@@ -2053,11 +2401,16 @@ function MobileDocumentCard({
       accessibilityHint="Opens this document in the reader"
       accessibilityRole="button"
       accessibilityState={{selected}}
-      hitSlop={controlHitSlop}
+      accessibilityActions={[documentAccessibilityActions[0]]}
+      accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+      accessibilityLargeContentTitle={document.title}
+      accessibilityLanguage="en"
+      hitSlop={accessibilityControlHitSlop(accessibility)}
       style={[
         mobileStyles.documentCard,
         selected && mobileStyles.documentCardSelected,
       ]}
+      onAccessibilityAction={documentAccessibilityActionHandler({onPress})}
       onPress={onPress}>
       <PdfCover document={document} large />
       <Text numberOfLines={2} style={mobileStyles.documentTitle}>
@@ -2081,6 +2434,8 @@ function MobileDocumentRow({
   selected: boolean;
   onPress: () => void;
 }) {
+  const accessibility = useAppleAccessibility();
+
   return (
     <Pressable
       testID={`mobile-doc-row-${document.id}`}
@@ -2089,8 +2444,13 @@ function MobileDocumentRow({
       accessibilityHint="Opens this document in the reader"
       accessibilityRole="button"
       accessibilityState={{selected}}
-      hitSlop={controlHitSlop}
+      accessibilityActions={[documentAccessibilityActions[0]]}
+      accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+      accessibilityLargeContentTitle={document.title}
+      accessibilityLanguage="en"
+      hitSlop={accessibilityControlHitSlop(accessibility)}
       style={[mobileStyles.documentRow, selected && mobileStyles.rowSelected]}
+      onAccessibilityAction={documentAccessibilityActionHandler({onPress})}
       onPress={onPress}>
       <PdfCover document={document} />
       <View style={mobileStyles.documentRowBody}>
@@ -2131,6 +2491,7 @@ function MobileTagButton({
 }) {
   const iconName = iconNameFor(icon);
   const iconColor = active ? acacia.color.paper : '#2E3746';
+  const accessibility = useAppleAccessibility();
 
   return (
     <Pressable
@@ -2142,8 +2503,18 @@ function MobileTagButton({
       }
       accessibilityHint="Filters the document list"
       accessibilityState={{selected: active}}
-      hitSlop={controlHitSlop}
-      style={[mobileStyles.tagButton, active && mobileStyles.tagButtonActive]}
+      accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+      accessibilityLargeContentTitle={label}
+      accessibilityLanguage="en"
+      hitSlop={accessibilityControlHitSlop(accessibility)}
+      style={[
+        mobileStyles.tagButton,
+        (accessibility.largeTextEnabled || accessibility.screenReaderEnabled) &&
+          styles.accessibilityLargeTarget,
+        accessibility.darkerSystemColorsEnabled &&
+          styles.accessibilityStrongBorder,
+        active && mobileStyles.tagButtonActive,
+      ]}
       onPress={onPress}>
       {icon ? (
         iconName ? (
@@ -2162,6 +2533,7 @@ function MobileTagButton({
         style={[
           mobileStyles.tagText,
           active && mobileStyles.tagTextActive,
+          accessibility.boldTextEnabled && styles.accessibilityBoldText,
         ]}>
         {label}
       </Text>
@@ -2196,6 +2568,8 @@ function MobileButton({
   onPress: () => void;
 }) {
   const iconName = iconNameFor(icon);
+  const accessibility = useAppleAccessibility();
+  const largeContentTitle = accessibilityLabel ?? label;
 
   return (
     <Pressable
@@ -2205,14 +2579,23 @@ function MobileButton({
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={accessibilityHint}
       accessibilityState={{selected: active, disabled}}
+      accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+      accessibilityLargeContentTitle={largeContentTitle}
+      accessibilityLanguage="en"
       disabled={disabled}
-      hitSlop={controlHitSlop}
+      hitSlop={accessibilityControlHitSlop(accessibility)}
       style={({pressed}) => [
         mobileStyles.button,
+        (accessibility.largeTextEnabled || accessibility.screenReaderEnabled) &&
+          styles.accessibilityLargeTarget,
+        accessibility.darkerSystemColorsEnabled &&
+          styles.accessibilityStrongBorder,
+        accessibility.reduceTransparencyEnabled &&
+          styles.accessibilityOpaqueSurface,
         primary && mobileStyles.buttonPrimary,
         active && mobileStyles.buttonActive,
         disabled && mobileStyles.buttonDisabled,
-        pressed && styles.buttonPressed,
+        pressed && !accessibility.reduceMotionEnabled && styles.buttonPressed,
       ]}
       onPress={onPress}>
       {icon ? (
@@ -2228,6 +2611,7 @@ function MobileButton({
           style={[
             mobileStyles.buttonIcon,
             primary && mobileStyles.buttonTextPrimary,
+            accessibility.boldTextEnabled && styles.accessibilityBoldText,
           ]}>
           {icon}
         </Text>
@@ -2237,6 +2621,7 @@ function MobileButton({
         style={[
           mobileStyles.buttonText,
           primary && mobileStyles.buttonTextPrimary,
+          accessibility.boldTextEnabled && styles.accessibilityBoldText,
         ]}>
         {label}
       </Text>
@@ -2255,6 +2640,8 @@ function HighlightPalette({
   testIDPrefix: string;
   compact?: boolean;
 }) {
+  const accessibility = useAppleAccessibility();
+
   return (
     <View
       testID={`${testIDPrefix}-palette`}
@@ -2272,13 +2659,24 @@ function HighlightPalette({
             accessibilityLabel={option.label}
             accessibilityHint="Changes the highlight color"
             accessibilityState={{selected: active}}
-            hitSlop={compact ? compactControlHitSlop : controlHitSlop}
+            accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+            accessibilityLargeContentTitle={option.label}
+            accessibilityLanguage="en"
+            hitSlop={accessibilityControlHitSlop(accessibility, compact)}
             {...tooltipProps(option.label)}
             style={({pressed}) => [
               styles.highlightSwatchButton,
               compact && styles.highlightSwatchButtonCompact,
+              (accessibility.largeTextEnabled ||
+                accessibility.screenReaderEnabled) &&
+                styles.accessibilityLargeTarget,
+              accessibility.darkerSystemColorsEnabled &&
+                styles.accessibilityStrongBorder,
+              accessibility.grayscaleEnabled && styles.accessibilityStrongBorder,
               active && styles.highlightSwatchButtonActive,
-              pressed && styles.buttonPressed,
+              pressed &&
+                !accessibility.reduceMotionEnabled &&
+                styles.buttonPressed,
             ]}
             onPress={() => onSelectColor(option.color)}>
             <View
@@ -2317,6 +2715,7 @@ function TitleBar({
   onOpenFile: () => void;
 }) {
   const isLibrary = mode === 'library';
+  const accessibility = useAppleAccessibility();
 
   return (
     <View style={styles.titleBar}>
@@ -2330,6 +2729,9 @@ function TitleBar({
               <Image
                 testID="app-logo-image"
                 source={acaciaLogoSource}
+                accessibilityIgnoresInvertColors={
+                  accessibility.invertColorsEnabled
+                }
                 style={styles.appLogoImage}
               />
             </View>
@@ -2386,6 +2788,8 @@ function TitleBar({
               ? 'Searches titles, authors, tags, and collections'
               : 'Searches text in the current document'
           }
+          accessibilityLanguage="en"
+          maxFontSizeMultiplier={1.8}
           value={query}
           onChangeText={onQueryChange}
           onSubmitEditing={event => onSearchSubmit(event.nativeEvent.text)}
@@ -2913,12 +3317,21 @@ function ViewerScreen({
   onExport: (format: ExportFormat) => void;
   onSelectHighlightColor: (color: string) => void;
 }) {
+  const accessibility = useAppleAccessibility();
+
   return (
     <View
-      style={styles.readerShell}
+      style={[
+        styles.readerShell,
+        accessibility.reduceTransparencyEnabled &&
+          styles.accessibilityOpaqueSurface,
+      ]}
       testID="viewer-screen"
       accessible={false}
-      accessibilityLabel={`Viewer screen ${document.title}`}>
+      accessibilityLabel={`Viewer screen ${document.title}`}
+      accessibilityLanguage="en"
+      onAccessibilityEscape={onBack}
+      onMagicTap={onCompare}>
       <ReaderToolbar
         viewer={viewer}
         onBack={onBack}
@@ -3006,12 +3419,21 @@ function CompareScreen({
   onViewerAction: (action: Parameters<typeof viewerReducer>[1]) => void;
   onViewChangeReport: () => void;
 }) {
+  const accessibility = useAppleAccessibility();
+
   return (
     <View
-      style={styles.readerShell}
+      style={[
+        styles.readerShell,
+        accessibility.reduceTransparencyEnabled &&
+          styles.accessibilityOpaqueSurface,
+      ]}
       testID="compare-screen"
       accessible={false}
-      accessibilityLabel={`Compare screen ${leftDocument.title}`}>
+      accessibilityLabel={`Compare screen ${leftDocument.title}`}
+      accessibilityLanguage="en"
+      onAccessibilityEscape={onBack}
+      onMagicTap={onViewChangeReport}>
       <View style={styles.readerToolbar} testID="compare-toolbar">
         <ButtonChrome
           label="Library"
@@ -3049,12 +3471,19 @@ function CompareScreen({
             accessible
             accessibilityRole="adjustable"
             accessibilityLabel="Current comparison page"
+            accessibilityActions={pageAccessibilityActions}
             accessibilityValue={pageAccessibilityValue(
               viewer.pageIndex,
               leftDocument.pageCount,
             )}
             accessibilityHint="Use Previous page and Next page to move both comparison panes"
             accessibilityLiveRegion="polite"
+            onAccessibilityAction={pageAccessibilityActionHandler({
+              pageIndex: viewer.pageIndex,
+              pageCount: leftDocument.pageCount,
+              onPage: pageIndex =>
+                onViewerAction({type: 'setPage', pageIndex}),
+            })}
             style={styles.pageMeter}>
             <Text style={styles.pageMeterCurrent}>{viewer.pageIndex + 1}</Text>
             <Text style={styles.pageMeterDivider}>/</Text>
@@ -3139,6 +3568,8 @@ function Sidebar({
   onSelectCollection: (collectionId: string) => void;
   onAddCollection: () => void;
 }) {
+  const accessibility = useAppleAccessibility();
+
   return (
     <View style={styles.sidebar}>
       <NavItem
@@ -3188,8 +3619,16 @@ function Sidebar({
           accessibilityRole="button"
           accessibilityHint="Filters documents by tag"
           accessibilityState={{selected: selectedTagId === tag.id}}
-          hitSlop={controlHitSlop}
-          style={styles.sidebarTag}
+          accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+          accessibilityLargeContentTitle={tag.label}
+          accessibilityLanguage="en"
+          hitSlop={accessibilityControlHitSlop(accessibility)}
+          style={[
+            styles.sidebarTag,
+            (accessibility.largeTextEnabled ||
+              accessibility.screenReaderEnabled) &&
+              styles.accessibilityLargeTarget,
+          ]}
           onPress={() => onSelectTag(tag.id)}>
           <View style={[styles.tagDot, toneStyle(tag.tone)]} />
           <Text
@@ -3208,8 +3647,16 @@ function Sidebar({
         accessibilityRole="button"
         accessibilityHint="Clears the selected tag filter"
         accessibilityState={{selected: selectedTagId === 'all'}}
-        hitSlop={controlHitSlop}
-        style={styles.sidebarTag}
+        accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+        accessibilityLargeContentTitle="All Tags"
+        accessibilityLanguage="en"
+        hitSlop={accessibilityControlHitSlop(accessibility)}
+        style={[
+          styles.sidebarTag,
+          (accessibility.largeTextEnabled ||
+            accessibility.screenReaderEnabled) &&
+            styles.accessibilityLargeTarget,
+        ]}
         onPress={() => onSelectTag('all')}>
         <Icon name="tag" size={14} color={acacia.color.ink4} style={styles.sidebarIconFrame} />
         <Text
@@ -3228,7 +3675,10 @@ function Sidebar({
           accessible
           accessibilityLabel="Add collection"
           accessibilityRole="button"
-          hitSlop={compactControlHitSlop}
+          accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+          accessibilityLargeContentTitle="Add collection"
+          accessibilityLanguage="en"
+          hitSlop={accessibilityControlHitSlop(accessibility, true)}
           {...tooltipProps('Add a local collection')}
           onPress={onAddCollection}>
           <Text style={styles.addText}>＋</Text>
@@ -3243,8 +3693,16 @@ function Sidebar({
           accessibilityRole="button"
           accessibilityHint="Filters documents by collection"
           accessibilityState={{selected: selectedCollectionId === collection.id}}
-          hitSlop={controlHitSlop}
-          style={styles.collectionItem}
+          accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+          accessibilityLargeContentTitle={collection.label}
+          accessibilityLanguage="en"
+          hitSlop={accessibilityControlHitSlop(accessibility)}
+          style={[
+            styles.collectionItem,
+            (accessibility.largeTextEnabled ||
+              accessibility.screenReaderEnabled) &&
+              styles.accessibilityLargeTarget,
+          ]}
           onPress={() => onSelectCollection(collection.id)}>
           <Text
           style={[
@@ -3264,8 +3722,16 @@ function Sidebar({
         accessibilityRole="button"
         accessibilityHint="Clears the selected collection filter"
         accessibilityState={{selected: selectedCollectionId === 'all'}}
-        hitSlop={controlHitSlop}
-        style={styles.collectionItem}
+        accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+        accessibilityLargeContentTitle="All Collections"
+        accessibilityLanguage="en"
+        hitSlop={accessibilityControlHitSlop(accessibility)}
+        style={[
+          styles.collectionItem,
+          (accessibility.largeTextEnabled ||
+            accessibility.screenReaderEnabled) &&
+            styles.accessibilityLargeTarget,
+        ]}
         onPress={() => onSelectCollection('all')}>
         <Text
           style={[
@@ -3385,6 +3851,8 @@ function NavItem({
   testID: string;
 }) {
   const iconName = iconNameFor(icon);
+  const accessibility = useAppleAccessibility();
+  const largeContentTitle = accessibilityLabel ?? label;
 
   return (
     <Pressable
@@ -3397,8 +3865,18 @@ function NavItem({
       accessibilityRole="button"
       accessibilityHint="Changes the library section"
       accessibilityState={{selected: active}}
-      hitSlop={controlHitSlop}
-      style={[styles.navItem, active && styles.navItemActive]}
+      accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+      accessibilityLargeContentTitle={largeContentTitle}
+      accessibilityLanguage="en"
+      hitSlop={accessibilityControlHitSlop(accessibility)}
+      style={[
+        styles.navItem,
+        (accessibility.largeTextEnabled || accessibility.screenReaderEnabled) &&
+          styles.accessibilityLargeTarget,
+        accessibility.darkerSystemColorsEnabled &&
+          styles.accessibilityStrongBorder,
+        active && styles.navItemActive,
+      ]}
       onPress={onPress}>
       {iconName ? (
         <Icon
@@ -3413,7 +3891,12 @@ function NavItem({
         </Text>
       )}
       <View style={styles.navTextBlock}>
-        <Text style={[styles.navText, active && styles.navTextActive]}>
+        <Text
+          style={[
+            styles.navText,
+            active && styles.navTextActive,
+            accessibility.boldTextEnabled && styles.accessibilityBoldText,
+          ]}>
           {label}
         </Text>
         {count !== undefined ? (
@@ -3437,6 +3920,8 @@ function DocumentCard({
   onPress: () => void;
   onOpen: () => void;
 }) {
+  const accessibility = useAppleAccessibility();
+
   return (
     <Pressable
       testID={`doc-card-${document.id}`}
@@ -3445,8 +3930,16 @@ function DocumentCard({
       accessibilityHint="Opens this document in the reader. Long press selects it for the details panel."
       accessibilityRole="button"
       accessibilityState={{selected}}
-      hitSlop={controlHitSlop}
+      accessibilityActions={documentAccessibilityActions}
+      accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+      accessibilityLargeContentTitle={document.title}
+      accessibilityLanguage="en"
+      hitSlop={accessibilityControlHitSlop(accessibility)}
       style={[styles.documentCard, selected && styles.documentCardSelected]}
+      onAccessibilityAction={documentAccessibilityActionHandler({
+        onPress,
+        onOpen,
+      })}
       onPress={onPress}
       onLongPress={onOpen}>
       <PdfCover document={document} large />
@@ -3473,6 +3966,8 @@ function DocumentRow({
   onPress: () => void;
   onOpen: () => void;
 }) {
+  const accessibility = useAppleAccessibility();
+
   return (
     <Pressable
       testID={`doc-row-${document.id}`}
@@ -3481,8 +3976,16 @@ function DocumentRow({
       accessibilityHint="Opens this document in the reader. Long press selects it for the details panel."
       accessibilityRole="button"
       accessibilityState={{selected}}
-      hitSlop={controlHitSlop}
+      accessibilityActions={documentAccessibilityActions}
+      accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+      accessibilityLargeContentTitle={document.title}
+      accessibilityLanguage="en"
+      hitSlop={accessibilityControlHitSlop(accessibility)}
       style={[styles.tableRow, selected && styles.tableRowSelected]}
+      onAccessibilityAction={documentAccessibilityActionHandler({
+        onPress,
+        onOpen,
+      })}
       onPress={onPress}
       onLongPress={onOpen}>
       <View style={[styles.nameColumn, styles.rowName]}>
@@ -3517,8 +4020,11 @@ function PdfCover({
   document: DocumentRecord;
   large?: boolean;
 }) {
+  const accessibility = useAppleAccessibility();
+
   return (
     <View
+      accessibilityIgnoresInvertColors={accessibility.invertColorsEnabled}
       style={[
         styles.cover,
         large && styles.coverLarge,
@@ -3702,13 +4208,22 @@ function ReaderToolbar({
           style={styles.pageMeter}>
           <TextInput
             testID="viewer-page-input"
+            accessibilityRole="adjustable"
             accessibilityLabel="Current page"
+            accessibilityActions={pageAccessibilityActions}
             accessibilityValue={pageAccessibilityValue(
               viewer.pageIndex,
               viewer.pageCount,
             )}
             accessibilityHint={`Enter a page number from 1 to ${viewer.pageCount}`}
             accessibilityLiveRegion="polite"
+            accessibilityLanguage="en"
+            maxFontSizeMultiplier={1.8}
+            onAccessibilityAction={pageAccessibilityActionHandler({
+              pageIndex: viewer.pageIndex,
+              pageCount: viewer.pageCount,
+              onPage: pageIndex => onAction({type: 'setPage', pageIndex}),
+            })}
             style={styles.pageInput}
             value={`${viewer.pageIndex + 1}`}
             onChangeText={value => {
@@ -4403,6 +4918,8 @@ function SignatureManager({
       <TextInput
         testID="signature-name-input"
         accessibilityLabel="Signature text"
+        accessibilityLanguage="en"
+        maxFontSizeMultiplier={1.8}
         value={draft}
         onChangeText={setDraft}
         placeholder="Type your signature"
@@ -4748,17 +5265,25 @@ function ActionRow({
   testID?: string;
 }) {
   const iconName = iconNameFor(icon);
+  const accessibility = useAppleAccessibility();
 
   return (
     <Pressable
-      style={styles.actionRow}
+      style={[
+        styles.actionRow,
+        (accessibility.largeTextEnabled || accessibility.screenReaderEnabled) &&
+          styles.accessibilityLargeTarget,
+      ]}
       onPress={onPress}
       testID={testID}
       accessible
       accessibilityLabel={label}
       accessibilityHint={`Runs ${label}`}
+      accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+      accessibilityLargeContentTitle={label}
+      accessibilityLanguage="en"
       {...tooltipProps(label)}
-      hitSlop={controlHitSlop}
+      hitSlop={accessibilityControlHitSlop(accessibility)}
       accessibilityRole="button">
       <View style={styles.actionTextGroup}>
         {icon ? (
@@ -4773,7 +5298,13 @@ function ActionRow({
             <Text style={styles.actionIcon}>{icon}</Text>
           )
         ) : null}
-        <Text style={styles.actionLabel}>{label}</Text>
+        <Text
+          style={[
+            styles.actionLabel,
+            accessibility.boldTextEnabled && styles.accessibilityBoldText,
+          ]}>
+          {label}
+        </Text>
       </View>
       {badge ? <Text style={styles.actionBadge}>{badge}</Text> : null}
       <Icon name="chevron_right" size={14} color={acacia.color.ink4} />
@@ -4811,6 +5342,8 @@ function ButtonChrome({
   tooltip?: string;
 }) {
   const iconName = iconNameFor(icon);
+  const accessibility = useAppleAccessibility();
+  const largeContentTitle = accessibilityLabel ?? tooltip ?? label;
 
   return (
     <Pressable
@@ -4820,18 +5353,27 @@ function ButtonChrome({
       accessibilityHint={accessibilityHint ?? tooltip}
       accessibilityRole="button"
       accessibilityState={{selected: active, disabled}}
+      accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+      accessibilityLargeContentTitle={largeContentTitle}
+      accessibilityLanguage="en"
       disabled={disabled}
-      hitSlop={compact ? compactControlHitSlop : controlHitSlop}
+      hitSlop={accessibilityControlHitSlop(accessibility, compact)}
       {...tooltipProps(tooltip ?? accessibilityLabel ?? label)}
       style={({pressed}) => [
         styles.button,
+        (accessibility.largeTextEnabled || accessibility.screenReaderEnabled) &&
+          styles.accessibilityLargeTarget,
+        accessibility.darkerSystemColorsEnabled &&
+          styles.accessibilityStrongBorder,
+        accessibility.reduceTransparencyEnabled &&
+          styles.accessibilityOpaqueSurface,
         primary && styles.buttonPrimary,
         quiet && styles.buttonQuiet,
         active && styles.buttonActive,
         compact && styles.buttonCompact,
         flush && styles.buttonFlush,
         disabled && styles.buttonDisabled,
-        pressed && styles.buttonPressed,
+        pressed && !accessibility.reduceMotionEnabled && styles.buttonPressed,
       ]}
       onPress={onPress}>
       {icon ? (
@@ -4855,6 +5397,7 @@ function ButtonChrome({
             primary && styles.buttonTextPrimary,
             active && styles.buttonTextActive,
             compact && styles.buttonIconCompact,
+            accessibility.boldTextEnabled && styles.accessibilityBoldText,
           ]}>
           {icon}
         </Text>
@@ -4866,6 +5409,7 @@ function ButtonChrome({
             styles.buttonText,
             primary && styles.buttonTextPrimary,
             active && styles.buttonTextActive,
+            accessibility.boldTextEnabled && styles.accessibilityBoldText,
           ]}>
           {label}
         </Text>
@@ -4946,6 +5490,8 @@ function SegmentedControl({
   onChange: (value: string) => void;
   testIDPrefix?: string;
 }) {
+  const accessibility = useAppleAccessibility();
+
   return (
     <View style={styles.segmentedControl}>
       {options.map(option => (
@@ -4958,9 +5504,15 @@ function SegmentedControl({
           accessibilityRole="button"
           accessibilityLabel={option.label}
           accessibilityState={{selected: value === option.value}}
-          hitSlop={controlHitSlop}
+          accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+          accessibilityLargeContentTitle={option.label}
+          accessibilityLanguage="en"
+          hitSlop={accessibilityControlHitSlop(accessibility)}
           style={[
             styles.segment,
+            (accessibility.largeTextEnabled ||
+              accessibility.screenReaderEnabled) &&
+              styles.accessibilityLargeTarget,
             value === option.value && styles.segmentActive,
           ]}
           onPress={() => onChange(option.value)}>
@@ -4968,6 +5520,7 @@ function SegmentedControl({
             style={[
               styles.segmentText,
               value === option.value && styles.segmentTextActive,
+              accessibility.boldTextEnabled && styles.accessibilityBoldText,
             ]}>
             {option.label}
           </Text>
@@ -4996,6 +5549,8 @@ function TagLike({
   testID?: string;
   onPress?: () => void;
 }) {
+  const accessibility = useAppleAccessibility();
+
   return (
     <Pressable
       testID={testID}
@@ -5003,10 +5558,25 @@ function TagLike({
       accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{selected: active}}
-      hitSlop={controlHitSlop}
+      accessibilityShowsLargeContentViewer={applePlatformSupportsLargeContentViewer()}
+      accessibilityLargeContentTitle={label}
+      accessibilityLanguage="en"
+      hitSlop={accessibilityControlHitSlop(accessibility)}
       onPress={onPress}
-      style={[styles.commentFilter, active && styles.commentFilterActive]}>
-      <Text style={[styles.commentFilterText, active && styles.commentFilterTextActive]}>
+      style={[
+        styles.commentFilter,
+        (accessibility.largeTextEnabled || accessibility.screenReaderEnabled) &&
+          styles.accessibilityLargeTarget,
+        accessibility.darkerSystemColorsEnabled &&
+          styles.accessibilityStrongBorder,
+        active && styles.commentFilterActive,
+      ]}>
+      <Text
+        style={[
+          styles.commentFilterText,
+          active && styles.commentFilterTextActive,
+          accessibility.boldTextEnabled && styles.accessibilityBoldText,
+        ]}>
         {label}
       </Text>
     </Pressable>
@@ -5456,6 +6026,24 @@ const styles = StyleSheet.create({
   window: {
     flex: 1,
     backgroundColor: acacia.color.paper,
+  },
+  accessibilityOpaqueSurface: {
+    backgroundColor: acacia.color.paper,
+  },
+  accessibilityStrongBorder: {
+    borderColor: acacia.color.ink,
+    borderWidth: 2,
+  },
+  accessibilityLargeTarget: {
+    minHeight: 44,
+  },
+  accessibilityBoldText: {
+    fontWeight: '900',
+  },
+  accessibilityReducedShadow: {
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: {width: 0, height: 0},
   },
   titleBar: {
     position: 'relative',

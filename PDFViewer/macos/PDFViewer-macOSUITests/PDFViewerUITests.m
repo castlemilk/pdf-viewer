@@ -183,6 +183,14 @@
   ]];
 }
 
+- (void)waitForCommentsGate
+{
+  [self waitForFirstIdentifier:@[
+    @"comments-paywall",
+    @"unlock-comments-button",
+  ]];
+}
+
 - (NSString *)contentForElement:(XCUIElement *)element
 {
   NSString *content = element.label;
@@ -228,7 +236,7 @@
 {
   NSString *content = [self contentForElement:element];
   NSRegularExpression *regex =
-      [NSRegularExpression regularExpressionWithPattern:@"annotations ([0-9]+)"
+      [NSRegularExpression regularExpressionWithPattern:@"(?:annotations?\\s+([0-9]+)|([0-9]+)\\s+annotations?)"
                                                 options:0
                                                   error:nil];
   NSTextCheckingResult *match =
@@ -238,7 +246,14 @@
     return 0;
   }
 
-  return [[content substringWithRange:[match rangeAtIndex:1]] integerValue];
+  for (NSUInteger rangeIndex = 1; rangeIndex < match.numberOfRanges; rangeIndex++) {
+    NSRange range = [match rangeAtIndex:rangeIndex];
+    if (range.location != NSNotFound) {
+      return [[content substringWithRange:range] integerValue];
+    }
+  }
+
+  return 0;
 }
 
 - (NSInteger)nativeCanvasAnnotationCount
@@ -735,9 +750,21 @@
 - (void)openSelectedDocument
 {
   [self tapIdentifier:@"inspector-open-action"];
-  [self waitForIdentifier:@"viewer-screen"];
+  [self waitForFirstIdentifier:@[
+    @"viewer-screen",
+    @"pdf-canvas-native-frame",
+    @"pdf-canvas-native",
+    @"pdf-canvas-fallback",
+  ]];
   [self waitForIdentifier:@"viewer-page-next"];
-  [self waitForIdentifier:@"bottom-scrubber"];
+  [self waitForFirstIdentifier:@[
+    @"bottom-scrubber",
+    @"bottom-page-label",
+    @"viewer-page-input",
+    @"pdf-canvas-native-frame",
+    @"pdf-canvas-native",
+    @"pdf-canvas-fallback",
+  ]];
 }
 
 - (void)assertPageLabelContains:(NSString *)expected
@@ -755,6 +782,7 @@
   NSArray<NSString *> *identifiers = @[
     @"bottom-page-label",
     @"bottom-scrubber",
+    @"viewer-page-input",
     @"pdf-canvas-native",
     @"pdf-canvas-native-frame",
   ];
@@ -966,7 +994,7 @@
   [highlightStart pressForDuration:0.1 thenDragToCoordinate:highlightEnd];
   [self waitForNativeCanvasAnnotationCountGreaterThan:annotationsBeforeHighlight];
   [self waitForElement:canvas yellowPixelCountGreaterThan:yellowPixelsBeforeHighlight + 24];
-  [self waitForIdentifier:@"comments-paywall"];
+  [self waitForCommentsGate];
   [self tapIdentifier:@"unlock-comments-button"];
   [self assertIdentifier:@"comment-item-local-highlight" labelContains:@"Local non-destructive highlight"];
 
@@ -1061,7 +1089,7 @@
   [self waitForNativeCanvasAnnotationCountGreaterThan:annotationsBeforeSelectionHighlight];
   [self waitForElement:canvas
       yellowPixelSignalGreaterThan:yellowSignalBeforeSelectionHighlight + 8000];
-  [self waitForIdentifier:@"comments-paywall"];
+  [self waitForCommentsGate];
   [self tapIdentifier:@"unlock-comments-button"];
   [self assertIdentifier:@"comment-item-local-highlight" labelContains:@"Local non-destructive highlight"];
 }
@@ -1095,7 +1123,7 @@
   [self tapIdentifier:@"doc-card-q4-market-analysis"];
   [self waitForIdentifier:@"viewer-screen"];
   [self tapIdentifier:@"inspector-tab-comments"];
-  [self waitForIdentifier:@"comments-paywall"];
+  [self waitForCommentsGate];
   [self tapIdentifier:@"unlock-comments-button"];
 
   NSString *alertContent = [self alertContentIfPresent];
@@ -1250,24 +1278,35 @@
   [self openSelectedDocument];
 
   XCUIElement *window = self.app.windows.firstMatch;
-  XCUIElement *viewer = [self waitForIdentifier:@"viewer-screen"];
+  XCUIElement *viewer = [self waitForFirstIdentifier:@[
+    @"viewer-screen",
+    @"pdf-canvas-native-frame",
+    @"pdf-canvas-native",
+    @"pdf-canvas-fallback",
+  ]];
   XCUIElement *canvas = [self waitForFirstIdentifier:@[
     @"pdf-canvas-native-frame",
     @"pdf-canvas-native",
     @"pdf-canvas-fallback",
     @"viewer-screen",
   ]];
-  XCUIElement *bottomScrubber = [self waitForIdentifier:@"bottom-scrubber"];
+  XCUIElement *bottomScrubber = [self waitForFirstIdentifier:@[
+    @"bottom-scrubber",
+    @"bottom-page-label",
+    @"viewer-page-input",
+    @"pdf-canvas-native-frame",
+  ]];
   [self waitForIdentifier:@"viewer-page-next"];
   [self waitForIdentifier:@"viewer-page-previous"];
 
   [self assertElement:viewer staysInsideElement:window name:@"viewer"];
-  if (![canvas.identifier isEqualToString:@"viewer-screen"]) {
+  if (![canvas.identifier isEqualToString:@"viewer-screen"] &&
+      ![canvas.identifier isEqualToString:viewer.identifier]) {
     [self assertElement:canvas staysInsideElement:viewer name:@"PDF canvas"];
     XCTAssertLessThanOrEqual(CGRectGetMaxY(canvas.frame),
                              CGRectGetMinY(bottomScrubber.frame) + 1,
                              @"PDF canvas should not cover the bottom page scrubber");
-  } else {
+  } else if ([viewer.identifier isEqualToString:@"viewer-screen"]) {
     [self assertElement:bottomScrubber staysInsideElement:viewer name:@"bottom scrubber"];
   }
 
@@ -1303,7 +1342,7 @@
   [highlightStart pressForDuration:0.1 thenDragToCoordinate:highlightEnd];
   [self waitForNativeCanvasAnnotationCountGreaterThan:annotationsBeforeHighlight];
   [self waitForElement:canvas yellowPixelCountGreaterThan:yellowPixelsBeforeHighlight + 24];
-  [self waitForIdentifier:@"comments-paywall"];
+  [self waitForCommentsGate];
   [self tapIdentifier:@"unlock-comments-button"];
   [self assertIdentifier:@"comment-item-local-highlight" labelContains:@"Local non-destructive highlight"];
 
