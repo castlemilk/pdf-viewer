@@ -108,7 +108,9 @@ describe('App Store CLI publishing pipeline', () => {
 
     expect(buildScript).toContain('APP_STORE_EXPORT_USE_XCODE_ACCOUNT');
     expect(buildScript).toContain('prepare-apple-build-keychain.sh');
+    expect(buildScript).toContain('apple-dsyms.sh');
     expect(buildScript).toContain('OTHER_CODE_SIGN_FLAGS=--keychain $APPLE_BUILD_KEYCHAIN_PATH');
+    expect(buildScript).toContain('DEBUG_INFORMATION_FORMAT=dwarf-with-dsym');
     expect(buildScript).toContain('ACACIA_PRO_API_BASE_URL=${ACACIA_PRO_API_BASE_URL:-}');
     expect(buildScript).toContain('ACACIA_FIREBASE_WEB_API_KEY=${ACACIA_FIREBASE_WEB_API_KEY:-}');
     expect(buildScript).toContain('AUTHENTICATION_ARGS=()');
@@ -116,6 +118,9 @@ describe('App Store CLI publishing pipeline', () => {
     expect(buildScript).toContain('Xcode account');
     expect(buildScript).toContain('App Store Connect API key');
     expect(buildScript).toContain('repair_react_native_resource_bundles');
+    expect(buildScript).toContain('ensure_archive_dsym');
+    expect(buildScript).toContain('Contents/MacOS/Acacia');
+    expect(buildScript).toContain('Contents/Frameworks/hermes.framework/Versions/0/hermes');
     expect(buildScript).toContain("-name '*.bundle'");
     expect(buildScript).toContain("codesign --remove-signature");
     expect(keychainScript).toContain('acacia-build.keychain-db');
@@ -161,12 +166,31 @@ describe('App Store CLI publishing pipeline', () => {
     expect(iosBuildScript).toContain('generic/platform=iOS');
     expect(iosBuildScript).toContain('APP_STORE_EXPORT_USE_XCODE_ACCOUNT');
     expect(iosBuildScript).toContain('prepare-apple-build-keychain.sh');
+    expect(iosBuildScript).toContain('apple-dsyms.sh');
     expect(iosBuildScript).toContain('OTHER_CODE_SIGN_FLAGS=--keychain $APPLE_BUILD_KEYCHAIN_PATH');
+    expect(iosBuildScript).toContain('DEBUG_INFORMATION_FORMAT=dwarf-with-dsym');
     expect(iosBuildScript).toContain('PRODUCT_BUNDLE_IDENTIFIER=$BUNDLE_ID');
     expect(iosBuildScript).toContain('ACACIA_PRO_API_BASE_URL=${ACACIA_PRO_API_BASE_URL:-}');
     expect(iosBuildScript).toContain('ACACIA_FIREBASE_WEB_API_KEY=${ACACIA_FIREBASE_WEB_API_KEY:-}');
     expect(iosBuildScript).toContain("platform: 'IOS'");
     expect(iosBuildScript).toContain('Acacia-iOS-${VERSION}-${BUILD_NUMBER}.xcarchive');
+    expect(iosBuildScript).toContain('ensure_archive_dsym');
+    expect(iosBuildScript).toContain('Products/Applications/Acacia.app/Acacia');
+    expect(iosBuildScript).toContain('Frameworks/hermes.framework/hermes');
+  });
+
+  it('verifies App Store archive dSYMs against shipped binary UUIDs', () => {
+    const dsymScript = readFileSync(path.join(appRoot, 'scripts', 'apple-dsyms.sh'), 'utf8');
+    const macProject = readFileSync(
+      path.join(appRoot, 'macos', 'Acacia.xcodeproj', 'project.pbxproj'),
+      'utf8',
+    );
+
+    expect(dsymScript).toContain('archive_dsym_matches_binary');
+    expect(dsymScript).toContain('xcrun dwarfdump --uuid');
+    expect(dsymScript).toContain('xcrun dsymutil "$binary_path"');
+    expect(dsymScript).toContain('Generated dSYM does not match binary UUIDs');
+    expect(macProject).toContain('DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";');
   });
 
   it('uploads App Store screenshot sets without touching text metadata', () => {
