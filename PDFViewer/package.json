@@ -30,6 +30,7 @@
     "publish:appstore:attach-build": "scripts/attach-app-store-version-build.sh",
     "publish:ios:appstore:attach-build": "scripts/attach-app-store-version-build.sh --platform IOS",
     "publish:appstore:text": "scripts/upload-app-store-text.sh",
+    "publish:appstore:accessibility": "scripts/update-app-store-accessibility.sh",
     "publish:appstore:screenshots": "scripts/upload-app-store-screenshots.sh",
     "publish:appstore:previews": "scripts/upload-app-store-previews.sh",
     "publish:testflight:internal": "scripts/rollout-testflight-internal.sh",

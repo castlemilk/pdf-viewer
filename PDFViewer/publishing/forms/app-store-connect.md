@@ -99,6 +99,14 @@ https://acacia-eta.vercel.app/privacy.html
 Accessibility URL:
 https://acacia-eta.vercel.app/accessibility.html
 
+Accessibility Nutrition Labels:
+Draft declarations are configured in App Store Connect for Mac, iPhone, and iPad.
+VoiceOver, Voice Control, Dark Interface, Differentiate Without Color Alone,
+Sufficient Contrast, Reduced Motion, Captions, and Audio Descriptions are set for
+all three device families. Larger Text is set for iPhone and iPad; Apple does not
+allow that label on Mac. App Store Connect currently blocks publishing these
+declarations until the app is available on the App Store.
+
 ## Platform Version Information
 
 Version number:
@@ -151,3 +159,4 @@ Acacia is a local-first PDF viewer for Mac and iOS. No account or network servic
 1. Confirm App Privacy, age rating, pricing, availability, and review notes in App Store Connect.
 2. Confirm the selected macOS and iOS `1.0.3 (202605221703)` builds are attached to the release rows.
 3. Submit the macOS and iOS version rows for App Review.
+4. Publish the accessibility declarations once App Store Connect allows labels for the live app.
