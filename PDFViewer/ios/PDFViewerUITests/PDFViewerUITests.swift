@@ -79,6 +79,18 @@ final class PDFViewerUITests: XCTestCase {
       canvas.exists,
       "Expected a PDF canvas to exist"
     )
+    XCTAssertTrue(
+      waitForLabel(canvas, containing: "PDF canvas", timeout: 5),
+      "Expected the native canvas accessibility label to describe the PDF surface"
+    )
+    XCTAssertTrue(
+      waitForLabel(canvas, containing: "Page 1 of 32", timeout: 5),
+      "Expected the native canvas accessibility value to expose page position"
+    )
+    XCTAssertTrue(
+      waitForLabel(canvas, containing: "annotations 1", timeout: 5),
+      "Expected the native canvas accessibility value to expose annotation count"
+    )
     XCTAssertTrue(app.staticTexts["1 / 32"].waitForExistence(timeout: 5))
 
     tapFirstAvailable(
@@ -89,6 +101,10 @@ final class PDFViewerUITests: XCTestCase {
       named: "Next"
     )
     XCTAssertTrue(app.staticTexts["2 / 32"].waitForExistence(timeout: 5))
+    XCTAssertTrue(
+      waitForLabel(canvas, containing: "Page 2 of 32", timeout: 5),
+      "Expected the native canvas accessibility value to update after page increment"
+    )
 
     tapFirstAvailable(
       [
@@ -98,6 +114,10 @@ final class PDFViewerUITests: XCTestCase {
       named: "Previous"
     )
     XCTAssertTrue(app.staticTexts["1 / 32"].waitForExistence(timeout: 5))
+    XCTAssertTrue(
+      waitForLabel(canvas, containing: "Page 1 of 32", timeout: 5),
+      "Expected the native canvas accessibility value to update after page decrement"
+    )
 
     tapFirstAvailable(
       [
@@ -129,9 +149,24 @@ final class PDFViewerUITests: XCTestCase {
       anyElement(app, "pdf-tool-hint").waitForExistence(timeout: 5),
       "Expected the active highlighter hint to appear"
     )
+    XCTAssertTrue(
+      waitForLabel(canvas, containing: "highlight tool active", timeout: 5),
+      "Expected the native canvas accessibility value to expose the active highlight tool"
+    )
     canvas.coordinate(withNormalizedOffset: CGVector(dx: 0.42, dy: 0.36))
       .press(forDuration: 0.1, thenDragTo: canvas.coordinate(withNormalizedOffset: CGVector(dx: 0.58, dy: 0.39)))
 
+    XCTAssertTrue(
+      waitForAnyElement([
+        anyElement(app, "pdf-annotation-highlight"),
+        anyElement(app, "Highlight annotation"),
+      ], timeout: 5),
+      "Expected the highlight to be exposed as a native accessibility annotation"
+    )
+    XCTAssertTrue(
+      waitForLabel(canvas, containing: "annotations 2", timeout: 5),
+      "Expected the native canvas accessibility value to update after creating a highlight"
+    )
     XCTAssertTrue(
       waitForAnyElement([
         anyElement(app, "mobile-annotation-sheet"),
@@ -247,6 +282,13 @@ final class PDFViewerUITests: XCTestCase {
       ], timeout: 5),
       "Expected the signature stamp to appear on the page"
     )
+    XCTAssertTrue(
+      waitForAnyElement([
+        anyElement(app, "Signature annotation"),
+        anyElement(app, "pdf-annotation-signature"),
+      ], timeout: 5),
+      "Expected the signature stamp to be exposed as a native accessibility annotation"
+    )
   }
 
   private func tapFirstAvailable(_ elements: [XCUIElement], named name: String) {
@@ -275,13 +317,16 @@ final class PDFViewerUITests: XCTestCase {
     _ elements: [XCUIElement],
     timeout: TimeInterval = 12
   ) -> XCUIElement? {
-    for element in elements {
-      if element.waitForExistence(timeout: timeout) {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+      for element in elements where element.exists {
         return element
       }
+
+      RunLoop.current.run(until: Date().addingTimeInterval(0.2))
     }
 
-    return nil
+    return elements.first(where: { $0.exists })
   }
 
   private func waitForAnyElement(

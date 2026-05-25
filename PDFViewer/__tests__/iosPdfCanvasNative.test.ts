@@ -53,6 +53,11 @@ describe('iOS native PDF canvas behavior', () => {
   });
 
   it('bridges native iOS adjustable canvas gestures back into React page state', () => {
+    expect(componentSource).toContain(
+      "const useIosNativeAccessibility = (Platform.OS as string) === 'ios'",
+    );
+    expect(componentSource).toContain('accessible={!useIosNativeAccessibility}');
+    expect(componentSource).toContain('accessible={useIosNativeAccessibility}');
     expect(componentSource).toContain('onCanvasAccessibilityAction');
     expect(componentSource).toContain('handleCanvasAccessibilityAction');
     expect(componentSource).toContain("Platform.OS === 'ios'");

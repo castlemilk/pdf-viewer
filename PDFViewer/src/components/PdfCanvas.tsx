@@ -133,6 +133,7 @@ export function PdfCanvas({
     text: `Page ${viewer.pageIndex + 1} of ${document.pageCount}`,
   };
   const canvasA11yActions = canvasAccessibilityActions(interactiveKind);
+  const useIosNativeAccessibility = (Platform.OS as string) === 'ios';
   const handleCenteredToolAnnotation = (pageIndex: number) => {
     if (!interactiveKind) {
       return;
@@ -193,7 +194,7 @@ export function PdfCanvas({
       <View
         style={styles.nativeCanvasFrame}
         testID="pdf-canvas-native-frame"
-        accessible
+        accessible={!useIosNativeAccessibility}
         accessibilityRole="adjustable"
         accessibilityLabel={canvasA11yLabel}
         accessibilityHint={nativeCanvasAccessibilityHint(interactiveKind)}
@@ -201,10 +202,12 @@ export function PdfCanvas({
         accessibilityValue={canvasA11yValue}
         accessibilityLanguage="en"
         accessibilityIgnoresInvertColors
-        onAccessibilityAction={handlePageAccessibilityAction}>
+        onAccessibilityAction={
+          useIosNativeAccessibility ? undefined : handlePageAccessibilityAction
+        }>
         <NativePdfCanvas
           testID="pdf-canvas-native"
-          accessible={false}
+          accessible={useIosNativeAccessibility}
           accessibilityIgnoresInvertColors
           documentPath={document.path}
           documentBookmark={document.bookmark}
