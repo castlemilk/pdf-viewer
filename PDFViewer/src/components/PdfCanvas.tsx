@@ -43,6 +43,11 @@ type NativePdfCanvasProps = {
   onCanvasPress?: (event: {
     nativeEvent: CanvasAnnotationRequest;
   }) => void;
+  onCanvasAccessibilityAction?: (event: {
+    nativeEvent: {
+      actionName: string;
+    };
+  }) => void;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -142,9 +147,7 @@ export function PdfCanvas({
       ),
     );
   };
-  const handlePageAccessibilityAction = (event: AccessibilityActionEvent) => {
-    const actionName = event.nativeEvent.actionName;
-
+  const handleCanvasAccessibilityAction = (actionName: string) => {
     if (actionName === 'increment' && viewer.pageIndex < document.pageCount - 1) {
       onPageChange?.(viewer.pageIndex + 1);
     }
@@ -156,6 +159,9 @@ export function PdfCanvas({
     if (actionName === 'activate') {
       handleCenteredToolAnnotation(viewer.pageIndex);
     }
+  };
+  const handlePageAccessibilityAction = (event: AccessibilityActionEvent) => {
+    handleCanvasAccessibilityAction(event.nativeEvent.actionName);
   };
   const signaturePreviewSize = annotationSizeForKind('signature');
   const gestureStartRef = useRef<{
@@ -218,6 +224,15 @@ export function PdfCanvas({
               kind: interactiveKind,
             });
           }}
+          {...(Platform.OS === 'ios'
+            ? {
+                onCanvasAccessibilityAction: (event: {
+                  nativeEvent: {actionName: string};
+                }) => {
+                  handleCanvasAccessibilityAction(event.nativeEvent.actionName);
+                },
+              }
+            : {})}
           style={styles.nativeCanvas}
         />
         <ToolHint kind={interactiveKind} />

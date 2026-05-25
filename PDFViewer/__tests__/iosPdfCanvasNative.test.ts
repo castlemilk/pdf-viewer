@@ -8,6 +8,10 @@ describe('iOS native PDF canvas behavior', () => {
     path.join(__dirname, '..', 'ios', 'PDFViewer', 'PdfCanvasViewManager.m'),
     'utf8',
   );
+  const componentSource = readFileSync(
+    path.join(__dirname, '..', 'src', 'components', 'PdfCanvas.tsx'),
+    'utf8',
+  );
 
   it('uses deterministic single-page navigation for toolbar page controls', () => {
     expect(source).toContain('_pdfView.displayMode = kPDFDisplaySinglePage');
@@ -46,5 +50,31 @@ describe('iOS native PDF canvas behavior', () => {
     expect(source).toContain('pdf-annotation-signature');
     expect(source).toContain('AcaciaAnnotationAccessibilityLabel');
     expect(source).toContain('UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification');
+  });
+
+  it('bridges native iOS adjustable canvas gestures back into React page state', () => {
+    expect(componentSource).toContain('onCanvasAccessibilityAction');
+    expect(componentSource).toContain('handleCanvasAccessibilityAction');
+    expect(componentSource).toContain("Platform.OS === 'ios'");
+    expect(source).toContain('onCanvasAccessibilityAction');
+    expect(source).toContain('RCT_EXPORT_VIEW_PROPERTY(onCanvasAccessibilityAction, RCTBubblingEventBlock)');
+    expect(source).toContain('UIAccessibilityTraitAdjustable');
+    expect(source).toContain('UIAccessibilityTraitAllowsDirectInteraction');
+    expect(source).toContain('- (void)accessibilityIncrement');
+    expect(source).toContain('- (void)accessibilityDecrement');
+    expect(source).toContain('- (BOOL)accessibilityScroll:');
+  });
+
+  it('supports native iOS activation, custom actions, rotors, and Voice Control labels', () => {
+    expect(source).toContain('accessibilityPerformMagicTap');
+    expect(source).toContain('accessibilityCustomActions');
+    expect(source).toContain('UIAccessibilityCustomAction');
+    expect(source).toContain('Add highlight at page center');
+    expect(source).toContain('accessibilityCustomRotors');
+    expect(source).toContain('UIAccessibilityCustomRotor');
+    expect(source).toContain('accessibilityUserInputLabels');
+    expect(source).toContain('accessibilityRespondsToUserInteraction');
+    expect(source).toContain('showsLargeContentViewer');
+    expect(source).toContain('AXCustomContent');
   });
 });
