@@ -287,6 +287,33 @@ describe('macOS offline launch configuration', () => {
     expect(macCanvas).toContain('[_pdfView setAccessibilityValue:summary]');
   });
 
+  it('exposes macOS native annotations and canvas actions to accessibility clients', () => {
+    const macCanvas = readFileSync(
+      path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfCanvasViewManager.mm'),
+      'utf8',
+    );
+    const componentSource = readFileSync(
+      path.join(appRoot, 'src', 'components', 'PdfCanvas.tsx'),
+      'utf8',
+    );
+
+    expect(macCanvas).toContain('updateAnnotationAccessibilityElements');
+    expect(macCanvas).toContain('NSAccessibilityElement');
+    expect(macCanvas).toContain('accessibilityFrameInParentSpace');
+    expect(macCanvas).toContain('AcaciaAnnotationAccessibilityIdentifierForKind');
+    expect(macCanvas).toContain('pdf-annotation-signature');
+    expect(macCanvas).toContain('AcaciaAnnotationAccessibilityLabel');
+    expect(macCanvas).toContain('accessibilityChildren');
+    expect(macCanvas).toContain('NSAccessibilityPostNotification');
+    expect(macCanvas).toContain('NSAccessibilityLayoutChangedNotification');
+    expect(macCanvas).toContain('NSAccessibilityCustomAction');
+    expect(macCanvas).toContain('accessibilityPerformIncrement');
+    expect(macCanvas).toContain('accessibilityPerformDecrement');
+    expect(macCanvas).toContain('RCT_EXPORT_VIEW_PROPERTY(onCanvasAccessibilityAction, RCTBubblingEventBlock)');
+    expect(componentSource).toContain('onCanvasAccessibilityAction');
+    expect(componentSource).toContain('handleCanvasAccessibilityAction');
+  });
+
   it('centers native minimum-height highlight drags around the pointer path', () => {
     const macCanvas = readFileSync(
       path.join(appRoot, 'macos', 'PDFViewer-macOS', 'PdfCanvasViewManager.mm'),

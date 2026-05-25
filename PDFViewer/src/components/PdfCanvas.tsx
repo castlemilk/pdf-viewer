@@ -227,15 +227,11 @@ export function PdfCanvas({
               kind: interactiveKind,
             });
           }}
-          {...(Platform.OS === 'ios'
-            ? {
-                onCanvasAccessibilityAction: (event: {
-                  nativeEvent: {actionName: string};
-                }) => {
-                  handleCanvasAccessibilityAction(event.nativeEvent.actionName);
-                },
-              }
-            : {})}
+          onCanvasAccessibilityAction={(event: {
+            nativeEvent: {actionName: string};
+          }) => {
+            handleCanvasAccessibilityAction(event.nativeEvent.actionName);
+          }}
           style={styles.nativeCanvas}
         />
         <ToolHint kind={interactiveKind} />

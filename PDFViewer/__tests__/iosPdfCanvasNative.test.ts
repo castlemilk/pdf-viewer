@@ -60,7 +60,7 @@ describe('iOS native PDF canvas behavior', () => {
     expect(componentSource).toContain('accessible={useIosNativeAccessibility}');
     expect(componentSource).toContain('onCanvasAccessibilityAction');
     expect(componentSource).toContain('handleCanvasAccessibilityAction');
-    expect(componentSource).toContain("Platform.OS === 'ios'");
+    expect(componentSource).toContain('useIosNativeAccessibility');
     expect(source).toContain('onCanvasAccessibilityAction');
     expect(source).toContain('RCT_EXPORT_VIEW_PROPERTY(onCanvasAccessibilityAction, RCTBubblingEventBlock)');
     expect(source).toContain('UIAccessibilityTraitAdjustable');
