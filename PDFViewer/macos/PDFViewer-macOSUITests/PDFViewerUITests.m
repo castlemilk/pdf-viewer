@@ -183,6 +183,42 @@
   ]];
 }
 
+- (XCUIElement *)tapIdentifier:(NSString *)tapIdentifier
+     untilFirstIdentifierExists:(NSArray<NSString *> *)targetIdentifiers
+{
+  NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:20];
+
+  while ([[NSDate date] compare:deadline] == NSOrderedAscending) {
+    for (NSString *targetIdentifier in targetIdentifiers) {
+      XCUIElement *target = [self elementWithIdentifier:targetIdentifier];
+      if (target.exists) {
+        return target;
+      }
+    }
+
+    XCUIElement *tapTarget = [self elementWithIdentifier:tapIdentifier];
+    if ([tapTarget waitForExistenceWithTimeout:1]) {
+      [self clickElement:tapTarget];
+    }
+
+    NSDate *pollDeadline = [NSDate dateWithTimeIntervalSinceNow:1];
+    while ([[NSDate date] compare:pollDeadline] == NSOrderedAscending) {
+      for (NSString *targetIdentifier in targetIdentifiers) {
+        XCUIElement *target = [self elementWithIdentifier:targetIdentifier];
+        if (target.exists) {
+          return target;
+        }
+      }
+      [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+    }
+  }
+
+  XCTFail(@"Expected tapping %@ to reveal one of these identifiers: %@",
+          tapIdentifier,
+          [targetIdentifiers componentsJoinedByString:@", "]);
+  return [self elementWithIdentifier:targetIdentifiers.firstObject];
+}
+
 - (void)waitForCommentsPanel
 {
   [self waitForFirstIdentifier:@[
@@ -876,8 +912,13 @@
   [self assertIdentifier:@"doc-card-q4-market-analysis" labelContains:@"Q4 Market Analysis Report"];
   [self assertIdentifier:@"doc-row-q4-market-analysis" labelContains:@"Q4 Market Analysis Report"];
 
-  [self tapIdentifier:@"filter-button"];
-  [self waitForFilterPanel];
+  [self tapIdentifier:@"filter-button"
+      untilFirstIdentifierExists:@[
+        @"filter-panel",
+        @"filter-tag-all",
+        @"filter-tag-finance",
+        @"filter-collection-all"
+      ]];
   [self tapIdentifier:@"filter-tag-finance"];
   [self waitForIdentifier:@"doc-row-annual-financial-report"];
   [self waitForIdentifier:@"doc-row-invoice-0042"];
@@ -909,8 +950,13 @@
 
   [self waitForIdentifier:@"library-results-summary"];
 
-  [self tapIdentifier:@"filter-button"];
-  [self waitForFilterPanel];
+  [self tapIdentifier:@"filter-button"
+      untilFirstIdentifierExists:@[
+        @"filter-panel",
+        @"filter-tag-all",
+        @"filter-tag-finance",
+        @"filter-collection-all"
+      ]];
   [self tapIdentifier:@"filter-tag-finance"];
   [self waitForIdentifier:@"filter-button" labelContaining:@"1 active"];
   [self waitForIdentifier:@"doc-card-annual-financial-report"];
@@ -920,8 +966,8 @@
   [search typeText:@"definitely no matching local pdf"];
 
   [self waitForIdentifier:@"library-empty-state"];
-  [self tapIdentifier:@"clear-empty-state-filters"];
-  [self waitForIdentifier:@"doc-card-q4-market-analysis"];
+  [self tapIdentifier:@"clear-empty-state-filters"
+      untilFirstIdentifierExists:@[ @"doc-card-q4-market-analysis" ]];
   [self waitForIdentifier:@"doc-card-q4-market-analysis"];
 }
 
