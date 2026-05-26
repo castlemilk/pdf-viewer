@@ -27,6 +27,28 @@ func TestLoadConfigParsesPaymentProductSettings(t *testing.T) {
 	if config.ProStorageQuotaBytes != 42 {
 		t.Fatalf("unexpected quota: %d", config.ProStorageQuotaBytes)
 	}
+	if config.CloudBucket != "acacia-entitlements" {
+		t.Fatalf("expected cloud bucket to default to entitlement bucket, got %q", config.CloudBucket)
+	}
+}
+
+func TestLoadConfigAllowsDedicatedCloudBucket(t *testing.T) {
+	t.Setenv("ACACIA_ENTITLEMENTS_BUCKET", "acacia-entitlements")
+	t.Setenv("ACACIA_CLOUD_BUCKET", "acacia-cloud")
+	t.Setenv("ACACIA_CLOUD_PREFIX", "cloud-prefix")
+	t.Setenv("ACACIA_APP_ACCOUNT_TOKEN_SECRET", "secret")
+
+	config, err := loadConfig()
+
+	if err != nil {
+		t.Fatalf("expected config to load: %v", err)
+	}
+	if config.CloudBucket != "acacia-cloud" {
+		t.Fatalf("unexpected cloud bucket: %q", config.CloudBucket)
+	}
+	if config.CloudPrefix != "cloud-prefix" {
+		t.Fatalf("unexpected cloud prefix: %q", config.CloudPrefix)
+	}
 }
 
 func TestLoadConfigTrimsSecretManagerNewlines(t *testing.T) {

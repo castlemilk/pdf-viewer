@@ -2,6 +2,7 @@
 import {ProBackendClient, ProBackendError} from '../src/pro/proBackendClient';
 import {
   encodeGetAccountRequest,
+  encodeSyncLibraryRequest,
   encodeSyncAppStoreTransactionRequest,
   type ProAccountEntitlement,
 } from '../src/pro/protobuf';
@@ -23,15 +24,15 @@ function varint(value: number): number[] {
 
 function stringField(fieldNumber: number, value: string): number[] {
   const bytes = utf8(value);
-  return [(fieldNumber << 3) | 2, ...varint(bytes.length), ...bytes];
+  return [...varint((fieldNumber << 3) | 2), ...varint(bytes.length), ...bytes];
 }
 
 function varintField(fieldNumber: number, value: number): number[] {
-  return [(fieldNumber << 3) | 0, ...varint(value)];
+  return [...varint((fieldNumber << 3) | 0), ...varint(value)];
 }
 
 function messageField(fieldNumber: number, value: number[]): number[] {
-  return [(fieldNumber << 3) | 2, ...varint(value.length), ...value];
+  return [...varint((fieldNumber << 3) | 2), ...varint(value.length), ...value];
 }
 
 function createResponse(status: number, body: Uint8Array) {
@@ -205,5 +206,84 @@ test('throws backend protobuf error details for failed requests', async () => {
       'app account token secret is not configured',
       503,
     ),
+  );
+});
+
+test('syncs cloud library snapshot using protobuf and Firebase bearer auth', async () => {
+  const snapshot = {
+    documents: [
+      {
+        id: 'roadmap',
+        title: 'Product Roadmap',
+        author: 'Product',
+        pageCount: 44,
+        sizeBytes: 1258291,
+        progress: 0.6,
+        createdAt: '2026-05-01T10:00:00.000Z',
+        modifiedAt: '2026-05-02T10:00:00.000Z',
+        lastOpenedAt: '2026-05-03T10:00:00.000Z',
+        tags: ['work'],
+        collectionIds: ['briefs'],
+        favorite: false,
+        shared: true,
+        thumbnailTone: 'navy',
+        versionLabel: '2.0',
+      },
+    ],
+    annotations: [],
+    revision: 2,
+    updatedAt: '2026-05-04T10:00:00.000Z',
+  };
+  const responseSnapshot = [
+    ...messageField(1, [
+      ...stringField(1, 'roadmap'),
+      ...stringField(2, 'Product Roadmap'),
+      ...stringField(3, 'Product'),
+      ...varintField(4, 44),
+      ...varintField(5, 1258291),
+      ...varintField(6, 600),
+      ...stringField(7, '2026-05-01T10:00:00.000Z'),
+      ...stringField(8, '2026-05-02T10:00:00.000Z'),
+      ...stringField(9, '2026-05-03T10:00:00.000Z'),
+      ...stringField(10, 'work'),
+      ...stringField(11, 'briefs'),
+      ...varintField(13, 1),
+      ...stringField(14, 'navy'),
+      ...stringField(15, '2.0'),
+      ...varintField(16, 3),
+    ]),
+    ...varintField(3, 3),
+    ...stringField(4, '2026-05-04T10:01:00.000Z'),
+  ];
+  const fetchMock: TestFetch = jest.fn(async (_url, _init) =>
+    createResponse(200, Uint8Array.from(messageField(1, responseSnapshot))),
+  );
+  const client = new ProBackendClient({
+    baseUrl: 'https://pro.acacia.test/',
+    fetchImpl: fetchMock as unknown as typeof fetch,
+  });
+
+  await expect(
+    client.syncLibrary('firebase-token', snapshot),
+  ).resolves.toEqual({
+    snapshot: {
+      documents: [
+        expect.objectContaining({
+          id: 'roadmap',
+          revision: 3,
+        }),
+      ],
+      annotations: [],
+      revision: 3,
+      updatedAt: '2026-05-04T10:01:00.000Z',
+    },
+  });
+
+  expect(fetchMock).toHaveBeenCalledWith(
+    'https://pro.acacia.test/v1/library:sync',
+    expect.objectContaining({
+      method: 'POST',
+      body: encodeSyncLibraryRequest(snapshot),
+    }),
   );
 });

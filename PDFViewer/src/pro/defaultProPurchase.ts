@@ -6,6 +6,10 @@ import {
 } from './proAccountSynchronizer';
 import {ProBackendClient} from './proBackendClient';
 import {
+  createProCloudSynchronizer,
+  type ProCloudSynchronizer,
+} from './proCloudSynchronizer';
+import {
   createProPurchaseCoordinator,
   type ProAuthTokenProvider,
   type ProPurchaseCoordinator,
@@ -37,6 +41,15 @@ export function createDefaultProAccountSynchronizer(): ProAccountSynchronizer {
   const baseUrl = getDefaultProApiBaseUrl();
 
   return createProAccountSynchronizer({
+    authTokenProvider: getNativeFirebaseAuthTokenProvider(),
+    backendClient: baseUrl ? new ProBackendClient({baseUrl}) : undefined,
+  });
+}
+
+export function createDefaultProCloudSynchronizer(): ProCloudSynchronizer {
+  const baseUrl = getDefaultProApiBaseUrl();
+
+  return createProCloudSynchronizer({
     authTokenProvider: getNativeFirebaseAuthTokenProvider(),
     backendClient: baseUrl ? new ProBackendClient({baseUrl}) : undefined,
   });

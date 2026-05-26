@@ -64,10 +64,14 @@ import {
   PdfKitBridge,
 } from './src/native/PdfKitBridge';
 import {
+  applyCloudLibrarySnapshot,
+  createCloudLibrarySnapshot,
   createDefaultProAccountSynchronizer,
+  createDefaultProCloudSynchronizer,
   createDefaultProPurchaseCoordinator,
   ProBackendError,
   type ProAccountSynchronizer,
+  type ProCloudSynchronizer,
   type ProPurchaseCoordinator,
   ProPurchaseUnavailableError,
 } from './src/pro';
@@ -89,6 +93,7 @@ type AppProps = {
   isUiTestingLaunch?: boolean;
   isProPurchaseTestingLaunch?: boolean;
   proAccountSynchronizer?: ProAccountSynchronizer;
+  proCloudSynchronizer?: ProCloudSynchronizer;
   proPurchaseCoordinator?: ProPurchaseCoordinator;
 };
 
@@ -113,6 +118,36 @@ type CommentAnnotationFilter =
   | 'note'
   | 'drawing'
   | 'signature';
+
+const base64Lookup =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+function decodeBase64(value: string): Uint8Array {
+  const bytes: number[] = [];
+  let buffer = 0;
+  let bits = 0;
+
+  for (const character of value.replace(/\s/g, '')) {
+    if (character === '=') {
+      break;
+    }
+    const index = base64Lookup.indexOf(character);
+    if (index < 0) {
+      continue;
+    }
+
+    buffer = buffer * 64 + index;
+    bits += 6;
+
+    if (bits >= 8) {
+      bits -= 8;
+      bytes.push(Math.floor(buffer / 2 ** bits) % 256);
+      buffer %= 2 ** bits;
+    }
+  }
+
+  return Uint8Array.from(bytes);
+}
 
 const initialFilter: LibraryFilter = defaultLibraryFilter;
 
@@ -471,6 +506,7 @@ function App({
   isUiTestingLaunch = false,
   isProPurchaseTestingLaunch = false,
   proAccountSynchronizer,
+  proCloudSynchronizer,
   proPurchaseCoordinator,
 }: AppProps) {
   const isScreenshotLaunch = screenshotMode !== undefined;
@@ -521,6 +557,10 @@ function App({
     () => proAccountSynchronizer ?? createDefaultProAccountSynchronizer(),
     [proAccountSynchronizer],
   );
+  const cloudSynchronizer = useMemo(
+    () => proCloudSynchronizer ?? createDefaultProCloudSynchronizer(),
+    [proCloudSynchronizer],
+  );
   const windowMetrics = useWindowDimensions();
   const systemColorScheme = useColorScheme();
   const appleAccessibility = useAppleAccessibilityPreferences(
@@ -534,6 +574,11 @@ function App({
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
+  const cloudSyncTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const cloudSyncFingerprintRef = useRef('');
+  const cloudUploadedDocumentKeysRef = useRef(new Set<string>());
   const viewerSearchTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
@@ -909,6 +954,118 @@ function App({
     isScreenshotLaunch,
     signatures,
     viewerState,
+  ]);
+
+  useEffect(() => {
+    if (!persistenceHydratedRef.current || !hasProEntitlement || isScreenshotLaunch) {
+      return;
+    }
+
+    const snapshot = createCloudLibrarySnapshot(libraryState, annotations);
+    const fingerprint = JSON.stringify({
+      documents: snapshot.documents,
+      annotations: snapshot.annotations,
+    });
+    if (fingerprint === cloudSyncFingerprintRef.current) {
+      return;
+    }
+
+    if (cloudSyncTimerRef.current) {
+      clearTimeout(cloudSyncTimerRef.current);
+    }
+
+    cloudSyncTimerRef.current = setTimeout(() => {
+      cloudSyncFingerprintRef.current = fingerprint;
+      const uploadableDocuments = libraryState.documents
+        .filter(document => document.path)
+        .map(document => ({
+          id: document.id,
+          path: document.path ?? '',
+          bookmark: document.bookmark ?? '',
+          uploadKey: `${document.id}:${document.modifiedAt}:${document.sizeMb}`,
+        }));
+
+      cloudSynchronizer
+        .syncLibrary(snapshot)
+        .then(async result => {
+          if (!result?.snapshot) {
+            return;
+          }
+
+          const merged = applyCloudLibrarySnapshot(
+            libraryState,
+            annotations,
+            result.snapshot,
+          );
+          dispatchLibrary({type: 'replaceState', state: merged.libraryState});
+          setAnnotations(merged.annotations);
+
+          if (result.account?.active) {
+            setAccountState({
+              signedIn: true,
+              plan: result.account.plan === 'pro' ? 'pro' : 'free',
+            });
+            dispatchLibrary({
+              type: 'setStorageQuota',
+              storageLimitGb:
+                result.account.storageQuotaBytes / (1024 * 1024 * 1024),
+            });
+            dispatchLibrary({
+              type: 'setStorageUsage',
+              storageUsedGb:
+                result.account.storageUsedBytes / (1024 * 1024 * 1024),
+            });
+          }
+
+          for (const document of uploadableDocuments) {
+            if (cloudUploadedDocumentKeysRef.current.has(document.uploadKey)) {
+              continue;
+            }
+
+            try {
+              const base64 = await PdfKitBridge.readDocumentBase64(
+                document.path,
+                document.bookmark,
+              );
+              if (!base64) {
+                continue;
+              }
+              const uploadResult =
+                await cloudSynchronizer.uploadDocumentContent({
+                  documentId: document.id,
+                  data: decodeBase64(base64),
+                  contentType: 'application/pdf',
+                });
+              if (uploadResult) {
+                cloudUploadedDocumentKeysRef.current.add(document.uploadKey);
+              }
+              if (uploadResult?.account?.active) {
+                dispatchLibrary({
+                  type: 'setStorageUsage',
+                  storageUsedGb:
+                    uploadResult.account.storageUsedBytes /
+                    (1024 * 1024 * 1024),
+                });
+              }
+            } catch {
+              // Cloud sync is best-effort; local document access remains the source of truth.
+            }
+          }
+        })
+        .catch(() => {});
+    }, 2000);
+
+    return () => {
+      if (cloudSyncTimerRef.current) {
+        clearTimeout(cloudSyncTimerRef.current);
+      }
+    };
+  }, [
+    annotations,
+    cloudSynchronizer,
+    hasProEntitlement,
+    isScreenshotLaunch,
+    libraryState,
   ]);
 
   useEffect(() => {

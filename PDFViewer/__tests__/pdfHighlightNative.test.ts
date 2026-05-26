@@ -231,4 +231,26 @@ describe('native PDFKit highlight placement', () => {
     expect(macBridge).toContain('convert_local');
     expect(tsBridge).toContain('exportMarkdown?.(path, bookmark)');
   });
+
+  it('native bridges expose PDF bytes for Pro cloud content upload', () => {
+    const macBridge = readFileSync(
+      path.join(__dirname, '..', 'macos/PDFViewer-macOS/PdfKitBridge.mm'),
+      'utf8',
+    );
+    const iosBridge = readFileSync(
+      path.join(__dirname, '..', 'ios/PDFViewer/PdfKitBridge.m'),
+      'utf8',
+    );
+    const tsBridge = readFileSync(
+      path.join(__dirname, '..', 'src/native/PdfKitBridge.ts'),
+      'utf8',
+    );
+
+    for (const bridge of [macBridge, iosBridge]) {
+      expect(bridge).toContain('readDocumentBase64:(NSString *)path');
+      expect(bridge).toContain('base64EncodedStringWithOptions:0');
+      expect(bridge).toContain('resolvedURLForPath:path');
+    }
+    expect(tsBridge).toContain('readDocumentBase64?.(path, bookmark)');
+  });
 });

@@ -263,6 +263,482 @@ func (x *AccountEntitlement) GetAppAccountToken() string {
 	return ""
 }
 
+type CloudPdfRect struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	XMilli        int32                  `protobuf:"varint,1,opt,name=x_milli,json=xMilli,proto3" json:"x_milli,omitempty"`
+	YMilli        int32                  `protobuf:"varint,2,opt,name=y_milli,json=yMilli,proto3" json:"y_milli,omitempty"`
+	WidthMilli    int32                  `protobuf:"varint,3,opt,name=width_milli,json=widthMilli,proto3" json:"width_milli,omitempty"`
+	HeightMilli   int32                  `protobuf:"varint,4,opt,name=height_milli,json=heightMilli,proto3" json:"height_milli,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CloudPdfRect) Reset() {
+	*x = CloudPdfRect{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CloudPdfRect) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CloudPdfRect) ProtoMessage() {}
+
+func (x *CloudPdfRect) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CloudPdfRect.ProtoReflect.Descriptor instead.
+func (*CloudPdfRect) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *CloudPdfRect) GetXMilli() int32 {
+	if x != nil {
+		return x.XMilli
+	}
+	return 0
+}
+
+func (x *CloudPdfRect) GetYMilli() int32 {
+	if x != nil {
+		return x.YMilli
+	}
+	return 0
+}
+
+func (x *CloudPdfRect) GetWidthMilli() int32 {
+	if x != nil {
+		return x.WidthMilli
+	}
+	return 0
+}
+
+func (x *CloudPdfRect) GetHeightMilli() int32 {
+	if x != nil {
+		return x.HeightMilli
+	}
+	return 0
+}
+
+type CloudPdfPoint struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	XMilli        int32                  `protobuf:"varint,1,opt,name=x_milli,json=xMilli,proto3" json:"x_milli,omitempty"`
+	YMilli        int32                  `protobuf:"varint,2,opt,name=y_milli,json=yMilli,proto3" json:"y_milli,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CloudPdfPoint) Reset() {
+	*x = CloudPdfPoint{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CloudPdfPoint) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CloudPdfPoint) ProtoMessage() {}
+
+func (x *CloudPdfPoint) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CloudPdfPoint.ProtoReflect.Descriptor instead.
+func (*CloudPdfPoint) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *CloudPdfPoint) GetXMilli() int32 {
+	if x != nil {
+		return x.XMilli
+	}
+	return 0
+}
+
+func (x *CloudPdfPoint) GetYMilli() int32 {
+	if x != nil {
+		return x.YMilli
+	}
+	return 0
+}
+
+type CloudDocument struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Author        string                 `protobuf:"bytes,3,opt,name=author,proto3" json:"author,omitempty"`
+	PageCount     int32                  `protobuf:"varint,4,opt,name=page_count,json=pageCount,proto3" json:"page_count,omitempty"`
+	SizeBytes     int64                  `protobuf:"varint,5,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	ProgressMilli int32                  `protobuf:"varint,6,opt,name=progress_milli,json=progressMilli,proto3" json:"progress_milli,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	ModifiedAt    string                 `protobuf:"bytes,8,opt,name=modified_at,json=modifiedAt,proto3" json:"modified_at,omitempty"`
+	LastOpenedAt  string                 `protobuf:"bytes,9,opt,name=last_opened_at,json=lastOpenedAt,proto3" json:"last_opened_at,omitempty"`
+	Tags          []string               `protobuf:"bytes,10,rep,name=tags,proto3" json:"tags,omitempty"`
+	CollectionIds []string               `protobuf:"bytes,11,rep,name=collection_ids,json=collectionIds,proto3" json:"collection_ids,omitempty"`
+	Favorite      bool                   `protobuf:"varint,12,opt,name=favorite,proto3" json:"favorite,omitempty"`
+	Shared        bool                   `protobuf:"varint,13,opt,name=shared,proto3" json:"shared,omitempty"`
+	ThumbnailTone string                 `protobuf:"bytes,14,opt,name=thumbnail_tone,json=thumbnailTone,proto3" json:"thumbnail_tone,omitempty"`
+	VersionLabel  string                 `protobuf:"bytes,15,opt,name=version_label,json=versionLabel,proto3" json:"version_label,omitempty"`
+	Revision      int64                  `protobuf:"varint,16,opt,name=revision,proto3" json:"revision,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CloudDocument) Reset() {
+	*x = CloudDocument{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CloudDocument) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CloudDocument) ProtoMessage() {}
+
+func (x *CloudDocument) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CloudDocument.ProtoReflect.Descriptor instead.
+func (*CloudDocument) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *CloudDocument) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *CloudDocument) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *CloudDocument) GetAuthor() string {
+	if x != nil {
+		return x.Author
+	}
+	return ""
+}
+
+func (x *CloudDocument) GetPageCount() int32 {
+	if x != nil {
+		return x.PageCount
+	}
+	return 0
+}
+
+func (x *CloudDocument) GetSizeBytes() int64 {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return 0
+}
+
+func (x *CloudDocument) GetProgressMilli() int32 {
+	if x != nil {
+		return x.ProgressMilli
+	}
+	return 0
+}
+
+func (x *CloudDocument) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *CloudDocument) GetModifiedAt() string {
+	if x != nil {
+		return x.ModifiedAt
+	}
+	return ""
+}
+
+func (x *CloudDocument) GetLastOpenedAt() string {
+	if x != nil {
+		return x.LastOpenedAt
+	}
+	return ""
+}
+
+func (x *CloudDocument) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *CloudDocument) GetCollectionIds() []string {
+	if x != nil {
+		return x.CollectionIds
+	}
+	return nil
+}
+
+func (x *CloudDocument) GetFavorite() bool {
+	if x != nil {
+		return x.Favorite
+	}
+	return false
+}
+
+func (x *CloudDocument) GetShared() bool {
+	if x != nil {
+		return x.Shared
+	}
+	return false
+}
+
+func (x *CloudDocument) GetThumbnailTone() string {
+	if x != nil {
+		return x.ThumbnailTone
+	}
+	return ""
+}
+
+func (x *CloudDocument) GetVersionLabel() string {
+	if x != nil {
+		return x.VersionLabel
+	}
+	return ""
+}
+
+func (x *CloudDocument) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+type CloudAnnotation struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	DocumentId    string                 `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	PageIndex     int32                  `protobuf:"varint,3,opt,name=page_index,json=pageIndex,proto3" json:"page_index,omitempty"`
+	Kind          string                 `protobuf:"bytes,4,opt,name=kind,proto3" json:"kind,omitempty"`
+	Color         string                 `protobuf:"bytes,5,opt,name=color,proto3" json:"color,omitempty"`
+	Bounds        *CloudPdfRect          `protobuf:"bytes,6,opt,name=bounds,proto3" json:"bounds,omitempty"`
+	Points        []*CloudPdfPoint       `protobuf:"bytes,7,rep,name=points,proto3" json:"points,omitempty"`
+	Text          string                 `protobuf:"bytes,8,opt,name=text,proto3" json:"text,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     string                 `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Revision      int64                  `protobuf:"varint,11,opt,name=revision,proto3" json:"revision,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CloudAnnotation) Reset() {
+	*x = CloudAnnotation{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CloudAnnotation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CloudAnnotation) ProtoMessage() {}
+
+func (x *CloudAnnotation) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CloudAnnotation.ProtoReflect.Descriptor instead.
+func (*CloudAnnotation) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *CloudAnnotation) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *CloudAnnotation) GetDocumentId() string {
+	if x != nil {
+		return x.DocumentId
+	}
+	return ""
+}
+
+func (x *CloudAnnotation) GetPageIndex() int32 {
+	if x != nil {
+		return x.PageIndex
+	}
+	return 0
+}
+
+func (x *CloudAnnotation) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *CloudAnnotation) GetColor() string {
+	if x != nil {
+		return x.Color
+	}
+	return ""
+}
+
+func (x *CloudAnnotation) GetBounds() *CloudPdfRect {
+	if x != nil {
+		return x.Bounds
+	}
+	return nil
+}
+
+func (x *CloudAnnotation) GetPoints() []*CloudPdfPoint {
+	if x != nil {
+		return x.Points
+	}
+	return nil
+}
+
+func (x *CloudAnnotation) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *CloudAnnotation) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *CloudAnnotation) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *CloudAnnotation) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+type CloudLibrarySnapshot struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Documents     []*CloudDocument       `protobuf:"bytes,1,rep,name=documents,proto3" json:"documents,omitempty"`
+	Annotations   []*CloudAnnotation     `protobuf:"bytes,2,rep,name=annotations,proto3" json:"annotations,omitempty"`
+	Revision      int64                  `protobuf:"varint,3,opt,name=revision,proto3" json:"revision,omitempty"`
+	UpdatedAt     string                 `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CloudLibrarySnapshot) Reset() {
+	*x = CloudLibrarySnapshot{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CloudLibrarySnapshot) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CloudLibrarySnapshot) ProtoMessage() {}
+
+func (x *CloudLibrarySnapshot) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CloudLibrarySnapshot.ProtoReflect.Descriptor instead.
+func (*CloudLibrarySnapshot) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *CloudLibrarySnapshot) GetDocuments() []*CloudDocument {
+	if x != nil {
+		return x.Documents
+	}
+	return nil
+}
+
+func (x *CloudLibrarySnapshot) GetAnnotations() []*CloudAnnotation {
+	if x != nil {
+		return x.Annotations
+	}
+	return nil
+}
+
+func (x *CloudLibrarySnapshot) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *CloudLibrarySnapshot) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
 type GetAccountRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -271,7 +747,7 @@ type GetAccountRequest struct {
 
 func (x *GetAccountRequest) Reset() {
 	*x = GetAccountRequest{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[1]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -283,7 +759,7 @@ func (x *GetAccountRequest) String() string {
 func (*GetAccountRequest) ProtoMessage() {}
 
 func (x *GetAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[1]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -296,7 +772,7 @@ func (x *GetAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountRequest.ProtoReflect.Descriptor instead.
 func (*GetAccountRequest) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{1}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{6}
 }
 
 type GetAccountResponse struct {
@@ -308,7 +784,7 @@ type GetAccountResponse struct {
 
 func (x *GetAccountResponse) Reset() {
 	*x = GetAccountResponse{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[2]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -320,7 +796,7 @@ func (x *GetAccountResponse) String() string {
 func (*GetAccountResponse) ProtoMessage() {}
 
 func (x *GetAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[2]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -333,7 +809,7 @@ func (x *GetAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountResponse.ProtoReflect.Descriptor instead.
 func (*GetAccountResponse) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{2}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetAccountResponse) GetAccount() *AccountEntitlement {
@@ -351,7 +827,7 @@ type GetPurchaseContextRequest struct {
 
 func (x *GetPurchaseContextRequest) Reset() {
 	*x = GetPurchaseContextRequest{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[3]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -363,7 +839,7 @@ func (x *GetPurchaseContextRequest) String() string {
 func (*GetPurchaseContextRequest) ProtoMessage() {}
 
 func (x *GetPurchaseContextRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[3]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -376,7 +852,7 @@ func (x *GetPurchaseContextRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPurchaseContextRequest.ProtoReflect.Descriptor instead.
 func (*GetPurchaseContextRequest) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{3}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{8}
 }
 
 type GetPurchaseContextResponse struct {
@@ -390,7 +866,7 @@ type GetPurchaseContextResponse struct {
 
 func (x *GetPurchaseContextResponse) Reset() {
 	*x = GetPurchaseContextResponse{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[4]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -402,7 +878,7 @@ func (x *GetPurchaseContextResponse) String() string {
 func (*GetPurchaseContextResponse) ProtoMessage() {}
 
 func (x *GetPurchaseContextResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[4]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -415,7 +891,7 @@ func (x *GetPurchaseContextResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPurchaseContextResponse.ProtoReflect.Descriptor instead.
 func (*GetPurchaseContextResponse) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{4}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetPurchaseContextResponse) GetAppAccountToken() string {
@@ -448,7 +924,7 @@ type SyncAppStoreTransactionRequest struct {
 
 func (x *SyncAppStoreTransactionRequest) Reset() {
 	*x = SyncAppStoreTransactionRequest{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[5]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -460,7 +936,7 @@ func (x *SyncAppStoreTransactionRequest) String() string {
 func (*SyncAppStoreTransactionRequest) ProtoMessage() {}
 
 func (x *SyncAppStoreTransactionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[5]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -473,7 +949,7 @@ func (x *SyncAppStoreTransactionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncAppStoreTransactionRequest.ProtoReflect.Descriptor instead.
 func (*SyncAppStoreTransactionRequest) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{5}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SyncAppStoreTransactionRequest) GetSignedTransactionJws() string {
@@ -492,7 +968,7 @@ type SyncAppStoreTransactionResponse struct {
 
 func (x *SyncAppStoreTransactionResponse) Reset() {
 	*x = SyncAppStoreTransactionResponse{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[6]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -504,7 +980,7 @@ func (x *SyncAppStoreTransactionResponse) String() string {
 func (*SyncAppStoreTransactionResponse) ProtoMessage() {}
 
 func (x *SyncAppStoreTransactionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[6]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -517,7 +993,7 @@ func (x *SyncAppStoreTransactionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncAppStoreTransactionResponse.ProtoReflect.Descriptor instead.
 func (*SyncAppStoreTransactionResponse) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{6}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *SyncAppStoreTransactionResponse) GetAccount() *AccountEntitlement {
@@ -525,6 +1001,334 @@ func (x *SyncAppStoreTransactionResponse) GetAccount() *AccountEntitlement {
 		return x.Account
 	}
 	return nil
+}
+
+type SyncLibraryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Snapshot      *CloudLibrarySnapshot  `protobuf:"bytes,1,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SyncLibraryRequest) Reset() {
+	*x = SyncLibraryRequest{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SyncLibraryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SyncLibraryRequest) ProtoMessage() {}
+
+func (x *SyncLibraryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SyncLibraryRequest.ProtoReflect.Descriptor instead.
+func (*SyncLibraryRequest) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *SyncLibraryRequest) GetSnapshot() *CloudLibrarySnapshot {
+	if x != nil {
+		return x.Snapshot
+	}
+	return nil
+}
+
+type SyncLibraryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Snapshot      *CloudLibrarySnapshot  `protobuf:"bytes,1,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
+	Account       *AccountEntitlement    `protobuf:"bytes,2,opt,name=account,proto3" json:"account,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SyncLibraryResponse) Reset() {
+	*x = SyncLibraryResponse{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SyncLibraryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SyncLibraryResponse) ProtoMessage() {}
+
+func (x *SyncLibraryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SyncLibraryResponse.ProtoReflect.Descriptor instead.
+func (*SyncLibraryResponse) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *SyncLibraryResponse) GetSnapshot() *CloudLibrarySnapshot {
+	if x != nil {
+		return x.Snapshot
+	}
+	return nil
+}
+
+func (x *SyncLibraryResponse) GetAccount() *AccountEntitlement {
+	if x != nil {
+		return x.Account
+	}
+	return nil
+}
+
+type UploadDocumentContentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DocumentId    string                 `protobuf:"bytes,1,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	Data          []byte                 `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	ContentType   string                 `protobuf:"bytes,3,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UploadDocumentContentRequest) Reset() {
+	*x = UploadDocumentContentRequest{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadDocumentContentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadDocumentContentRequest) ProtoMessage() {}
+
+func (x *UploadDocumentContentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadDocumentContentRequest.ProtoReflect.Descriptor instead.
+func (*UploadDocumentContentRequest) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *UploadDocumentContentRequest) GetDocumentId() string {
+	if x != nil {
+		return x.DocumentId
+	}
+	return ""
+}
+
+func (x *UploadDocumentContentRequest) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *UploadDocumentContentRequest) GetContentType() string {
+	if x != nil {
+		return x.ContentType
+	}
+	return ""
+}
+
+type UploadDocumentContentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DocumentId    string                 `protobuf:"bytes,1,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	SizeBytes     int64                  `protobuf:"varint,2,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	Account       *AccountEntitlement    `protobuf:"bytes,3,opt,name=account,proto3" json:"account,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UploadDocumentContentResponse) Reset() {
+	*x = UploadDocumentContentResponse{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadDocumentContentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadDocumentContentResponse) ProtoMessage() {}
+
+func (x *UploadDocumentContentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadDocumentContentResponse.ProtoReflect.Descriptor instead.
+func (*UploadDocumentContentResponse) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *UploadDocumentContentResponse) GetDocumentId() string {
+	if x != nil {
+		return x.DocumentId
+	}
+	return ""
+}
+
+func (x *UploadDocumentContentResponse) GetSizeBytes() int64 {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return 0
+}
+
+func (x *UploadDocumentContentResponse) GetAccount() *AccountEntitlement {
+	if x != nil {
+		return x.Account
+	}
+	return nil
+}
+
+type DownloadDocumentContentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DocumentId    string                 `protobuf:"bytes,1,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DownloadDocumentContentRequest) Reset() {
+	*x = DownloadDocumentContentRequest{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DownloadDocumentContentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DownloadDocumentContentRequest) ProtoMessage() {}
+
+func (x *DownloadDocumentContentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DownloadDocumentContentRequest.ProtoReflect.Descriptor instead.
+func (*DownloadDocumentContentRequest) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *DownloadDocumentContentRequest) GetDocumentId() string {
+	if x != nil {
+		return x.DocumentId
+	}
+	return ""
+}
+
+type DownloadDocumentContentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DocumentId    string                 `protobuf:"bytes,1,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	Data          []byte                 `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	ContentType   string                 `protobuf:"bytes,3,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	SizeBytes     int64                  `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DownloadDocumentContentResponse) Reset() {
+	*x = DownloadDocumentContentResponse{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DownloadDocumentContentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DownloadDocumentContentResponse) ProtoMessage() {}
+
+func (x *DownloadDocumentContentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DownloadDocumentContentResponse.ProtoReflect.Descriptor instead.
+func (*DownloadDocumentContentResponse) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *DownloadDocumentContentResponse) GetDocumentId() string {
+	if x != nil {
+		return x.DocumentId
+	}
+	return ""
+}
+
+func (x *DownloadDocumentContentResponse) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *DownloadDocumentContentResponse) GetContentType() string {
+	if x != nil {
+		return x.ContentType
+	}
+	return ""
+}
+
+func (x *DownloadDocumentContentResponse) GetSizeBytes() int64 {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return 0
 }
 
 type UpsertEntitlementRequest struct {
@@ -536,7 +1340,7 @@ type UpsertEntitlementRequest struct {
 
 func (x *UpsertEntitlementRequest) Reset() {
 	*x = UpsertEntitlementRequest{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[7]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -548,7 +1352,7 @@ func (x *UpsertEntitlementRequest) String() string {
 func (*UpsertEntitlementRequest) ProtoMessage() {}
 
 func (x *UpsertEntitlementRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[7]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -561,7 +1365,7 @@ func (x *UpsertEntitlementRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertEntitlementRequest.ProtoReflect.Descriptor instead.
 func (*UpsertEntitlementRequest) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{7}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *UpsertEntitlementRequest) GetAccount() *AccountEntitlement {
@@ -580,7 +1384,7 @@ type UpsertEntitlementResponse struct {
 
 func (x *UpsertEntitlementResponse) Reset() {
 	*x = UpsertEntitlementResponse{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[8]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -592,7 +1396,7 @@ func (x *UpsertEntitlementResponse) String() string {
 func (*UpsertEntitlementResponse) ProtoMessage() {}
 
 func (x *UpsertEntitlementResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[8]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -605,7 +1409,7 @@ func (x *UpsertEntitlementResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertEntitlementResponse.ProtoReflect.Descriptor instead.
 func (*UpsertEntitlementResponse) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{8}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *UpsertEntitlementResponse) GetAccount() *AccountEntitlement {
@@ -625,7 +1429,7 @@ type ErrorResponse struct {
 
 func (x *ErrorResponse) Reset() {
 	*x = ErrorResponse{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[9]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -637,7 +1441,7 @@ func (x *ErrorResponse) String() string {
 func (*ErrorResponse) ProtoMessage() {}
 
 func (x *ErrorResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[9]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -650,7 +1454,7 @@ func (x *ErrorResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ErrorResponse.ProtoReflect.Descriptor instead.
 func (*ErrorResponse) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{9}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ErrorResponse) GetCode() string {
@@ -689,7 +1493,61 @@ const file_acacia_pro_v1_account_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x1a\n" +
 	"\bfeatures\x18\f \x03(\tR\bfeatures\x12*\n" +
-	"\x11app_account_token\x18\r \x01(\tR\x0fappAccountToken\"\x13\n" +
+	"\x11app_account_token\x18\r \x01(\tR\x0fappAccountToken\"\x84\x01\n" +
+	"\fCloudPdfRect\x12\x17\n" +
+	"\ax_milli\x18\x01 \x01(\x05R\x06xMilli\x12\x17\n" +
+	"\ay_milli\x18\x02 \x01(\x05R\x06yMilli\x12\x1f\n" +
+	"\vwidth_milli\x18\x03 \x01(\x05R\n" +
+	"widthMilli\x12!\n" +
+	"\fheight_milli\x18\x04 \x01(\x05R\vheightMilli\"A\n" +
+	"\rCloudPdfPoint\x12\x17\n" +
+	"\ax_milli\x18\x01 \x01(\x05R\x06xMilli\x12\x17\n" +
+	"\ay_milli\x18\x02 \x01(\x05R\x06yMilli\"\xef\x03\n" +
+	"\rCloudDocument\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12\x16\n" +
+	"\x06author\x18\x03 \x01(\tR\x06author\x12\x1d\n" +
+	"\n" +
+	"page_count\x18\x04 \x01(\x05R\tpageCount\x12\x1d\n" +
+	"\n" +
+	"size_bytes\x18\x05 \x01(\x03R\tsizeBytes\x12%\n" +
+	"\x0eprogress_milli\x18\x06 \x01(\x05R\rprogressMilli\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\a \x01(\tR\tcreatedAt\x12\x1f\n" +
+	"\vmodified_at\x18\b \x01(\tR\n" +
+	"modifiedAt\x12$\n" +
+	"\x0elast_opened_at\x18\t \x01(\tR\flastOpenedAt\x12\x12\n" +
+	"\x04tags\x18\n" +
+	" \x03(\tR\x04tags\x12%\n" +
+	"\x0ecollection_ids\x18\v \x03(\tR\rcollectionIds\x12\x1a\n" +
+	"\bfavorite\x18\f \x01(\bR\bfavorite\x12\x16\n" +
+	"\x06shared\x18\r \x01(\bR\x06shared\x12%\n" +
+	"\x0ethumbnail_tone\x18\x0e \x01(\tR\rthumbnailTone\x12#\n" +
+	"\rversion_label\x18\x0f \x01(\tR\fversionLabel\x12\x1a\n" +
+	"\brevision\x18\x10 \x01(\x03R\brevision\"\xe4\x02\n" +
+	"\x0fCloudAnnotation\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
+	"\vdocument_id\x18\x02 \x01(\tR\n" +
+	"documentId\x12\x1d\n" +
+	"\n" +
+	"page_index\x18\x03 \x01(\x05R\tpageIndex\x12\x12\n" +
+	"\x04kind\x18\x04 \x01(\tR\x04kind\x12\x14\n" +
+	"\x05color\x18\x05 \x01(\tR\x05color\x123\n" +
+	"\x06bounds\x18\x06 \x01(\v2\x1b.acacia.pro.v1.CloudPdfRectR\x06bounds\x124\n" +
+	"\x06points\x18\a \x03(\v2\x1c.acacia.pro.v1.CloudPdfPointR\x06points\x12\x12\n" +
+	"\x04text\x18\b \x01(\tR\x04text\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\t \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\n" +
+	" \x01(\tR\tupdatedAt\x12\x1a\n" +
+	"\brevision\x18\v \x01(\x03R\brevision\"\xcf\x01\n" +
+	"\x14CloudLibrarySnapshot\x12:\n" +
+	"\tdocuments\x18\x01 \x03(\v2\x1c.acacia.pro.v1.CloudDocumentR\tdocuments\x12@\n" +
+	"\vannotations\x18\x02 \x03(\v2\x1e.acacia.pro.v1.CloudAnnotationR\vannotations\x12\x1a\n" +
+	"\brevision\x18\x03 \x01(\x03R\brevision\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x04 \x01(\tR\tupdatedAt\"\x13\n" +
 	"\x11GetAccountRequest\"Q\n" +
 	"\x12GetAccountResponse\x12;\n" +
 	"\aaccount\x18\x01 \x01(\v2!.acacia.pro.v1.AccountEntitlementR\aaccount\"\x1b\n" +
@@ -702,7 +1560,33 @@ const file_acacia_pro_v1_account_proto_rawDesc = "" +
 	"\x1eSyncAppStoreTransactionRequest\x124\n" +
 	"\x16signed_transaction_jws\x18\x01 \x01(\tR\x14signedTransactionJws\"^\n" +
 	"\x1fSyncAppStoreTransactionResponse\x12;\n" +
-	"\aaccount\x18\x01 \x01(\v2!.acacia.pro.v1.AccountEntitlementR\aaccount\"W\n" +
+	"\aaccount\x18\x01 \x01(\v2!.acacia.pro.v1.AccountEntitlementR\aaccount\"U\n" +
+	"\x12SyncLibraryRequest\x12?\n" +
+	"\bsnapshot\x18\x01 \x01(\v2#.acacia.pro.v1.CloudLibrarySnapshotR\bsnapshot\"\x93\x01\n" +
+	"\x13SyncLibraryResponse\x12?\n" +
+	"\bsnapshot\x18\x01 \x01(\v2#.acacia.pro.v1.CloudLibrarySnapshotR\bsnapshot\x12;\n" +
+	"\aaccount\x18\x02 \x01(\v2!.acacia.pro.v1.AccountEntitlementR\aaccount\"v\n" +
+	"\x1cUploadDocumentContentRequest\x12\x1f\n" +
+	"\vdocument_id\x18\x01 \x01(\tR\n" +
+	"documentId\x12\x12\n" +
+	"\x04data\x18\x02 \x01(\fR\x04data\x12!\n" +
+	"\fcontent_type\x18\x03 \x01(\tR\vcontentType\"\x9c\x01\n" +
+	"\x1dUploadDocumentContentResponse\x12\x1f\n" +
+	"\vdocument_id\x18\x01 \x01(\tR\n" +
+	"documentId\x12\x1d\n" +
+	"\n" +
+	"size_bytes\x18\x02 \x01(\x03R\tsizeBytes\x12;\n" +
+	"\aaccount\x18\x03 \x01(\v2!.acacia.pro.v1.AccountEntitlementR\aaccount\"A\n" +
+	"\x1eDownloadDocumentContentRequest\x12\x1f\n" +
+	"\vdocument_id\x18\x01 \x01(\tR\n" +
+	"documentId\"\x98\x01\n" +
+	"\x1fDownloadDocumentContentResponse\x12\x1f\n" +
+	"\vdocument_id\x18\x01 \x01(\tR\n" +
+	"documentId\x12\x12\n" +
+	"\x04data\x18\x02 \x01(\fR\x04data\x12!\n" +
+	"\fcontent_type\x18\x03 \x01(\tR\vcontentType\x12\x1d\n" +
+	"\n" +
+	"size_bytes\x18\x04 \x01(\x03R\tsizeBytes\"W\n" +
 	"\x18UpsertEntitlementRequest\x12;\n" +
 	"\aaccount\x18\x01 \x01(\v2!.acacia.pro.v1.AccountEntitlementR\aaccount\"X\n" +
 	"\x19UpsertEntitlementResponse\x12;\n" +
@@ -733,36 +1617,55 @@ func file_acacia_pro_v1_account_proto_rawDescGZIP() []byte {
 }
 
 var file_acacia_pro_v1_account_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_acacia_pro_v1_account_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_acacia_pro_v1_account_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_acacia_pro_v1_account_proto_goTypes = []any{
 	(Plan)(0),                               // 0: acacia.pro.v1.Plan
 	(EntitlementSource)(0),                  // 1: acacia.pro.v1.EntitlementSource
 	(*AccountEntitlement)(nil),              // 2: acacia.pro.v1.AccountEntitlement
-	(*GetAccountRequest)(nil),               // 3: acacia.pro.v1.GetAccountRequest
-	(*GetAccountResponse)(nil),              // 4: acacia.pro.v1.GetAccountResponse
-	(*GetPurchaseContextRequest)(nil),       // 5: acacia.pro.v1.GetPurchaseContextRequest
-	(*GetPurchaseContextResponse)(nil),      // 6: acacia.pro.v1.GetPurchaseContextResponse
-	(*SyncAppStoreTransactionRequest)(nil),  // 7: acacia.pro.v1.SyncAppStoreTransactionRequest
-	(*SyncAppStoreTransactionResponse)(nil), // 8: acacia.pro.v1.SyncAppStoreTransactionResponse
-	(*UpsertEntitlementRequest)(nil),        // 9: acacia.pro.v1.UpsertEntitlementRequest
-	(*UpsertEntitlementResponse)(nil),       // 10: acacia.pro.v1.UpsertEntitlementResponse
-	(*ErrorResponse)(nil),                   // 11: acacia.pro.v1.ErrorResponse
-	(*timestamppb.Timestamp)(nil),           // 12: google.protobuf.Timestamp
+	(*CloudPdfRect)(nil),                    // 3: acacia.pro.v1.CloudPdfRect
+	(*CloudPdfPoint)(nil),                   // 4: acacia.pro.v1.CloudPdfPoint
+	(*CloudDocument)(nil),                   // 5: acacia.pro.v1.CloudDocument
+	(*CloudAnnotation)(nil),                 // 6: acacia.pro.v1.CloudAnnotation
+	(*CloudLibrarySnapshot)(nil),            // 7: acacia.pro.v1.CloudLibrarySnapshot
+	(*GetAccountRequest)(nil),               // 8: acacia.pro.v1.GetAccountRequest
+	(*GetAccountResponse)(nil),              // 9: acacia.pro.v1.GetAccountResponse
+	(*GetPurchaseContextRequest)(nil),       // 10: acacia.pro.v1.GetPurchaseContextRequest
+	(*GetPurchaseContextResponse)(nil),      // 11: acacia.pro.v1.GetPurchaseContextResponse
+	(*SyncAppStoreTransactionRequest)(nil),  // 12: acacia.pro.v1.SyncAppStoreTransactionRequest
+	(*SyncAppStoreTransactionResponse)(nil), // 13: acacia.pro.v1.SyncAppStoreTransactionResponse
+	(*SyncLibraryRequest)(nil),              // 14: acacia.pro.v1.SyncLibraryRequest
+	(*SyncLibraryResponse)(nil),             // 15: acacia.pro.v1.SyncLibraryResponse
+	(*UploadDocumentContentRequest)(nil),    // 16: acacia.pro.v1.UploadDocumentContentRequest
+	(*UploadDocumentContentResponse)(nil),   // 17: acacia.pro.v1.UploadDocumentContentResponse
+	(*DownloadDocumentContentRequest)(nil),  // 18: acacia.pro.v1.DownloadDocumentContentRequest
+	(*DownloadDocumentContentResponse)(nil), // 19: acacia.pro.v1.DownloadDocumentContentResponse
+	(*UpsertEntitlementRequest)(nil),        // 20: acacia.pro.v1.UpsertEntitlementRequest
+	(*UpsertEntitlementResponse)(nil),       // 21: acacia.pro.v1.UpsertEntitlementResponse
+	(*ErrorResponse)(nil),                   // 22: acacia.pro.v1.ErrorResponse
+	(*timestamppb.Timestamp)(nil),           // 23: google.protobuf.Timestamp
 }
 var file_acacia_pro_v1_account_proto_depIdxs = []int32{
 	0,  // 0: acacia.pro.v1.AccountEntitlement.plan:type_name -> acacia.pro.v1.Plan
 	1,  // 1: acacia.pro.v1.AccountEntitlement.source:type_name -> acacia.pro.v1.EntitlementSource
-	12, // 2: acacia.pro.v1.AccountEntitlement.updated_at:type_name -> google.protobuf.Timestamp
-	12, // 3: acacia.pro.v1.AccountEntitlement.expires_at:type_name -> google.protobuf.Timestamp
-	2,  // 4: acacia.pro.v1.GetAccountResponse.account:type_name -> acacia.pro.v1.AccountEntitlement
-	2,  // 5: acacia.pro.v1.SyncAppStoreTransactionResponse.account:type_name -> acacia.pro.v1.AccountEntitlement
-	2,  // 6: acacia.pro.v1.UpsertEntitlementRequest.account:type_name -> acacia.pro.v1.AccountEntitlement
-	2,  // 7: acacia.pro.v1.UpsertEntitlementResponse.account:type_name -> acacia.pro.v1.AccountEntitlement
-	8,  // [8:8] is the sub-list for method output_type
-	8,  // [8:8] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	23, // 2: acacia.pro.v1.AccountEntitlement.updated_at:type_name -> google.protobuf.Timestamp
+	23, // 3: acacia.pro.v1.AccountEntitlement.expires_at:type_name -> google.protobuf.Timestamp
+	3,  // 4: acacia.pro.v1.CloudAnnotation.bounds:type_name -> acacia.pro.v1.CloudPdfRect
+	4,  // 5: acacia.pro.v1.CloudAnnotation.points:type_name -> acacia.pro.v1.CloudPdfPoint
+	5,  // 6: acacia.pro.v1.CloudLibrarySnapshot.documents:type_name -> acacia.pro.v1.CloudDocument
+	6,  // 7: acacia.pro.v1.CloudLibrarySnapshot.annotations:type_name -> acacia.pro.v1.CloudAnnotation
+	2,  // 8: acacia.pro.v1.GetAccountResponse.account:type_name -> acacia.pro.v1.AccountEntitlement
+	2,  // 9: acacia.pro.v1.SyncAppStoreTransactionResponse.account:type_name -> acacia.pro.v1.AccountEntitlement
+	7,  // 10: acacia.pro.v1.SyncLibraryRequest.snapshot:type_name -> acacia.pro.v1.CloudLibrarySnapshot
+	7,  // 11: acacia.pro.v1.SyncLibraryResponse.snapshot:type_name -> acacia.pro.v1.CloudLibrarySnapshot
+	2,  // 12: acacia.pro.v1.SyncLibraryResponse.account:type_name -> acacia.pro.v1.AccountEntitlement
+	2,  // 13: acacia.pro.v1.UploadDocumentContentResponse.account:type_name -> acacia.pro.v1.AccountEntitlement
+	2,  // 14: acacia.pro.v1.UpsertEntitlementRequest.account:type_name -> acacia.pro.v1.AccountEntitlement
+	2,  // 15: acacia.pro.v1.UpsertEntitlementResponse.account:type_name -> acacia.pro.v1.AccountEntitlement
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_acacia_pro_v1_account_proto_init() }
@@ -776,7 +1679,7 @@ func file_acacia_pro_v1_account_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_acacia_pro_v1_account_proto_rawDesc), len(file_acacia_pro_v1_account_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   10,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

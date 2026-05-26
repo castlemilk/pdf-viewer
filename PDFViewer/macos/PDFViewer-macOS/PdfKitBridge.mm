@@ -368,6 +368,29 @@ RCT_EXPORT_METHOD(loadDocumentMetadata:(NSString *)path
   resolve(metadata);
 }
 
+RCT_EXPORT_METHOD(readDocumentBase64:(NSString *)path
+                  bookmark:(NSString *)bookmark
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+  BOOL didStartAccessing = NO;
+  NSURL *url = [PdfKitBridge resolvedURLForPath:path
+                                       bookmark:bookmark
+                              didStartAccessing:&didStartAccessing];
+  NSError *error = nil;
+  NSData *data = url == nil ? nil : [NSData dataWithContentsOfURL:url options:0 error:&error];
+  if (didStartAccessing) {
+    [url stopAccessingSecurityScopedResource];
+  }
+
+  if (data == nil) {
+    reject(@"pdf_read_failed", error.localizedDescription ?: @"Unable to read PDF.", error);
+    return;
+  }
+
+  resolve([data base64EncodedStringWithOptions:0]);
+}
+
 RCT_EXPORT_METHOD(search:(NSString *)path
                   bookmark:(NSString *)bookmark
                   query:(NSString *)query

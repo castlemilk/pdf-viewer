@@ -21,6 +21,7 @@ type NativePdfKitBridge = {
   openPdf?: () => Promise<ImportedPdf | undefined>;
   seedDemoPdfs?: () => Promise<ImportedPdf[]>;
   loadDocumentMetadata?: (path: string) => Promise<ImportedPdf>;
+  readDocumentBase64?: (path: string, bookmark: string) => Promise<string>;
   search?: (
     path: string,
     bookmark: string,
@@ -88,6 +89,10 @@ export const PdfKitBridge = {
 
   async loadDocumentMetadata(path: string) {
     return nativeBridge?.loadDocumentMetadata?.(path);
+  },
+
+  async readDocumentBase64(path: string, bookmark = '') {
+    return nativeBridge?.readDocumentBase64?.(path, bookmark);
   },
 
   async search(path: string, query: string, bookmark = '') {

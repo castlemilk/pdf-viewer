@@ -9,6 +9,7 @@ import (
 
 	prov1 "github.com/benebsworth/acacia/backend/pro/gen/acacia/pro/v1"
 	"github.com/benebsworth/acacia/backend/pro/internal/auth"
+	"github.com/benebsworth/acacia/backend/pro/internal/cloud"
 	"github.com/benebsworth/acacia/backend/pro/internal/entitlements"
 	"github.com/benebsworth/acacia/backend/pro/internal/server"
 	"github.com/benebsworth/acacia/backend/pro/internal/smoke"
@@ -33,6 +34,7 @@ func TestRunExercisesCloudRunBackendAndAdminEntitlementPath(t *testing.T) {
 			"valid-token": {UID: "smoke-user", Email: "smoke@example.com"},
 		}},
 		Store:                 store,
+		CloudStore:            cloud.NewMemoryStore(),
 		AdminToken:            "admin-secret",
 		Now:                   func() time.Time { return time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC) },
 		AppAccountTokenSecret: []byte("smoke-secret"),

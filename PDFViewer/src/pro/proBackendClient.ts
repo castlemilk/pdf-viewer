@@ -2,14 +2,24 @@ import {
   decodeErrorResponse,
   decodeGetAccountResponse,
   decodeGetPurchaseContextResponse,
+  decodeDownloadDocumentContentResponse,
+  decodeSyncLibraryResponse,
   decodeSyncAppStoreTransactionResponse,
+  decodeUploadDocumentContentResponse,
+  encodeDownloadDocumentContentRequest,
   encodeGetAccountRequest,
   encodeGetPurchaseContextRequest,
+  encodeSyncLibraryRequest,
   encodeSyncAppStoreTransactionRequest,
+  encodeUploadDocumentContentRequest,
   PROTOBUF_CONTENT_TYPE,
+  type CloudLibrarySnapshot,
+  type DownloadDocumentContentResponse,
   type GetAccountResponse,
   type GetPurchaseContextResponse,
+  type SyncLibraryResponse,
   type SyncAppStoreTransactionResponse,
+  type UploadDocumentContentResponse,
 } from './protobuf';
 
 type FetchImpl = typeof fetch;
@@ -69,6 +79,46 @@ export class ProBackendClient {
       firebaseIDToken,
       encodeSyncAppStoreTransactionRequest(signedTransactionJws),
       decodeSyncAppStoreTransactionResponse,
+    );
+  }
+
+  async syncLibrary(
+    firebaseIDToken: string,
+    snapshot: CloudLibrarySnapshot,
+  ): Promise<SyncLibraryResponse> {
+    return this.postProtobuf(
+      '/v1/library:sync',
+      firebaseIDToken,
+      encodeSyncLibraryRequest(snapshot),
+      decodeSyncLibraryResponse,
+    );
+  }
+
+  async uploadDocumentContent(
+    firebaseIDToken: string,
+    input: {
+      documentId: string;
+      data: Uint8Array;
+      contentType: string;
+    },
+  ): Promise<UploadDocumentContentResponse> {
+    return this.postProtobuf(
+      '/v1/documents/content:upload',
+      firebaseIDToken,
+      encodeUploadDocumentContentRequest(input),
+      decodeUploadDocumentContentResponse,
+    );
+  }
+
+  async downloadDocumentContent(
+    firebaseIDToken: string,
+    documentId: string,
+  ): Promise<DownloadDocumentContentResponse> {
+    return this.postProtobuf(
+      '/v1/documents/content:download',
+      firebaseIDToken,
+      encodeDownloadDocumentContentRequest(documentId),
+      decodeDownloadDocumentContentResponse,
     );
   }
 

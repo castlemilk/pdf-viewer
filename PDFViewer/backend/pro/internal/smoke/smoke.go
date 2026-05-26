@@ -58,6 +58,9 @@ func Run(ctx context.Context, config Config) error {
 		if err := requireProAccount(ctx, client, baseURL, config.FirebaseIDToken); err != nil {
 			return err
 		}
+		if err := checkLibrarySync(ctx, client, baseURL, config.FirebaseIDToken); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -135,6 +138,51 @@ func requireProAccount(ctx context.Context, client *http.Client, baseURL string,
 	}
 	if body.GetAccount().GetPlan() != prov1.Plan_PLAN_PRO {
 		return fmt.Errorf("post-admin account plan is %v, want pro", body.GetAccount().GetPlan())
+	}
+	return nil
+}
+
+func checkLibrarySync(ctx context.Context, client *http.Client, baseURL string, firebaseIDToken string) error {
+	var body prov1.SyncLibraryResponse
+	status, err := postProto(ctx, client, baseURL+"/v1/library:sync", firebaseIDToken, &prov1.SyncLibraryRequest{
+		Snapshot: &prov1.CloudLibrarySnapshot{
+			Documents: []*prov1.CloudDocument{{
+				Id:            "smoke-roadmap",
+				Title:         "Smoke Roadmap",
+				Author:        "Smoke",
+				PageCount:     1,
+				SizeBytes:     1024,
+				ProgressMilli: 1000,
+				CreatedAt:     time.Now().UTC().Format(time.RFC3339Nano),
+				ModifiedAt:    time.Now().UTC().Format(time.RFC3339Nano),
+				LastOpenedAt:  time.Now().UTC().Format(time.RFC3339Nano),
+				ThumbnailTone: "paper",
+			}},
+			Annotations: []*prov1.CloudAnnotation{{
+				Id:         "smoke-highlight",
+				DocumentId: "smoke-roadmap",
+				Kind:       "highlight",
+				Color:      "#F8D867",
+				Bounds: &prov1.CloudPdfRect{
+					XMilli:      1000,
+					YMilli:      1000,
+					WidthMilli:  10000,
+					HeightMilli: 1000,
+				},
+				Text:      "smoke annotation",
+				CreatedAt: time.Now().UTC().Format(time.RFC3339Nano),
+				UpdatedAt: time.Now().UTC().Format(time.RFC3339Nano),
+			}},
+		},
+	}, &body)
+	if err != nil {
+		return err
+	}
+	if status != http.StatusOK {
+		return fmt.Errorf("library:sync returned %d", status)
+	}
+	if body.GetSnapshot().GetRevision() == 0 {
+		return errors.New("library:sync did not return a server revision")
 	}
 	return nil
 }

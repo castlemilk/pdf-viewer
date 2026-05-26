@@ -38,6 +38,14 @@ test('pro backend deploy script grants Secret Manager access when admin token se
   expect(script).toContain('ACACIA_ADMIN_TOKEN_SECRET');
 });
 
+test('pro backend deploy script configures the cloud library bucket', () => {
+  const script = readFileSync(scriptPath, 'utf8');
+
+  expect(script).toContain('ACACIA_CLOUD_BUCKET');
+  expect(script).toContain('ACACIA_CLOUD_PREFIX');
+  expect(script).toContain('gs://${ACACIA_CLOUD_BUCKET}');
+});
+
 test('pro backend smoke script runs the protobuf Cloud Run smoke command', () => {
   const script = readFileSync(smokeScriptPath, 'utf8');
 

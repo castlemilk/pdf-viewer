@@ -15,6 +15,7 @@ import (
 	prov1 "github.com/benebsworth/acacia/backend/pro/gen/acacia/pro/v1"
 	"github.com/benebsworth/acacia/backend/pro/internal/appstore"
 	accountauth "github.com/benebsworth/acacia/backend/pro/internal/auth"
+	"github.com/benebsworth/acacia/backend/pro/internal/cloud"
 	"github.com/benebsworth/acacia/backend/pro/internal/entitlements"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -30,6 +31,7 @@ var defaultProProductIDs = []string{
 type Config struct {
 	Verifier   accountauth.Verifier
 	Store      entitlements.Store
+	CloudStore cloud.Store
 	AdminToken string
 	Now        func() time.Time
 
@@ -44,6 +46,7 @@ type Config struct {
 type Server struct {
 	verifier              accountauth.Verifier
 	store                 entitlements.Store
+	cloudStore            cloud.Store
 	adminToken            string
 	now                   func() time.Time
 	bundleID              string
@@ -75,6 +78,7 @@ func New(config Config) http.Handler {
 	return &Server{
 		verifier:              config.Verifier,
 		store:                 config.Store,
+		cloudStore:            config.CloudStore,
 		adminToken:            config.AdminToken,
 		now:                   now,
 		bundleID:              bundleID,
@@ -97,6 +101,12 @@ func (server *Server) ServeHTTP(response http.ResponseWriter, request *http.Requ
 		server.handlePurchaseContext(response, request)
 	case request.Method == http.MethodPost && request.URL.Path == "/v1/app_store/transactions:sync":
 		server.handleSyncAppStoreTransaction(response, request)
+	case request.Method == http.MethodPost && request.URL.Path == "/v1/library:sync":
+		server.handleSyncLibrary(response, request)
+	case request.Method == http.MethodPost && request.URL.Path == "/v1/documents/content:upload":
+		server.handleUploadDocumentContent(response, request)
+	case request.Method == http.MethodPost && request.URL.Path == "/v1/documents/content:download":
+		server.handleDownloadDocumentContent(response, request)
 	case request.Method == http.MethodPost && request.URL.Path == "/v1/app_store/notifications":
 		server.handleAppStoreNotification(response, request)
 	case request.Method == http.MethodPost && request.URL.Path == "/v1/admin/entitlements:upsert":
@@ -259,6 +269,155 @@ func (server *Server) handleSyncAppStoreTransaction(response http.ResponseWriter
 	writeProto(response, http.StatusOK, &prov1.SyncAppStoreTransactionResponse{Account: account})
 }
 
+func (server *Server) handleSyncLibrary(response http.ResponseWriter, request *http.Request) {
+	token, ok := server.authenticate(response, request)
+	if !ok {
+		return
+	}
+	account, ok := server.requireProAccount(response, request, token)
+	if !ok {
+		return
+	}
+	if server.cloudStore == nil {
+		writeError(response, http.StatusServiceUnavailable, "not_configured", "cloud storage is not configured")
+		return
+	}
+
+	var requestBody prov1.SyncLibraryRequest
+	if !readProto(response, request, &requestBody) {
+		return
+	}
+	incoming := requestBody.GetSnapshot()
+	if incoming == nil {
+		writeError(response, http.StatusBadRequest, "invalid_argument", "snapshot is required")
+		return
+	}
+
+	currentRevision := int64(0)
+	existing, err := server.cloudStore.GetLibrary(request.Context(), token.UID)
+	if err == nil {
+		currentRevision = existing.GetRevision()
+	} else if !errors.Is(err, cloud.ErrNotFound) {
+		writeError(response, http.StatusInternalServerError, "cloud_store_error", "could not load cloud library")
+		return
+	}
+
+	nextRevision := maxInt64(currentRevision, incoming.GetRevision()) + 1
+	snapshot := normalizeCloudLibrarySnapshot(incoming, nextRevision, server.now())
+	if err := server.cloudStore.PutLibrary(request.Context(), token.UID, snapshot); err != nil {
+		writeError(response, http.StatusInternalServerError, "cloud_store_error", "could not persist cloud library")
+		return
+	}
+	account = server.refreshStorageUsage(request, account)
+
+	writeProto(response, http.StatusOK, &prov1.SyncLibraryResponse{
+		Snapshot: snapshot,
+		Account:  account,
+	})
+}
+
+func (server *Server) handleUploadDocumentContent(response http.ResponseWriter, request *http.Request) {
+	token, ok := server.authenticate(response, request)
+	if !ok {
+		return
+	}
+	account, ok := server.requireProAccount(response, request, token)
+	if !ok {
+		return
+	}
+	if server.cloudStore == nil {
+		writeError(response, http.StatusServiceUnavailable, "not_configured", "cloud storage is not configured")
+		return
+	}
+
+	var requestBody prov1.UploadDocumentContentRequest
+	if !readProto(response, request, &requestBody) {
+		return
+	}
+	if strings.TrimSpace(requestBody.GetDocumentId()) == "" {
+		writeError(response, http.StatusBadRequest, "invalid_argument", "document_id is required")
+		return
+	}
+	if len(requestBody.GetData()) == 0 {
+		writeError(response, http.StatusBadRequest, "invalid_argument", "data is required")
+		return
+	}
+
+	currentUsage, err := server.cloudStore.StorageUsedBytes(request.Context(), token.UID)
+	if err != nil {
+		writeError(response, http.StatusInternalServerError, "cloud_store_error", "could not calculate storage usage")
+		return
+	}
+	var existingSize int64
+	existingContent, err := server.cloudStore.GetDocumentContent(request.Context(), token.UID, requestBody.GetDocumentId())
+	if err == nil {
+		existingSize = int64(len(existingContent.Data))
+	} else if !errors.Is(err, cloud.ErrNotFound) {
+		writeError(response, http.StatusInternalServerError, "cloud_store_error", "could not load existing document content")
+		return
+	}
+	projectedUsage := currentUsage - existingSize + int64(len(requestBody.GetData()))
+	if account.GetStorageQuotaBytes() > 0 && projectedUsage > account.GetStorageQuotaBytes() {
+		writeError(response, http.StatusPaymentRequired, "storage_quota_exceeded", "document exceeds Acacia Pro storage quota")
+		return
+	}
+
+	if err := server.cloudStore.PutDocumentContent(request.Context(), token.UID, requestBody.GetDocumentId(), cloud.DocumentContent{
+		Data:        requestBody.GetData(),
+		ContentType: requestBody.GetContentType(),
+	}); err != nil {
+		writeError(response, http.StatusInternalServerError, "cloud_store_error", "could not persist document content")
+		return
+	}
+	account = server.updateStorageUsage(request, account, projectedUsage)
+
+	writeProto(response, http.StatusOK, &prov1.UploadDocumentContentResponse{
+		DocumentId: requestBody.GetDocumentId(),
+		SizeBytes:  int64(len(requestBody.GetData())),
+		Account:    account,
+	})
+}
+
+func (server *Server) handleDownloadDocumentContent(response http.ResponseWriter, request *http.Request) {
+	token, ok := server.authenticate(response, request)
+	if !ok {
+		return
+	}
+	if _, ok := server.requireProAccount(response, request, token); !ok {
+		return
+	}
+	if server.cloudStore == nil {
+		writeError(response, http.StatusServiceUnavailable, "not_configured", "cloud storage is not configured")
+		return
+	}
+
+	var requestBody prov1.DownloadDocumentContentRequest
+	if !readProto(response, request, &requestBody) {
+		return
+	}
+	if strings.TrimSpace(requestBody.GetDocumentId()) == "" {
+		writeError(response, http.StatusBadRequest, "invalid_argument", "document_id is required")
+		return
+	}
+
+	content, err := server.cloudStore.GetDocumentContent(request.Context(), token.UID, requestBody.GetDocumentId())
+	if errors.Is(err, cloud.ErrNotFound) {
+		writeError(response, http.StatusNotFound, "not_found", "document content not found")
+		return
+	}
+	if err != nil {
+		writeError(response, http.StatusInternalServerError, "cloud_store_error", "could not load document content")
+		return
+	}
+
+	writeProto(response, http.StatusOK, &prov1.DownloadDocumentContentResponse{
+		DocumentId:  requestBody.GetDocumentId(),
+		Data:        content.Data,
+		ContentType: content.ContentType,
+		SizeBytes:   int64(len(content.Data)),
+	})
+}
+
 func (server *Server) canRestoreKnownTransactionToCurrentUser(request *http.Request, transaction *appstore.Transaction) bool {
 	if transaction.AppAccountToken == "" || transaction.OriginalTransactionID == "" {
 		return false
@@ -367,11 +526,75 @@ func (server *Server) authenticate(response http.ResponseWriter, request *http.R
 	return token, true
 }
 
+func (server *Server) requireProAccount(response http.ResponseWriter, request *http.Request, token *accountauth.Token) (*prov1.AccountEntitlement, bool) {
+	account, err := server.store.Get(request.Context(), token.UID)
+	if errors.Is(err, entitlements.ErrNotFound) {
+		account = defaultFreeAccount(token, server.now())
+	} else if err != nil {
+		writeError(response, http.StatusInternalServerError, "store_error", "could not load entitlement")
+		return nil, false
+	}
+
+	account = normalizeAccount(account, token.Email, server.now())
+	if !account.GetActive() || account.GetPlan() != prov1.Plan_PLAN_PRO {
+		writeError(response, http.StatusPaymentRequired, "pro_required", "Acacia Pro is required for cloud sync")
+		return nil, false
+	}
+	return account, true
+}
+
+func (server *Server) refreshStorageUsage(request *http.Request, account *prov1.AccountEntitlement) *prov1.AccountEntitlement {
+	if server.cloudStore == nil {
+		return account
+	}
+	usage, err := server.cloudStore.StorageUsedBytes(request.Context(), account.GetFirebaseUid())
+	if err != nil {
+		return account
+	}
+	return server.updateStorageUsage(request, account, usage)
+}
+
+func (server *Server) updateStorageUsage(request *http.Request, account *prov1.AccountEntitlement, usage int64) *prov1.AccountEntitlement {
+	updated := proto.Clone(account).(*prov1.AccountEntitlement)
+	updated.StorageUsedBytes = usage
+	updated.UpdatedAt = timestamppb.New(server.now())
+	if err := server.store.Put(request.Context(), updated); err != nil {
+		return account
+	}
+	return updated
+}
+
+func normalizeCloudLibrarySnapshot(snapshot *prov1.CloudLibrarySnapshot, revision int64, now time.Time) *prov1.CloudLibrarySnapshot {
+	normalized := proto.Clone(snapshot).(*prov1.CloudLibrarySnapshot)
+	normalized.Revision = revision
+	normalized.UpdatedAt = now.Format(time.RFC3339Nano)
+
+	for _, document := range normalized.Documents {
+		if document.GetRevision() == 0 {
+			document.Revision = revision
+		}
+	}
+	for _, annotation := range normalized.Annotations {
+		if annotation.GetRevision() == 0 {
+			annotation.Revision = revision
+		}
+	}
+
+	return normalized
+}
+
+func maxInt64(left int64, right int64) int64 {
+	if left > right {
+		return left
+	}
+	return right
+}
+
 func readProto(response http.ResponseWriter, request *http.Request, message proto.Message) bool {
 	if request.Body == nil {
 		return true
 	}
-	body, err := io.ReadAll(io.LimitReader(request.Body, 1<<20))
+	body, err := io.ReadAll(io.LimitReader(request.Body, 64<<20))
 	if err != nil {
 		writeError(response, http.StatusBadRequest, "invalid_request", "could not read request body")
 		return false

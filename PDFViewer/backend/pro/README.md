@@ -1,12 +1,12 @@
 # Acacia Pro Backend
 
-Lightweight entitlement service for Acacia Pro.
+Lightweight entitlement and cloud-sync service for Acacia Pro.
 
 ## Shape
 
 - Cloud Run HTTP service, scale-to-zero by default.
 - Firebase Auth ID token verification at the application layer.
-- GCS object storage for entitlement records.
+- GCS object storage for entitlement records, cloud library snapshots, and uploaded PDF content.
 - Protocol Buffers for request and response payloads.
 - No Firestore polling, workers, heartbeats, or warm minimum instances.
 
@@ -27,6 +27,18 @@ All protobuf endpoints return `application/x-protobuf`.
   - Requires `Authorization: Bearer <firebase-id-token>`.
   - Body: `acacia.pro.v1.SyncAppStoreTransactionRequest`.
   - Verifies the signed StoreKit transaction JWS and stores the Pro entitlement.
+- `POST /v1/library:sync`
+  - Requires an active Pro entitlement.
+  - Body: `acacia.pro.v1.SyncLibraryRequest`.
+  - Stores the latest local-first document metadata and annotation snapshot.
+- `POST /v1/documents/content:upload`
+  - Requires an active Pro entitlement.
+  - Body: `acacia.pro.v1.UploadDocumentContentRequest`.
+  - Stores PDF bytes in GCS and updates `storage_used_bytes`.
+- `POST /v1/documents/content:download`
+  - Requires an active Pro entitlement.
+  - Body: `acacia.pro.v1.DownloadDocumentContentRequest`.
+  - Returns the stored PDF bytes for the requested document.
 - `POST /v1/app_store/notifications`
   - App Store Server Notifications V2 endpoint.
   - Body: JSON `{ "signedPayload": "<signedPayload>" }`.
@@ -43,13 +55,15 @@ All protobuf endpoints return `application/x-protobuf`.
 - `FIREBASE_PROJECT_ID`: Firebase project used to verify ID tokens.
 - `ACACIA_ENTITLEMENTS_BUCKET`: GCS bucket for entitlement protobuf objects.
 - `ACACIA_ENTITLEMENTS_PREFIX`: object prefix. Defaults to `pro`.
+- `ACACIA_CLOUD_BUCKET`: GCS bucket for cloud library/PDF objects. Defaults to `ACACIA_ENTITLEMENTS_BUCKET`.
+- `ACACIA_CLOUD_PREFIX`: object prefix for cloud library/PDF objects. Defaults to `pro`.
 - `ACACIA_APP_ACCOUNT_TOKEN_SECRET`: required HMAC secret for stable StoreKit `appAccountToken` values.
 - `ACACIA_BUNDLE_ID`: App Store bundle id. Defaults to `com.benebsworth.acacia`.
 - `ACACIA_PRO_PRODUCT_IDS`: comma-separated App Store product ids. Defaults to monthly and yearly Acacia Pro ids.
 - `ACACIA_PRO_STORAGE_QUOTA_BYTES`: Pro cloud quota. Defaults to `21474836480`.
 - `ACACIA_ADMIN_TOKEN`: optional admin token for manual entitlement provisioning.
 
-The Cloud Run service account needs permission to read/write objects in the entitlement bucket.
+The Cloud Run service account needs permission to read/write objects in the entitlement and cloud buckets.
 
 ## Local Validation
 

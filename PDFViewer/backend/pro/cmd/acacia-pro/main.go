@@ -14,6 +14,7 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/benebsworth/acacia/backend/pro/internal/appstore"
 	accountauth "github.com/benebsworth/acacia/backend/pro/internal/auth"
+	"github.com/benebsworth/acacia/backend/pro/internal/cloud"
 	"github.com/benebsworth/acacia/backend/pro/internal/entitlements"
 	"github.com/benebsworth/acacia/backend/pro/internal/server"
 )
@@ -49,10 +50,19 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	cloudStore, err := cloud.NewGCSStore(
+		storageClient,
+		config.CloudBucket,
+		config.CloudPrefix,
+	)
+	if err != nil {
+		return err
+	}
 
 	handler := server.New(server.Config{
 		Verifier:              verifier,
 		Store:                 store,
+		CloudStore:            cloudStore,
 		AdminToken:            config.AdminToken,
 		BundleID:              config.BundleID,
 		ProProductIDs:         config.ProProductIDs,
@@ -77,6 +87,8 @@ type config struct {
 	FirebaseProjectID     string
 	EntitlementsBucket    string
 	EntitlementsPrefix    string
+	CloudBucket           string
+	CloudPrefix           string
 	AdminToken            string
 	AppAccountTokenSecret string
 	BundleID              string
@@ -94,6 +106,8 @@ func loadConfig() (config, error) {
 		FirebaseProjectID:     os.Getenv("FIREBASE_PROJECT_ID"),
 		EntitlementsBucket:    os.Getenv("ACACIA_ENTITLEMENTS_BUCKET"),
 		EntitlementsPrefix:    envOrDefault("ACACIA_ENTITLEMENTS_PREFIX", "pro"),
+		CloudBucket:           envOrDefault("ACACIA_CLOUD_BUCKET", os.Getenv("ACACIA_ENTITLEMENTS_BUCKET")),
+		CloudPrefix:           envOrDefault("ACACIA_CLOUD_PREFIX", "pro"),
 		AdminToken:            strings.TrimSpace(os.Getenv("ACACIA_ADMIN_TOKEN")),
 		AppAccountTokenSecret: strings.TrimSpace(os.Getenv("ACACIA_APP_ACCOUNT_TOKEN_SECRET")),
 		BundleID:              envOrDefault("ACACIA_BUNDLE_ID", "com.benebsworth.acacia"),
@@ -102,6 +116,9 @@ func loadConfig() (config, error) {
 	}
 	if output.EntitlementsBucket == "" {
 		return config{}, errors.New("ACACIA_ENTITLEMENTS_BUCKET is required")
+	}
+	if output.CloudBucket == "" {
+		return config{}, errors.New("ACACIA_CLOUD_BUCKET or ACACIA_ENTITLEMENTS_BUCKET is required")
 	}
 	if output.AppAccountTokenSecret == "" {
 		return config{}, errors.New("ACACIA_APP_ACCOUNT_TOKEN_SECRET is required")

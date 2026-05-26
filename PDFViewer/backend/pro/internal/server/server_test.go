@@ -13,6 +13,7 @@ import (
 	prov1 "github.com/benebsworth/acacia/backend/pro/gen/acacia/pro/v1"
 	"github.com/benebsworth/acacia/backend/pro/internal/appstore"
 	accountauth "github.com/benebsworth/acacia/backend/pro/internal/auth"
+	"github.com/benebsworth/acacia/backend/pro/internal/cloud"
 	"github.com/benebsworth/acacia/backend/pro/internal/entitlements"
 	"github.com/benebsworth/acacia/backend/pro/internal/server"
 	"google.golang.org/protobuf/proto"
@@ -371,11 +372,151 @@ func TestSyncAppStoreTransactionRejectsExpiredSubscription(t *testing.T) {
 	}
 }
 
+func TestSyncLibraryRequiresActiveProEntitlement(t *testing.T) {
+	handler := newTestHandler()
+	request := newProtoRequest(http.MethodPost, "/v1/library:sync", &prov1.SyncLibraryRequest{
+		Snapshot: &prov1.CloudLibrarySnapshot{},
+	})
+	request.Header.Set("Authorization", "Bearer valid-free-user")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusPaymentRequired {
+		t.Fatalf("expected payment required for free account, got %d", response.Code)
+	}
+	var body prov1.ErrorResponse
+	unmarshalProto(t, response.Body.Bytes(), &body)
+	if body.GetCode() != "pro_required" {
+		t.Fatalf("expected pro_required error, got %q", body.GetCode())
+	}
+}
+
+func TestSyncLibraryPersistsSnapshotForProAccount(t *testing.T) {
+	entitlementStore := entitlements.NewMemoryStore()
+	cloudStore := cloud.NewMemoryStore()
+	handler := newTestHandlerWithStores(entitlementStore, cloudStore)
+	syncProEntitlement(t, handler)
+
+	request := newProtoRequest(http.MethodPost, "/v1/library:sync", &prov1.SyncLibraryRequest{
+		Snapshot: &prov1.CloudLibrarySnapshot{
+			Documents: []*prov1.CloudDocument{{
+				Id:            "roadmap",
+				Title:         "Product Roadmap",
+				Author:        "Product",
+				PageCount:     44,
+				SizeBytes:     1_258_291,
+				ProgressMilli: 600,
+				CreatedAt:     "2026-05-01T10:00:00.000Z",
+				ModifiedAt:    "2026-05-02T10:00:00.000Z",
+				LastOpenedAt:  "2026-05-03T10:00:00.000Z",
+				Tags:          []string{"work"},
+				CollectionIds: []string{"briefs"},
+				Shared:        true,
+				ThumbnailTone: "navy",
+				VersionLabel:  "2.0",
+			}},
+			Annotations: []*prov1.CloudAnnotation{{
+				Id:         "highlight-1",
+				DocumentId: "roadmap",
+				PageIndex:  2,
+				Kind:       "highlight",
+				Color:      "#F8D867",
+				Bounds: &prov1.CloudPdfRect{
+					XMilli:      10250,
+					YMilli:      20500,
+					WidthMilli:  160000,
+					HeightMilli: 18750,
+				},
+				Text:      "steady growth",
+				CreatedAt: "2026-05-03T11:00:00.000Z",
+				UpdatedAt: "2026-05-03T11:30:00.000Z",
+			}},
+		},
+	})
+	request.Header.Set("Authorization", "Bearer valid-pro-user")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected library sync 200, got %d: %s", response.Code, response.Body.String())
+	}
+
+	var body prov1.SyncLibraryResponse
+	unmarshalProto(t, response.Body.Bytes(), &body)
+	if body.GetSnapshot().GetRevision() != 1 {
+		t.Fatalf("expected server revision 1, got %d", body.GetSnapshot().GetRevision())
+	}
+	if body.GetSnapshot().GetDocuments()[0].GetId() != "roadmap" {
+		t.Fatalf("expected roadmap document, got %q", body.GetSnapshot().GetDocuments()[0].GetId())
+	}
+
+	stored, err := cloudStore.GetLibrary(context.Background(), "user_pro")
+	if err != nil {
+		t.Fatalf("load stored cloud library: %v", err)
+	}
+	if len(stored.GetAnnotations()) != 1 || stored.GetAnnotations()[0].GetText() != "steady growth" {
+		t.Fatalf("expected stored highlight annotation, got %+v", stored.GetAnnotations())
+	}
+}
+
+func TestDocumentContentUploadDownloadPersistsBytesAndUpdatesUsage(t *testing.T) {
+	entitlementStore := entitlements.NewMemoryStore()
+	cloudStore := cloud.NewMemoryStore()
+	handler := newTestHandlerWithStores(entitlementStore, cloudStore)
+	syncProEntitlement(t, handler)
+
+	uploadRequest := newProtoRequest(http.MethodPost, "/v1/documents/content:upload", &prov1.UploadDocumentContentRequest{
+		DocumentId:  "roadmap",
+		Data:        []byte("%PDF-1.7 test"),
+		ContentType: "application/pdf",
+	})
+	uploadRequest.Header.Set("Authorization", "Bearer valid-pro-user")
+	uploadResponse := httptest.NewRecorder()
+	handler.ServeHTTP(uploadResponse, uploadRequest)
+
+	if uploadResponse.Code != http.StatusOK {
+		t.Fatalf("expected upload 200, got %d: %s", uploadResponse.Code, uploadResponse.Body.String())
+	}
+	var uploadBody prov1.UploadDocumentContentResponse
+	unmarshalProto(t, uploadResponse.Body.Bytes(), &uploadBody)
+	if uploadBody.GetSizeBytes() != int64(len("%PDF-1.7 test")) {
+		t.Fatalf("expected uploaded size, got %d", uploadBody.GetSizeBytes())
+	}
+	if uploadBody.GetAccount().GetStorageUsedBytes() != int64(len("%PDF-1.7 test")) {
+		t.Fatalf("expected usage updated from content bytes, got %d", uploadBody.GetAccount().GetStorageUsedBytes())
+	}
+
+	downloadRequest := newProtoRequest(http.MethodPost, "/v1/documents/content:download", &prov1.DownloadDocumentContentRequest{
+		DocumentId: "roadmap",
+	})
+	downloadRequest.Header.Set("Authorization", "Bearer valid-pro-user")
+	downloadResponse := httptest.NewRecorder()
+	handler.ServeHTTP(downloadResponse, downloadRequest)
+
+	if downloadResponse.Code != http.StatusOK {
+		t.Fatalf("expected download 200, got %d: %s", downloadResponse.Code, downloadResponse.Body.String())
+	}
+	var downloadBody prov1.DownloadDocumentContentResponse
+	unmarshalProto(t, downloadResponse.Body.Bytes(), &downloadBody)
+	if string(downloadBody.GetData()) != "%PDF-1.7 test" {
+		t.Fatalf("expected uploaded pdf bytes, got %q", string(downloadBody.GetData()))
+	}
+	if downloadBody.GetContentType() != "application/pdf" {
+		t.Fatalf("expected application/pdf content type, got %q", downloadBody.GetContentType())
+	}
+}
+
 func newTestHandler() http.Handler {
 	return newTestHandlerWithStore(entitlements.NewMemoryStore())
 }
 
 func newTestHandlerWithStore(store entitlements.Store) http.Handler {
+	return newTestHandlerWithStores(store, cloud.NewMemoryStore())
+}
+
+func newTestHandlerWithStores(store entitlements.Store, cloudStore cloud.Store) http.Handler {
 	appAccountToken := server.AppAccountTokenForTest("user_pro", []byte("test-secret"))
 	return server.New(server.Config{
 		Verifier: fakeVerifier{
@@ -385,6 +526,7 @@ func newTestHandlerWithStore(store entitlements.Store) http.Handler {
 			},
 		},
 		Store:                 store,
+		CloudStore:            cloudStore,
 		AdminToken:            "admin-secret",
 		Now:                   fixedNow,
 		BundleID:              "com.benebsworth.acacia",
