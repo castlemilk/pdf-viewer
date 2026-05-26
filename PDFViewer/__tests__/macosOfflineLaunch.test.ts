@@ -68,15 +68,18 @@ describe('macOS offline launch configuration', () => {
     expect(e2eScript).toContain('ONLY_TESTING');
   });
 
-  it('waits for exposed macOS filter controls instead of the non-accessible wrapper', () => {
+  it('waits for exposed macOS filter controls with retryable user actions', () => {
     const uiTests = readFileSync(
       path.join(appRoot, 'macos', 'PDFViewer-macOSUITests', 'PDFViewerUITests.m'),
       'utf8',
     );
 
     expect(uiTests).toContain('- (void)waitForFilterPanel');
+    expect(uiTests).toContain('untilFirstIdentifierExists');
     expect(uiTests).toContain('@"filter-tag-finance"');
-    expect(uiTests).toContain('[self waitForFilterPanel];');
+    expect(uiTests).toMatch(
+      /tapIdentifier:@"filter-button"\s+untilFirstIdentifierExists/,
+    );
   });
 
   it('declares export compliance in the macOS Info.plist for TestFlight', () => {
