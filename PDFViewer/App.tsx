@@ -594,8 +594,9 @@ function App({
     searchHighlightSet.query === viewerState.searchQuery.trim()
       ? searchHighlightSet.highlights
       : [];
-  const canUseReviewFeatures =
+  const hasProEntitlement =
     accountState.signedIn && accountState.plan === 'pro';
+  const canUseReviewFeatures = true;
   const compareRightDocument =
     libraryState.documents.find(
       document => document.id === 'annual-financial-report',
@@ -1455,7 +1456,7 @@ function App({
             filterPanelOpen={filterPanelOpen}
             storageUsedGb={libraryState.storageUsedGb}
             storageLimitGb={libraryState.storageLimitGb}
-            canShowStorage={canUseReviewFeatures}
+            canShowStorage={hasProEntitlement}
             onOpenFile={openImportedPdf}
             onFilterChange={patch =>
               updateFilterFromUser(current => ({...current, ...patch}))

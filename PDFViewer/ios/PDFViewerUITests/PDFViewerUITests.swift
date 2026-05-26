@@ -192,23 +192,15 @@ final class PDFViewerUITests: XCTestCase {
     } else {
       app.swipeUp()
     }
-    for _ in 0..<3 where !anyElement(app, "comments-paywall").exists {
+    for _ in 0..<3 where !anyElement(app, "comment-item-local-highlight").exists {
       app.swipeUp()
     }
     XCTAssertTrue(
       waitForAnyElement([
-        anyElement(app, "comments-paywall"),
-        anyElement(app, "Sign in to unlock comments"),
+        anyElement(app, "comments-panel"),
+        anyElement(app, "comment-filter-all"),
       ], timeout: 5),
-      "Expected the comments Pro gate to appear"
-    )
-
-    tapFirstAvailable(
-      [
-        anyElement(app, "unlock-comments-button"),
-        anyElement(app, "Sign in"),
-      ],
-      named: "Sign in"
+      "Expected the comments controls to be available"
     )
 
     for _ in 0..<3 where !anyElement(app, "comment-item-local-highlight").exists {

@@ -335,7 +335,7 @@ test('refreshes Pro account entitlement from backend on launch', async () => {
   ).not.toHaveLength(0);
 });
 
-test('stale launch account sync cannot downgrade a completed Pro purchase', async () => {
+test('stale launch account sync does not hide local review features', async () => {
   let resolveSync!: (value: {
     accountState: {signedIn: true; plan: 'free'};
   }) => void;
@@ -375,21 +375,9 @@ test('stale launch account sync cannot downgrade a completed Pro purchase', asyn
     renderer!.root.findByProps({testID: 'inspector-tab-comments'}).props.onPress();
   });
   expect(
-    renderer!.root.findAllByProps({testID: 'comments-paywall'}).length,
-  ).toBeGreaterThan(0);
-
-  await ReactTestRenderer.act(async () => {
-    await renderer!.root.findAllByProps({testID: 'unlock-comments-button'})[0].props.onPress();
-  });
-
-  expect(purchasePro).toHaveBeenCalledTimes(1);
-  expect(alertSpy).toHaveBeenLastCalledWith(
-    'Acacia Pro',
-    'Pro is active on this account.',
-  );
-  expect(
     renderer!.root.findAllByProps({testID: 'comments-panel'}).length,
   ).toBeGreaterThan(0);
+  expect(renderer!.root.findAllByProps({testID: 'comments-paywall'})).toHaveLength(0);
 
   await ReactTestRenderer.act(async () => {
     resolveSync({accountState: {signedIn: true, plan: 'free'}});
@@ -401,6 +389,8 @@ test('stale launch account sync cannot downgrade a completed Pro purchase', asyn
     renderer!.root.findAllByProps({testID: 'comments-panel'}).length,
   ).toBeGreaterThan(0);
   expect(renderer!.root.findAllByProps({testID: 'comments-paywall'})).toHaveLength(0);
+  expect(purchasePro).not.toHaveBeenCalled();
+  expect(alertSpy).not.toHaveBeenCalled();
 });
 
 test('library brand uses the Acacia logo image instead of a letter mark', async () => {
@@ -541,18 +531,9 @@ test('mobile viewer controls page, zoom, and highlight state', async () => {
   const output = JSON.stringify(renderer?.toJSON());
 
   expect(output).toContain('Comments');
-  expect(output).toContain('Sign in to unlock comments');
-  expect(output).toContain('comments-paywall');
-  expect(output).toContain('restore-purchases-button');
-  expect(output).not.toContain('comment-item-local-highlight');
-
-  await ReactTestRenderer.act(() => {
-    renderer!.root.findByProps({testID: 'unlock-comments-button'}).props.onPress();
-  });
-
-  expect(JSON.stringify(renderer?.toJSON())).toContain(
-    'comment-item-local-highlight',
-  );
+  expect(output).toContain('comment-item-local-highlight');
+  expect(output).not.toContain('comments-paywall');
+  expect(output).not.toContain('restore-purchases-button');
 });
 
 test('mobile highlights created in the same tick receive unique keys', async () => {
@@ -845,16 +826,8 @@ test('desktop document clicks open the reader and controls update visible state'
   const output = JSON.stringify(renderer?.toJSON());
 
   expect(output).toContain('Comments');
-  expect(output).toContain('Sign in to unlock comments');
-  expect(output).not.toContain('comment-item-local-highlight');
-
-  await ReactTestRenderer.act(() => {
-    renderer!.root.findByProps({testID: 'unlock-comments-button'}).props.onPress();
-  });
-
-  expect(JSON.stringify(renderer?.toJSON())).toContain(
-    'Local non-destructive highlight',
-  );
+  expect(output).toContain('Local non-destructive highlight');
+  expect(output).not.toContain('comments-paywall');
   expect(
     renderer!.root.findByProps({testID: 'comment-item-local-highlight'}).props
       .accessibilityLabel,
@@ -1165,7 +1138,7 @@ test('macOS exposes non-interactive landmarks without grouping them on iOS', asy
     renderer!.root.findByProps({testID: 'inspector-tab-comments'}).props.onPress();
   });
 
-  expect(renderer!.root.findByProps({testID: 'comments-paywall'}).props.accessible).toBe(true);
+  expect(renderer!.root.findByProps({testID: 'comments-panel'})).toBeTruthy();
 
   await ReactTestRenderer.act(() => {
     renderer!.root.findByProps({testID: 'viewer-compare-button'}).props.onPress();
@@ -2010,7 +1983,7 @@ test('signature tool opens the manager even after comments are selected', async 
     renderer!.root.findByProps({testID: 'quick-action-add-note'}).props.onPress();
   });
 
-  expect(JSON.stringify(renderer?.toJSON())).toContain('comments-paywall');
+  expect(JSON.stringify(renderer?.toJSON())).toContain('comments-panel');
 
   await ReactTestRenderer.act(() => {
     renderer!.root.findByProps({testID: 'tool-signature'}).props.onPress();
@@ -2042,10 +2015,6 @@ test('note and drawing tools create page-anchored review items', async () => {
     renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props.onResponderRelease({
       nativeEvent: {locationX: 180, locationY: 240},
     });
-  });
-
-  await ReactTestRenderer.act(() => {
-    renderer!.root.findByProps({testID: 'unlock-comments-button'}).props.onPress();
   });
 
   expect(JSON.stringify(renderer?.toJSON())).toContain('Local note on page 1');
@@ -2085,9 +2054,6 @@ test('comments panel filters highlights and signatures as actionable controls', 
     renderer!.root.findByProps({testID: 'pdf-demo-page-hitbox-1'}).props.onResponderRelease({
       nativeEvent: {locationX: 180, locationY: 260},
     });
-  });
-  await ReactTestRenderer.act(() => {
-    renderer!.root.findByProps({testID: 'unlock-comments-button'}).props.onPress();
   });
 
   await ReactTestRenderer.act(() => {
@@ -2184,14 +2150,8 @@ test('desktop viewer bookmark and compare sync controls update visible state', a
   });
 
   expect(JSON.stringify(renderer?.toJSON())).toContain(
-    'Sign in to unlock comments',
+    'Bookmark on page 1',
   );
-
-  await ReactTestRenderer.act(() => {
-    renderer!.root.findByProps({testID: 'unlock-comments-button'}).props.onPress();
-  });
-
-  expect(JSON.stringify(renderer?.toJSON())).toContain('Bookmark on page 1');
 
   await ReactTestRenderer.act(() => {
     renderer!.root.findByProps({testID: 'viewer-compare-button'}).props.onPress();
@@ -2232,7 +2192,7 @@ test('opens directly into the comments screenshot state', async () => {
   expect(output).toContain('Viewer screen Future of Work Report');
   expect(output).toContain('Page 12 of 32');
   expect(output).toContain('Comments');
-  expect(output).toContain('Sign in to unlock comments');
+  expect(output).toContain('comment-item-future-work-highlight');
 });
 
 test('opens directly into the compare screenshot state', async () => {
@@ -2405,10 +2365,6 @@ test('mobile annotation sheet hides the underlying detail panel until dismissed'
     renderer!.root.findByProps({testID: 'mobile-detail-panel'}).props
       .accessibilityElementsHidden,
   ).toBe(false);
-
-  await ReactTestRenderer.act(() => {
-    renderer!.root.findByProps({testID: 'unlock-comments-button'}).props.onPress();
-  });
 
   expect(JSON.stringify(renderer?.toJSON())).toContain(
     'comment-item-local-highlight',

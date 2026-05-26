@@ -183,11 +183,11 @@
   ]];
 }
 
-- (void)waitForCommentsGate
+- (void)waitForCommentsPanel
 {
   [self waitForFirstIdentifier:@[
-    @"comments-paywall",
-    @"unlock-comments-button",
+    @"comments-panel",
+    @"comment-filter-all",
   ]];
 }
 
@@ -994,8 +994,7 @@
   [highlightStart pressForDuration:0.1 thenDragToCoordinate:highlightEnd];
   [self waitForNativeCanvasAnnotationCountGreaterThan:annotationsBeforeHighlight];
   [self waitForElement:canvas yellowPixelCountGreaterThan:yellowPixelsBeforeHighlight + 24];
-  [self waitForCommentsGate];
-  [self tapIdentifier:@"unlock-comments-button"];
+  [self waitForCommentsPanel];
   [self assertIdentifier:@"comment-item-local-highlight" labelContains:@"Local non-destructive highlight"];
 
   [self tapIdentifier:@"inspector-tab-info"];
@@ -1089,8 +1088,7 @@
   [self waitForNativeCanvasAnnotationCountGreaterThan:annotationsBeforeSelectionHighlight];
   [self waitForElement:canvas
       yellowPixelSignalGreaterThan:yellowSignalBeforeSelectionHighlight + 8000];
-  [self waitForCommentsGate];
-  [self tapIdentifier:@"unlock-comments-button"];
+  [self waitForCommentsPanel];
   [self assertIdentifier:@"comment-item-local-highlight" labelContains:@"Local non-destructive highlight"];
 }
 
@@ -1123,8 +1121,7 @@
   [self tapIdentifier:@"doc-card-q4-market-analysis"];
   [self waitForIdentifier:@"viewer-screen"];
   [self tapIdentifier:@"inspector-tab-comments"];
-  [self waitForCommentsGate];
-  [self tapIdentifier:@"unlock-comments-button"];
+  [self waitForCommentsPanel];
 
   NSString *alertContent = [self alertContentIfPresent];
   [self dismissAlertIfPresent];
@@ -1342,8 +1339,7 @@
   [highlightStart pressForDuration:0.1 thenDragToCoordinate:highlightEnd];
   [self waitForNativeCanvasAnnotationCountGreaterThan:annotationsBeforeHighlight];
   [self waitForElement:canvas yellowPixelCountGreaterThan:yellowPixelsBeforeHighlight + 24];
-  [self waitForCommentsGate];
-  [self tapIdentifier:@"unlock-comments-button"];
+  [self waitForCommentsPanel];
   [self assertIdentifier:@"comment-item-local-highlight" labelContains:@"Local non-destructive highlight"];
 
   [self tapIdentifier:@"inspector-tab-info"];
