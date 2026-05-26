@@ -15,6 +15,9 @@ import (
 )
 
 const protobufContentType = "application/x-protobuf"
+const smokeDocumentID = "smoke-roadmap"
+
+var smokeDocumentContent = []byte("%PDF-1.7\n% Acacia Pro smoke document\n%%EOF\n")
 
 type Config struct {
 	BaseURL          string
@@ -59,6 +62,9 @@ func Run(ctx context.Context, config Config) error {
 			return err
 		}
 		if err := checkLibrarySync(ctx, client, baseURL, config.FirebaseIDToken); err != nil {
+			return err
+		}
+		if err := checkDocumentContentSync(ctx, client, baseURL, config.FirebaseIDToken); err != nil {
 			return err
 		}
 	}
@@ -147,7 +153,7 @@ func checkLibrarySync(ctx context.Context, client *http.Client, baseURL string, 
 	status, err := postProto(ctx, client, baseURL+"/v1/library:sync", firebaseIDToken, &prov1.SyncLibraryRequest{
 		Snapshot: &prov1.CloudLibrarySnapshot{
 			Documents: []*prov1.CloudDocument{{
-				Id:            "smoke-roadmap",
+				Id:            smokeDocumentID,
 				Title:         "Smoke Roadmap",
 				Author:        "Smoke",
 				PageCount:     1,
@@ -160,7 +166,7 @@ func checkLibrarySync(ctx context.Context, client *http.Client, baseURL string, 
 			}},
 			Annotations: []*prov1.CloudAnnotation{{
 				Id:         "smoke-highlight",
-				DocumentId: "smoke-roadmap",
+				DocumentId: smokeDocumentID,
 				Kind:       "highlight",
 				Color:      "#F8D867",
 				Bounds: &prov1.CloudPdfRect{
@@ -183,6 +189,42 @@ func checkLibrarySync(ctx context.Context, client *http.Client, baseURL string, 
 	}
 	if body.GetSnapshot().GetRevision() == 0 {
 		return errors.New("library:sync did not return a server revision")
+	}
+	return nil
+}
+
+func checkDocumentContentSync(ctx context.Context, client *http.Client, baseURL string, firebaseIDToken string) error {
+	var uploadBody prov1.UploadDocumentContentResponse
+	uploadStatus, err := postProto(ctx, client, baseURL+"/v1/documents/content:upload", firebaseIDToken, &prov1.UploadDocumentContentRequest{
+		DocumentId:  smokeDocumentID,
+		Data:        smokeDocumentContent,
+		ContentType: "application/pdf",
+	}, &uploadBody)
+	if err != nil {
+		return err
+	}
+	if uploadStatus != http.StatusOK {
+		return fmt.Errorf("documents/content:upload returned %d", uploadStatus)
+	}
+	if uploadBody.GetAccount() == nil || uploadBody.GetAccount().GetStorageUsedBytes() < int64(len(smokeDocumentContent)) {
+		return errors.New("documents/content:upload did not update storage usage")
+	}
+
+	var downloadBody prov1.DownloadDocumentContentResponse
+	downloadStatus, err := postProto(ctx, client, baseURL+"/v1/documents/content:download", firebaseIDToken, &prov1.DownloadDocumentContentRequest{
+		DocumentId: smokeDocumentID,
+	}, &downloadBody)
+	if err != nil {
+		return err
+	}
+	if downloadStatus != http.StatusOK {
+		return fmt.Errorf("documents/content:download returned %d", downloadStatus)
+	}
+	if !bytes.Equal(downloadBody.GetData(), smokeDocumentContent) {
+		return errors.New("documents/content:download returned different PDF bytes")
+	}
+	if downloadBody.GetContentType() != "application/pdf" {
+		return fmt.Errorf("documents/content:download content type is %q", downloadBody.GetContentType())
 	}
 	return nil
 }

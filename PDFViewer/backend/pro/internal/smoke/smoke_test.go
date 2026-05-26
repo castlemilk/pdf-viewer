@@ -29,12 +29,13 @@ func (verifier fakeVerifier) VerifyIDToken(_ context.Context, idToken string) (*
 
 func TestRunExercisesCloudRunBackendAndAdminEntitlementPath(t *testing.T) {
 	store := entitlements.NewMemoryStore()
+	cloudStore := cloud.NewMemoryStore()
 	handler := server.New(server.Config{
 		Verifier: fakeVerifier{tokens: map[string]*auth.Token{
 			"valid-token": {UID: "smoke-user", Email: "smoke@example.com"},
 		}},
 		Store:                 store,
-		CloudStore:            cloud.NewMemoryStore(),
+		CloudStore:            cloudStore,
 		AdminToken:            "admin-secret",
 		Now:                   func() time.Time { return time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC) },
 		AppAccountTokenSecret: []byte("smoke-secret"),
@@ -62,6 +63,17 @@ func TestRunExercisesCloudRunBackendAndAdminEntitlementPath(t *testing.T) {
 	}
 	if account.GetPlan() != prov1.Plan_PLAN_PRO {
 		t.Fatalf("expected smoke account to be pro, got %v", account.GetPlan())
+	}
+
+	content, err := cloudStore.GetDocumentContent(t.Context(), "smoke-user", "smoke-roadmap")
+	if err != nil {
+		t.Fatalf("expected smoke run to persist document content: %v", err)
+	}
+	if string(content.Data) != "%PDF-1.7\n% Acacia Pro smoke document\n%%EOF\n" {
+		t.Fatalf("expected smoke PDF content to round trip, got %q", string(content.Data))
+	}
+	if content.ContentType != "application/pdf" {
+		t.Fatalf("expected application/pdf content type, got %q", content.ContentType)
 	}
 }
 
