@@ -31,5 +31,16 @@ target 'PDFViewer' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    installer.pods_project.targets.each do |target|
+      next unless target.name == 'fmt'
+
+      target.build_configurations.each do |config|
+        definitions = config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
+        definitions = definitions.split(' ') if definitions.is_a?(String)
+        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = (definitions + ['FMT_USE_CONSTEVAL=0']).uniq
+        config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
+      end
+    end
   end
 end

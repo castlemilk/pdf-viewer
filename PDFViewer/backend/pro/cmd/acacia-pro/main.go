@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"github.com/benebsworth/acacia/backend/pro/internal/appleid"
 	"github.com/benebsworth/acacia/backend/pro/internal/appstore"
 	accountauth "github.com/benebsworth/acacia/backend/pro/internal/auth"
 	"github.com/benebsworth/acacia/backend/pro/internal/cloud"
@@ -58,6 +59,10 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	appleTokenRevoker, err := newAppleTokenRevoker(config)
+	if err != nil {
+		return err
+	}
 
 	handler := server.New(server.Config{
 		Verifier:              verifier,
@@ -68,6 +73,7 @@ func run(ctx context.Context) error {
 		ProProductIDs:         config.ProProductIDs,
 		ProStorageQuotaBytes:  config.ProStorageQuotaBytes,
 		AppAccountTokenSecret: []byte(config.AppAccountTokenSecret),
+		AppleTokenRevoker:     appleTokenRevoker,
 		TransactionVerifier:   appstore.NewSignedTransactionVerifier(nil),
 		NotificationVerifier:  appstore.NewSignedNotificationVerifier(nil),
 	})
@@ -94,6 +100,11 @@ type config struct {
 	BundleID              string
 	ProProductIDs         []string
 	ProStorageQuotaBytes  int64
+	AppleTeamID           string
+	AppleKeyID            string
+	AppleClientID         string
+	ApplePrivateKey       string
+	ApplePrivateKeyFile   string
 }
 
 func loadConfig() (config, error) {
@@ -113,6 +124,11 @@ func loadConfig() (config, error) {
 		BundleID:              envOrDefault("ACACIA_BUNDLE_ID", "com.benebsworth.acacia"),
 		ProProductIDs:         splitCSV(envOrDefault("ACACIA_PRO_PRODUCT_IDS", "com.benebsworth.acacia.pro.monthly,com.benebsworth.acacia.pro.yearly")),
 		ProStorageQuotaBytes:  quotaBytes,
+		AppleTeamID:           strings.TrimSpace(os.Getenv("ACACIA_APPLE_TEAM_ID")),
+		AppleKeyID:            strings.TrimSpace(os.Getenv("ACACIA_APPLE_KEY_ID")),
+		AppleClientID:         strings.TrimSpace(envOrDefault("ACACIA_APPLE_CLIENT_ID", envOrDefault("ACACIA_BUNDLE_ID", "com.benebsworth.acacia"))),
+		ApplePrivateKey:       strings.TrimSpace(os.Getenv("ACACIA_APPLE_PRIVATE_KEY")),
+		ApplePrivateKeyFile:   strings.TrimSpace(os.Getenv("ACACIA_APPLE_PRIVATE_KEY_FILE")),
 	}
 	if output.EntitlementsBucket == "" {
 		return config{}, errors.New("ACACIA_ENTITLEMENTS_BUCKET is required")
@@ -127,6 +143,33 @@ func loadConfig() (config, error) {
 		return config{}, errors.New("ACACIA_PRO_PRODUCT_IDS must include at least one product id")
 	}
 	return output, nil
+}
+
+func newAppleTokenRevoker(config config) (server.AppleTokenRevoker, error) {
+	privateKey := config.ApplePrivateKey
+	if privateKey == "" && config.ApplePrivateKeyFile != "" {
+		bytes, err := os.ReadFile(config.ApplePrivateKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("read ACACIA_APPLE_PRIVATE_KEY_FILE: %w", err)
+		}
+		privateKey = string(bytes)
+	}
+
+	hasAny := config.AppleTeamID != "" || config.AppleKeyID != "" || config.ApplePrivateKey != "" || config.ApplePrivateKeyFile != ""
+	if !hasAny {
+		return nil, nil
+	}
+
+	revoker, err := appleid.NewRevoker(appleid.Config{
+		TeamID:        config.AppleTeamID,
+		KeyID:         config.AppleKeyID,
+		ClientID:      config.AppleClientID,
+		PrivateKeyPEM: privateKey,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("configure sign in with apple token revoker: %w", err)
+	}
+	return revoker, nil
 }
 
 func envOrDefault(key string, fallback string) string {

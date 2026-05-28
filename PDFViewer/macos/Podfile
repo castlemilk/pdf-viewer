@@ -32,6 +32,15 @@ target 'Acacia-macOS' do
     ]
 
     installer.pods_project.targets.each do |target|
+      if target.name == 'fmt'
+        target.build_configurations.each do |config|
+          definitions = config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
+          definitions = definitions.split(' ') if definitions.is_a?(String)
+          config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = (definitions + ['FMT_USE_CONSTEVAL=0']).uniq
+          config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
+        end
+      end
+
       next unless target.name.start_with?('React-')
 
       extra_header_paths = ['"$(PODS_TARGET_SRCROOT)"']

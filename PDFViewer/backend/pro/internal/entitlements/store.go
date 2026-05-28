@@ -21,6 +21,7 @@ type Store interface {
 	Get(ctx context.Context, firebaseUID string) (*prov1.AccountEntitlement, error)
 	GetByAppAccountToken(ctx context.Context, appAccountToken string) (*prov1.AccountEntitlement, error)
 	Put(ctx context.Context, entitlement *prov1.AccountEntitlement) error
+	Delete(ctx context.Context, firebaseUID string) error
 }
 
 type MemoryStore struct {
@@ -73,6 +74,20 @@ func (store *MemoryStore) Put(_ context.Context, entitlement *prov1.AccountEntit
 	if entitlement.GetAppAccountToken() != "" {
 		store.appAccountTokenIndex[entitlement.GetAppAccountToken()] = entitlement.GetFirebaseUid()
 	}
+	return nil
+}
+
+func (store *MemoryStore) Delete(_ context.Context, firebaseUID string) error {
+	if firebaseUID == "" {
+		return errors.New("firebase uid is required")
+	}
+
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if record, ok := store.records[firebaseUID]; ok && record.GetAppAccountToken() != "" {
+		delete(store.appAccountTokenIndex, record.GetAppAccountToken())
+	}
+	delete(store.records, firebaseUID)
 	return nil
 }
 
@@ -163,6 +178,34 @@ func (store *GCSStore) Put(ctx context.Context, entitlement *prov1.AccountEntitl
 		}
 	}
 	return nil
+}
+
+func (store *GCSStore) Delete(ctx context.Context, firebaseUID string) error {
+	if firebaseUID == "" {
+		return errors.New("firebase uid is required")
+	}
+
+	existing, err := store.Get(ctx, firebaseUID)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return err
+	}
+	if err := deleteGCSObject(ctx, store.bucket.Object(store.objectName(firebaseUID))); err != nil {
+		return fmt.Errorf("delete entitlement object: %w", err)
+	}
+	if existing.GetAppAccountToken() != "" {
+		if err := deleteGCSObject(ctx, store.bucket.Object(store.appAccountTokenObjectName(existing.GetAppAccountToken()))); err != nil {
+			return fmt.Errorf("delete app account token index: %w", err)
+		}
+	}
+	return nil
+}
+
+func deleteGCSObject(ctx context.Context, object *storage.ObjectHandle) error {
+	err := object.Delete(ctx)
+	if errors.Is(err, storage.ErrObjectNotExist) {
+		return nil
+	}
+	return err
 }
 
 func (store *GCSStore) objectName(firebaseUID string) string {

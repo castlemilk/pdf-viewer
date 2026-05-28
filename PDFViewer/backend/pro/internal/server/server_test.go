@@ -56,6 +56,15 @@ func (verifier fakeNotificationVerifier) VerifySignedNotification(_ context.Cont
 	return notification, nil
 }
 
+type fakeAppleTokenRevoker struct {
+	authorizationCodes []string
+}
+
+func (revoker *fakeAppleTokenRevoker) RevokeAuthorizationCode(_ context.Context, authorizationCode string) error {
+	revoker.authorizationCodes = append(revoker.authorizationCodes, authorizationCode)
+	return nil
+}
+
 func TestHealthEndpointUsesCloudRunSafePath(t *testing.T) {
 	handler := newTestHandler()
 	request := httptest.NewRequest(http.MethodGet, "/health", nil)
@@ -121,6 +130,106 @@ func TestGetAccountReturnsSignedInFreeEntitlementWhenNoStoredProPlanExists(t *te
 	}
 	if account.GetSource() != prov1.EntitlementSource_ENTITLEMENT_SOURCE_DEFAULT {
 		t.Fatalf("expected default entitlement source, got %v", account.GetSource())
+	}
+}
+
+func TestDeleteAccountRequiresFirebaseBearerToken(t *testing.T) {
+	handler := newTestHandler()
+	request := newProtoRequest(http.MethodPost, "/v1/account:delete", &prov1.DeleteAccountRequest{})
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", response.Code)
+	}
+}
+
+func TestRevokeAppleSignInTokenRequiresFirebaseBearerToken(t *testing.T) {
+	handler := newTestHandler()
+	request := newProtoRequest(http.MethodPost, "/v1/account/apple:revoke", &prov1.RevokeAppleSignInTokenRequest{
+		AuthorizationCode: "apple-auth-code",
+	})
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", response.Code)
+	}
+}
+
+func TestRevokeAppleSignInTokenUsesConfiguredRevoker(t *testing.T) {
+	revoker := &fakeAppleTokenRevoker{}
+	handler := newTestHandlerWithAppleRevoker(revoker)
+	request := newProtoRequest(http.MethodPost, "/v1/account/apple:revoke", &prov1.RevokeAppleSignInTokenRequest{
+		AuthorizationCode: "apple-auth-code",
+	})
+	request.Header.Set("Authorization", "Bearer valid-pro-user")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected revoke 200, got %d: %s", response.Code, response.Body.String())
+	}
+	var body prov1.RevokeAppleSignInTokenResponse
+	unmarshalProto(t, response.Body.Bytes(), &body)
+	if !body.GetRevoked() {
+		t.Fatal("expected revoked response")
+	}
+	if len(revoker.authorizationCodes) != 1 || revoker.authorizationCodes[0] != "apple-auth-code" {
+		t.Fatalf("expected authorization code to be revoked, got %#v", revoker.authorizationCodes)
+	}
+}
+
+func TestDeleteAccountRemovesEntitlementAndCloudData(t *testing.T) {
+	entitlementStore := entitlements.NewMemoryStore()
+	cloudStore := cloud.NewMemoryStore()
+	handler := newTestHandlerWithStores(entitlementStore, cloudStore)
+	syncProEntitlement(t, handler)
+	if err := cloudStore.PutLibrary(context.Background(), "user_pro", &prov1.CloudLibrarySnapshot{
+		Documents: []*prov1.CloudDocument{{Id: "roadmap", Title: "Roadmap"}},
+		Revision:  4,
+	}); err != nil {
+		t.Fatalf("seed cloud library: %v", err)
+	}
+	if err := cloudStore.PutDocumentContent(context.Background(), "user_pro", "roadmap", cloud.DocumentContent{
+		Data:        []byte("%PDF-1.7 account delete"),
+		ContentType: "application/pdf",
+	}); err != nil {
+		t.Fatalf("seed cloud content: %v", err)
+	}
+
+	request := newProtoRequest(http.MethodPost, "/v1/account:delete", &prov1.DeleteAccountRequest{})
+	request.Header.Set("Authorization", "Bearer valid-pro-user")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected delete 200, got %d: %s", response.Code, response.Body.String())
+	}
+	var body prov1.DeleteAccountResponse
+	unmarshalProto(t, response.Body.Bytes(), &body)
+	if !body.GetDeleted() {
+		t.Fatal("expected deleted response")
+	}
+	if _, err := entitlementStore.Get(context.Background(), "user_pro"); !errors.Is(err, entitlements.ErrNotFound) {
+		t.Fatalf("expected entitlement deletion, got %v", err)
+	}
+	if _, err := cloudStore.GetLibrary(context.Background(), "user_pro"); !errors.Is(err, cloud.ErrNotFound) {
+		t.Fatalf("expected cloud library deletion, got %v", err)
+	}
+	if _, err := cloudStore.GetDocumentContent(context.Background(), "user_pro", "roadmap"); !errors.Is(err, cloud.ErrNotFound) {
+		t.Fatalf("expected cloud document content deletion, got %v", err)
+	}
+	usage, err := cloudStore.StorageUsedBytes(context.Background(), "user_pro")
+	if err != nil {
+		t.Fatalf("expected storage usage after deletion: %v", err)
+	}
+	if usage != 0 {
+		t.Fatalf("expected deleted cloud usage to be 0, got %d", usage)
 	}
 }
 
@@ -517,6 +626,14 @@ func newTestHandlerWithStore(store entitlements.Store) http.Handler {
 }
 
 func newTestHandlerWithStores(store entitlements.Store, cloudStore cloud.Store) http.Handler {
+	return newTestHandlerWithStoresAndAppleRevoker(store, cloudStore, nil)
+}
+
+func newTestHandlerWithAppleRevoker(revoker server.AppleTokenRevoker) http.Handler {
+	return newTestHandlerWithStoresAndAppleRevoker(entitlements.NewMemoryStore(), cloud.NewMemoryStore(), revoker)
+}
+
+func newTestHandlerWithStoresAndAppleRevoker(store entitlements.Store, cloudStore cloud.Store, revoker server.AppleTokenRevoker) http.Handler {
 	appAccountToken := server.AppAccountTokenForTest("user_pro", []byte("test-secret"))
 	return server.New(server.Config{
 		Verifier: fakeVerifier{
@@ -533,6 +650,7 @@ func newTestHandlerWithStores(store entitlements.Store, cloudStore cloud.Store) 
 		ProProductIDs:         []string{"com.benebsworth.acacia.pro.monthly", "com.benebsworth.acacia.pro.yearly"},
 		AppAccountTokenSecret: []byte("test-secret"),
 		ProStorageQuotaBytes:  20 * 1024 * 1024 * 1024,
+		AppleTokenRevoker:     revoker,
 		TransactionVerifier: fakeTransactionVerifier{
 			transactions: map[string]*appstore.Transaction{
 				"valid-pro-transaction": {

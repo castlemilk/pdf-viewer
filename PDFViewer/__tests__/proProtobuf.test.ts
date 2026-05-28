@@ -1,12 +1,16 @@
 /* eslint-disable no-bitwise */
 import {
   decodeErrorResponse,
+  decodeDeleteAccountResponse,
   decodeGetAccountResponse,
   decodeGetPurchaseContextResponse,
+  decodeRevokeAppleSignInTokenResponse,
   decodeSyncLibraryResponse,
   decodeSyncAppStoreTransactionResponse,
+  encodeDeleteAccountRequest,
   encodeGetAccountRequest,
   encodeGetPurchaseContextRequest,
+  encodeRevokeAppleSignInTokenRequest,
   encodeSyncLibraryRequest,
   encodeSyncAppStoreTransactionRequest,
 } from '../src/pro/protobuf';
@@ -95,6 +99,22 @@ test('encodes empty get account request and decodes account entitlement', () => 
       appAccountToken: '2d6825b7-9df2-4ff8-a06f-401bd0696fc4',
     },
   });
+});
+
+test('encodes empty delete account request and decodes deletion response', () => {
+  expect(Array.from(encodeDeleteAccountRequest())).toEqual([]);
+  expect(
+    decodeDeleteAccountResponse(Uint8Array.from(varintField(1, 1))),
+  ).toEqual({deleted: true});
+});
+
+test('encodes Apple authorization code revocation request and decodes response', () => {
+  expect(
+    Array.from(encodeRevokeAppleSignInTokenRequest('apple-auth-code')),
+  ).toEqual(stringField(1, 'apple-auth-code'));
+  expect(
+    decodeRevokeAppleSignInTokenResponse(Uint8Array.from(varintField(1, 1))),
+  ).toEqual({revoked: true});
 });
 
 test('encodes signed StoreKit transaction JWS for backend sync', () => {

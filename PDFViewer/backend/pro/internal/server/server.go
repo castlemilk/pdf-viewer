@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -39,8 +40,13 @@ type Config struct {
 	ProProductIDs         []string
 	ProStorageQuotaBytes  int64
 	AppAccountTokenSecret []byte
+	AppleTokenRevoker     AppleTokenRevoker
 	TransactionVerifier   appstore.TransactionVerifier
 	NotificationVerifier  appstore.NotificationVerifier
+}
+
+type AppleTokenRevoker interface {
+	RevokeAuthorizationCode(ctx context.Context, authorizationCode string) error
 }
 
 type Server struct {
@@ -53,6 +59,7 @@ type Server struct {
 	proProductIDs         []string
 	proStorageQuotaBytes  int64
 	appAccountTokenSecret []byte
+	appleTokenRevoker     AppleTokenRevoker
 	transactionVerifier   appstore.TransactionVerifier
 	notificationVerifier  appstore.NotificationVerifier
 }
@@ -85,6 +92,7 @@ func New(config Config) http.Handler {
 		proProductIDs:         append([]string(nil), proProductIDs...),
 		proStorageQuotaBytes:  proStorageQuotaBytes,
 		appAccountTokenSecret: append([]byte(nil), config.AppAccountTokenSecret...),
+		appleTokenRevoker:     config.AppleTokenRevoker,
 		transactionVerifier:   config.TransactionVerifier,
 		notificationVerifier:  config.NotificationVerifier,
 	}
@@ -97,6 +105,10 @@ func (server *Server) ServeHTTP(response http.ResponseWriter, request *http.Requ
 		_, _ = response.Write([]byte("ok"))
 	case request.Method == http.MethodPost && request.URL.Path == "/v1/account:get":
 		server.handleGetAccount(response, request)
+	case request.Method == http.MethodPost && request.URL.Path == "/v1/account:delete":
+		server.handleDeleteAccount(response, request)
+	case request.Method == http.MethodPost && request.URL.Path == "/v1/account/apple:revoke":
+		server.handleRevokeAppleSignInToken(response, request)
 	case request.Method == http.MethodPost && request.URL.Path == "/v1/account:purchaseContext":
 		server.handlePurchaseContext(response, request)
 	case request.Method == http.MethodPost && request.URL.Path == "/v1/app_store/transactions:sync":
@@ -178,6 +190,54 @@ func (server *Server) handleGetAccount(response http.ResponseWriter, request *ht
 
 	account = normalizeAccount(account, token.Email, server.now())
 	writeProto(response, http.StatusOK, &prov1.GetAccountResponse{Account: account})
+}
+
+func (server *Server) handleDeleteAccount(response http.ResponseWriter, request *http.Request) {
+	token, ok := server.authenticate(response, request)
+	if !ok {
+		return
+	}
+
+	if server.cloudStore != nil {
+		if err := server.cloudStore.DeleteAccount(request.Context(), token.UID); err != nil {
+			writeError(response, http.StatusInternalServerError, "cloud_store_error", "could not delete cloud account data")
+			return
+		}
+	}
+	if err := server.store.Delete(request.Context(), token.UID); err != nil {
+		writeError(response, http.StatusInternalServerError, "store_error", "could not delete account entitlement")
+		return
+	}
+
+	writeProto(response, http.StatusOK, &prov1.DeleteAccountResponse{Deleted: true})
+}
+
+func (server *Server) handleRevokeAppleSignInToken(response http.ResponseWriter, request *http.Request) {
+	_, ok := server.authenticate(response, request)
+	if !ok {
+		return
+	}
+	if server.appleTokenRevoker == nil {
+		writeError(response, http.StatusServiceUnavailable, "not_configured", "sign in with apple token revocation is not configured")
+		return
+	}
+
+	var requestBody prov1.RevokeAppleSignInTokenRequest
+	if !readProto(response, request, &requestBody) {
+		return
+	}
+	authorizationCode := strings.TrimSpace(requestBody.GetAuthorizationCode())
+	if authorizationCode == "" {
+		writeError(response, http.StatusBadRequest, "invalid_argument", "authorization_code is required")
+		return
+	}
+
+	if err := server.appleTokenRevoker.RevokeAuthorizationCode(request.Context(), authorizationCode); err != nil {
+		writeError(response, http.StatusBadGateway, "apple_revoke_failed", "could not revoke sign in with apple token")
+		return
+	}
+
+	writeProto(response, http.StatusOK, &prov1.RevokeAppleSignInTokenResponse{Revoked: true})
 }
 
 func (server *Server) handlePurchaseContext(response http.ResponseWriter, request *http.Request) {

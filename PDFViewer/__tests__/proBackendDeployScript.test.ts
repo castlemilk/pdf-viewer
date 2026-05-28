@@ -36,6 +36,10 @@ test('pro backend deploy script grants Secret Manager access when admin token se
   expect(script).toContain('ACACIA_APP_ACCOUNT_TOKEN_SECRET_SECRET');
   expect(script).toContain('ACACIA_APP_ACCOUNT_TOKEN_SECRET=${ACACIA_APP_ACCOUNT_TOKEN_SECRET_SECRET}:latest');
   expect(script).toContain('ACACIA_ADMIN_TOKEN_SECRET');
+  expect(script).toContain('ACACIA_APPLE_PRIVATE_KEY_SECRET');
+  expect(script).toContain('ACACIA_APPLE_PRIVATE_KEY=${ACACIA_APPLE_PRIVATE_KEY_SECRET}:latest');
+  expect(script).toContain('ACACIA_APPLE_TEAM_ID');
+  expect(script).toContain('ACACIA_APPLE_KEY_ID');
 });
 
 test('pro backend deploy script configures the cloud library bucket', () => {

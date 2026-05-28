@@ -1,7 +1,9 @@
 /* eslint-disable no-bitwise */
 import {ProBackendClient, ProBackendError} from '../src/pro/proBackendClient';
 import {
+  encodeDeleteAccountRequest,
   encodeGetAccountRequest,
+  encodeRevokeAppleSignInTokenRequest,
   encodeSyncLibraryRequest,
   encodeSyncAppStoreTransactionRequest,
   type ProAccountEntitlement,
@@ -133,6 +135,56 @@ test('fetches account entitlement using protobuf and Firebase bearer auth', asyn
     expect.objectContaining({
       method: 'POST',
       body: encodeGetAccountRequest(),
+    }),
+  );
+});
+
+test('deletes account using protobuf and Firebase bearer auth', async () => {
+  const fetchMock: TestFetch = jest.fn(async (_url, _init) =>
+    createResponse(200, Uint8Array.from(varintField(1, 1))),
+  );
+  const client = new ProBackendClient({
+    baseUrl: 'https://pro.acacia.test/',
+    fetchImpl: fetchMock as unknown as typeof fetch,
+  });
+
+  await expect(client.deleteAccount('firebase-token')).resolves.toEqual({
+    deleted: true,
+  });
+
+  expect(fetchMock).toHaveBeenCalledWith(
+    'https://pro.acacia.test/v1/account:delete',
+    expect.objectContaining({
+      method: 'POST',
+      body: encodeDeleteAccountRequest(),
+      headers: expect.objectContaining({
+        Authorization: 'Bearer firebase-token',
+      }),
+    }),
+  );
+});
+
+test('revokes Sign in with Apple authorization code using protobuf and Firebase bearer auth', async () => {
+  const fetchMock: TestFetch = jest.fn(async (_url, _init) =>
+    createResponse(200, Uint8Array.from(varintField(1, 1))),
+  );
+  const client = new ProBackendClient({
+    baseUrl: 'https://pro.acacia.test/',
+    fetchImpl: fetchMock as unknown as typeof fetch,
+  });
+
+  await expect(
+    client.revokeAppleSignInToken('firebase-token', 'apple-auth-code'),
+  ).resolves.toEqual({revoked: true});
+
+  expect(fetchMock).toHaveBeenCalledWith(
+    'https://pro.acacia.test/v1/account/apple:revoke',
+    expect.objectContaining({
+      method: 'POST',
+      body: encodeRevokeAppleSignInTokenRequest('apple-auth-code'),
+      headers: expect.objectContaining({
+        Authorization: 'Bearer firebase-token',
+      }),
     }),
   );
 });

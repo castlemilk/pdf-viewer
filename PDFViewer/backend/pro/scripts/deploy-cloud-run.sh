@@ -30,6 +30,18 @@ SECRET_ARGS+=(--update-secrets "ACACIA_APP_ACCOUNT_TOKEN_SECRET=${ACACIA_APP_ACC
 if [[ -n "${ACACIA_ADMIN_TOKEN_SECRET:-}" ]]; then
   SECRET_ARGS+=(--update-secrets "ACACIA_ADMIN_TOKEN=${ACACIA_ADMIN_TOKEN_SECRET}:latest")
 fi
+if [[ -n "${ACACIA_APPLE_PRIVATE_KEY_SECRET:-}" ]]; then
+  SECRET_ARGS+=(--update-secrets "ACACIA_APPLE_PRIVATE_KEY=${ACACIA_APPLE_PRIVATE_KEY_SECRET}:latest")
+fi
+if [[ -n "${ACACIA_APPLE_TEAM_ID:-}" ]]; then
+  ENV_VARS+=("ACACIA_APPLE_TEAM_ID=${ACACIA_APPLE_TEAM_ID}")
+fi
+if [[ -n "${ACACIA_APPLE_KEY_ID:-}" ]]; then
+  ENV_VARS+=("ACACIA_APPLE_KEY_ID=${ACACIA_APPLE_KEY_ID}")
+fi
+if [[ -n "${ACACIA_APPLE_CLIENT_ID:-}" ]]; then
+  ENV_VARS+=("ACACIA_APPLE_CLIENT_ID=${ACACIA_APPLE_CLIENT_ID}")
+fi
 
 gcloud services enable \
   run.googleapis.com \
@@ -74,6 +86,13 @@ gcloud secrets add-iam-policy-binding "${ACACIA_APP_ACCOUNT_TOKEN_SECRET_SECRET}
 
 if [[ -n "${ACACIA_ADMIN_TOKEN_SECRET:-}" ]]; then
   gcloud secrets add-iam-policy-binding "${ACACIA_ADMIN_TOKEN_SECRET}" \
+    --member "serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" \
+    --role roles/secretmanager.secretAccessor \
+    --project "${GCP_PROJECT_ID}" >/dev/null
+fi
+
+if [[ -n "${ACACIA_APPLE_PRIVATE_KEY_SECRET:-}" ]]; then
+  gcloud secrets add-iam-policy-binding "${ACACIA_APPLE_PRIVATE_KEY_SECRET}" \
     --member "serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" \
     --role roles/secretmanager.secretAccessor \
     --project "${GCP_PROJECT_ID}" >/dev/null

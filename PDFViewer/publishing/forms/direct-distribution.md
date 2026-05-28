@@ -104,15 +104,17 @@ https://acacia-eta.vercel.app/support.html
 
 Acacia Privacy Policy
 
-Acacia is designed as a local-first macOS app.
+Acacia is designed as a local-first PDF app.
 
-We do not collect personal data through the app. The app does not include analytics, advertising SDKs, accounts, telemetry, or cloud sync.
+The core app does not require an account and does not include analytics, advertising SDKs, or third-party tracking.
 
-Documents you import remain on your Mac. Tags, collections, favorites, comments, annotations, reading progress, bookmarks, and compare sessions are stored locally on your device. Acacia does not upload this content to our servers.
+Documents you import remain on your device in the free local workspace. Tags, collections, favorites, comments, annotations, reading progress, bookmarks, and compare sessions are stored locally on your device. If you sign in and enable Acacia Pro cloud sync, Acacia uploads the documents and review metadata needed to sync your library across your devices.
 
 If you choose to export, share, or send a file using macOS sharing features, that action is initiated by you and handled by the destination you choose.
 
-If you choose to sign in or use Pro features, Acacia may process account identifiers, purchase receipts, subscription status, entitlement state, and basic diagnostic request metadata needed to provide and validate those features. This data is not used for tracking.
+If you choose to sign in or use Pro features, Acacia may process account identifiers, purchase receipts, subscription status, entitlement state, synced document data, annotations, comments, and basic diagnostic request metadata needed to provide and validate those features. This data is not used for tracking.
+
+You can delete your Acacia account in the app from the Account panel. Account deletion revokes Sign in with Apple authorization when available, removes Pro entitlement and cloud sync data, deletes the Firebase account, and leaves local documents on your device.
 
 If you contact support, we will use the information you provide to respond to your request.
 
@@ -123,7 +125,7 @@ Public privacy policy:
 https://acacia-eta.vercel.app/privacy.html
 
 Last updated:
-2026-05-22
+2026-05-28
 
 ## Remaining Direct Distribution Work
 

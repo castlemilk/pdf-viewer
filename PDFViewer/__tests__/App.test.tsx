@@ -7,6 +7,7 @@ import {AccessibilityInfo, Alert, Platform, StyleSheet} from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import App from '../App';
 import {createInitialLibraryState} from '../src/domain';
+import {AcaciaAuthBridge} from '../src/native/AcaciaAuthBridge';
 import {importedPdfToDocument, PdfKitBridge} from '../src/native/PdfKitBridge';
 
 function pressSidebarItem(
@@ -224,6 +225,91 @@ test('renders the PDF library shell with core document workflows', async () => {
   expect(output).toContain('Q4 Market Analysis Report');
   expect(output).toContain('Open PDF');
   expect(output).toContain('Compare');
+});
+
+test('offers Sign in with Apple for account-backed Pro sync', async () => {
+  const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation();
+  const signInWithApple = jest
+    .spyOn(AcaciaAuthBridge, 'signInWithApple')
+    .mockResolvedValue({
+      providerId: 'apple.com',
+      firebaseUid: 'firebase-user',
+      email: 'reader@example.com',
+      displayName: 'Reader Example',
+      isNewUser: false,
+    });
+  const syncAccount = jest.fn().mockResolvedValue(undefined);
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(
+      <App proAccountSynchronizer={{syncAccount}} />,
+    );
+  });
+
+  const appleButton = nativeButtonProps(renderer!, 'sign-in-with-apple-button');
+  expect(appleButton.accessibilityLabel).toBe('Sign in with Apple');
+  syncAccount.mockClear();
+
+  await ReactTestRenderer.act(async () => {
+    await appleButton.onPress();
+  });
+
+  expect(signInWithApple).toHaveBeenCalledTimes(1);
+  expect(syncAccount).toHaveBeenCalledTimes(1);
+  expect(alertSpy).toHaveBeenCalledWith(
+    'Sign in with Apple',
+    'Signed in as reader@example.com.',
+  );
+  expect(JSON.stringify(renderer?.toJSON())).toContain('Signed in with Apple');
+});
+
+test('offers in-app account deletion for signed-in accounts', async () => {
+  const deleteAccount = jest.fn().mockResolvedValue({deleted: true});
+  const syncAccount = jest.fn(async () => ({
+    accountState: {signedIn: true, plan: 'pro' as const},
+    storageLimitGb: 20,
+    storageUsedGb: 1.5,
+  }));
+  const alertSpy = jest
+    .spyOn(Alert, 'alert')
+    .mockImplementation((title, _message, buttons) => {
+      if (title === 'Delete Account') {
+        buttons?.find(button => button.text === 'Delete Account')?.onPress?.();
+      }
+    });
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+
+  await ReactTestRenderer.act(async () => {
+    renderer = ReactTestRenderer.create(
+      <App
+        proAccountSynchronizer={{syncAccount}}
+        proAccountDeleter={{deleteAccount}}
+      />,
+    );
+    await Promise.resolve();
+  });
+  await ReactTestRenderer.act(async () => {
+    await Promise.resolve();
+  });
+
+  const deleteButton = nativeButtonProps(renderer!, 'delete-account-button');
+  expect(deleteButton.accessibilityLabel).toBe('Delete Acacia account');
+
+  await ReactTestRenderer.act(async () => {
+    await deleteButton.onPress();
+    await Promise.resolve();
+  });
+
+  expect(deleteAccount).toHaveBeenCalledTimes(1);
+  expect(alertSpy).toHaveBeenCalledWith(
+    'Account Deleted',
+    'Your Acacia account and cloud data were deleted. Local documents remain on this device.',
+  );
+  expect(JSON.stringify(renderer?.toJSON())).toContain('Local library');
+  expect(
+    renderer!.root.findAllByProps({testID: 'delete-account-button'}),
+  ).toHaveLength(0);
 });
 
 test('hides account storage quota while signed out', async () => {

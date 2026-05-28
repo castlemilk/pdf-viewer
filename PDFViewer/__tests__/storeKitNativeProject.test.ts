@@ -61,6 +61,7 @@ test('iOS Pro config and auth bridges expose backend URL and validation ID token
   const authSwift = read('ios/PDFViewer/AcaciaAuth.swift');
   const authBridge = read('ios/PDFViewer/AcaciaAuthBridge.m');
   const project = read('ios/PDFViewer.xcodeproj/project.pbxproj');
+  const entitlements = read('ios/PDFViewer/PDFViewer.entitlements');
 
   expect(configSwift).toContain('ACACIA_PRO_API_BASE_URL');
   expect(configSwift).toContain('AcaciaProAPIBaseURL');
@@ -68,6 +69,16 @@ test('iOS Pro config and auth bridges expose backend URL and validation ID token
   expect(authSwift).toContain('ACACIA_FIREBASE_ID_TOKEN');
   expect(authSwift).toContain('AcaciaFirebaseIDToken');
   expect(authSwift).toContain('AcaciaFirebaseWebAPIKey');
+  expect(authSwift).toContain('AuthenticationServices');
+  expect(authSwift).toContain('CryptoKit');
+  expect(authSwift).toContain('signInWithApple');
+  expect(authSwift).toContain('requestAppleAuthorizationCode');
+  expect(authSwift).toContain('deleteFirebaseAccount');
+  expect(authSwift).toContain('authorizationCode');
+  expect(authSwift).toContain('accounts:signInWithIdp');
+  expect(authSwift).toContain('accounts:delete');
+  expect(authSwift).toContain('providerId=apple.com');
+  expect(authSwift).toContain('nonce=');
   expect(authSwift).toContain('identitytoolkit.googleapis.com');
   expect(authSwift).toContain('securetoken.googleapis.com');
   expect(authSwift).toContain('UserDefaults.standard');
@@ -76,10 +87,16 @@ test('iOS Pro config and auth bridges expose backend URL and validation ID token
   expect(authSwift).toContain('NSNull()');
   expect(configBridge).toContain('RCT_EXTERN_MODULE(AcaciaConfig, NSObject)');
   expect(authBridge).toContain('RCT_EXTERN_MODULE(AcaciaAuth, NSObject)');
+  expect(authBridge).toContain('RCT_EXTERN_METHOD(signInWithApple');
+  expect(authBridge).toContain('RCT_EXTERN_METHOD(requestAppleAuthorizationCode');
+  expect(authBridge).toContain('RCT_EXTERN_METHOD(deleteFirebaseAccount');
   expect(project).toContain('AcaciaConfig.swift');
   expect(project).toContain('AcaciaConfigBridge.m');
   expect(project).toContain('AcaciaAuth.swift');
   expect(project).toContain('AcaciaAuthBridge.m');
+  expect(project).toContain('CODE_SIGN_ENTITLEMENTS = PDFViewer/PDFViewer.entitlements;');
+  expect(entitlements).toContain('com.apple.developer.applesignin');
+  expect(entitlements).toContain('<string>Default</string>');
 });
 
 test('macOS Pro config and auth bridges expose backend URL and validation ID token without keychain', () => {
@@ -88,6 +105,7 @@ test('macOS Pro config and auth bridges expose backend URL and validation ID tok
   const authSwift = read('macos/PDFViewer-macOS/AcaciaAuth.swift');
   const authBridge = read('macos/PDFViewer-macOS/AcaciaAuthBridge.m');
   const project = read('macos/Acacia.xcodeproj/project.pbxproj');
+  const entitlements = read('macos/PDFViewer-macOS/PDFViewer.entitlements');
 
   expect(configSwift).toContain('ACACIA_PRO_API_BASE_URL');
   expect(configSwift).toContain('AcaciaProAPIBaseURL');
@@ -95,6 +113,16 @@ test('macOS Pro config and auth bridges expose backend URL and validation ID tok
   expect(authSwift).toContain('ACACIA_FIREBASE_ID_TOKEN');
   expect(authSwift).toContain('AcaciaFirebaseIDToken');
   expect(authSwift).toContain('AcaciaFirebaseWebAPIKey');
+  expect(authSwift).toContain('AuthenticationServices');
+  expect(authSwift).toContain('CryptoKit');
+  expect(authSwift).toContain('signInWithApple');
+  expect(authSwift).toContain('requestAppleAuthorizationCode');
+  expect(authSwift).toContain('deleteFirebaseAccount');
+  expect(authSwift).toContain('authorizationCode');
+  expect(authSwift).toContain('accounts:signInWithIdp');
+  expect(authSwift).toContain('accounts:delete');
+  expect(authSwift).toContain('providerId=apple.com');
+  expect(authSwift).toContain('nonce=');
   expect(authSwift).toContain('identitytoolkit.googleapis.com');
   expect(authSwift).toContain('securetoken.googleapis.com');
   expect(authSwift).toContain('UserDefaults.standard');
@@ -103,8 +131,27 @@ test('macOS Pro config and auth bridges expose backend URL and validation ID tok
   expect(authSwift).toContain('NSNull()');
   expect(configBridge).toContain('RCT_EXTERN_MODULE(AcaciaConfig, NSObject)');
   expect(authBridge).toContain('RCT_EXTERN_MODULE(AcaciaAuth, NSObject)');
+  expect(authBridge).toContain('RCT_EXTERN_METHOD(signInWithApple');
+  expect(authBridge).toContain('RCT_EXTERN_METHOD(requestAppleAuthorizationCode');
+  expect(authBridge).toContain('RCT_EXTERN_METHOD(deleteFirebaseAccount');
   expect(project).toContain('AcaciaConfig.swift');
   expect(project).toContain('AcaciaConfigBridge.m');
   expect(project).toContain('AcaciaAuth.swift');
   expect(project).toContain('AcaciaAuthBridge.m');
+  expect(entitlements).toContain('com.apple.developer.applesignin');
+  expect(entitlements).toContain('<string>Default</string>');
+});
+
+test('Podfiles disable fmt consteval path for current Apple clang builds', () => {
+  const iosPodfile = read('ios/Podfile');
+  const macosPodfile = read('macos/Podfile');
+
+  expect(iosPodfile).toContain('target.name == \'fmt\'');
+  expect(iosPodfile).toContain('FMT_USE_CONSTEVAL=0');
+  expect(iosPodfile).toContain('CLANG_CXX_LANGUAGE_STANDARD');
+  expect(iosPodfile).toContain('gnu++17');
+  expect(macosPodfile).toContain('target.name == \'fmt\'');
+  expect(macosPodfile).toContain('FMT_USE_CONSTEVAL=0');
+  expect(macosPodfile).toContain('CLANG_CXX_LANGUAGE_STANDARD');
+  expect(macosPodfile).toContain('gnu++17');
 });

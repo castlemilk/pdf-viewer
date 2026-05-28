@@ -32,6 +32,14 @@ export type GetAccountResponse = {
   account?: ProAccountEntitlement;
 };
 
+export type DeleteAccountResponse = {
+  deleted: boolean;
+};
+
+export type RevokeAppleSignInTokenResponse = {
+  revoked: boolean;
+};
+
 export type SyncAppStoreTransactionResponse = {
   account?: ProAccountEntitlement;
 };
@@ -125,6 +133,16 @@ export function encodeGetAccountRequest(): Uint8Array {
   return new Uint8Array();
 }
 
+export function encodeDeleteAccountRequest(): Uint8Array {
+  return new Uint8Array();
+}
+
+export function encodeRevokeAppleSignInTokenRequest(
+  authorizationCode: string,
+): Uint8Array {
+  return encodeFields([stringField(1, authorizationCode)]);
+}
+
 export function encodeSyncAppStoreTransactionRequest(
   signedTransactionJws: string,
 ): Uint8Array {
@@ -197,6 +215,34 @@ export function decodeGetAccountResponse(body: Uint8Array): GetAccountResponse {
   }
 
   return {};
+}
+
+export function decodeDeleteAccountResponse(
+  body: Uint8Array,
+): DeleteAccountResponse {
+  const response: DeleteAccountResponse = {deleted: false};
+
+  for (const field of decodeFields(body)) {
+    if (field.fieldNumber === 1 && typeof field.value === 'number') {
+      response.deleted = field.value !== 0;
+    }
+  }
+
+  return response;
+}
+
+export function decodeRevokeAppleSignInTokenResponse(
+  body: Uint8Array,
+): RevokeAppleSignInTokenResponse {
+  const response: RevokeAppleSignInTokenResponse = {revoked: false};
+
+  for (const field of decodeFields(body)) {
+    if (field.fieldNumber === 1 && typeof field.value === 'number') {
+      response.revoked = field.value !== 0;
+    }
+  }
+
+  return response;
 }
 
 export function decodeSyncAppStoreTransactionResponse(

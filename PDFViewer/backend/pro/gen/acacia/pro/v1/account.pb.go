@@ -819,6 +819,174 @@ func (x *GetAccountResponse) GetAccount() *AccountEntitlement {
 	return nil
 }
 
+type DeleteAccountRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteAccountRequest) Reset() {
+	*x = DeleteAccountRequest{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteAccountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteAccountRequest) ProtoMessage() {}
+
+func (x *DeleteAccountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteAccountRequest.ProtoReflect.Descriptor instead.
+func (*DeleteAccountRequest) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{8}
+}
+
+type DeleteAccountResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Deleted       bool                   `protobuf:"varint,1,opt,name=deleted,proto3" json:"deleted,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteAccountResponse) Reset() {
+	*x = DeleteAccountResponse{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteAccountResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteAccountResponse) ProtoMessage() {}
+
+func (x *DeleteAccountResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteAccountResponse.ProtoReflect.Descriptor instead.
+func (*DeleteAccountResponse) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *DeleteAccountResponse) GetDeleted() bool {
+	if x != nil {
+		return x.Deleted
+	}
+	return false
+}
+
+type RevokeAppleSignInTokenRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	AuthorizationCode string                 `protobuf:"bytes,1,opt,name=authorization_code,json=authorizationCode,proto3" json:"authorization_code,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *RevokeAppleSignInTokenRequest) Reset() {
+	*x = RevokeAppleSignInTokenRequest{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeAppleSignInTokenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeAppleSignInTokenRequest) ProtoMessage() {}
+
+func (x *RevokeAppleSignInTokenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeAppleSignInTokenRequest.ProtoReflect.Descriptor instead.
+func (*RevokeAppleSignInTokenRequest) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *RevokeAppleSignInTokenRequest) GetAuthorizationCode() string {
+	if x != nil {
+		return x.AuthorizationCode
+	}
+	return ""
+}
+
+type RevokeAppleSignInTokenResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Revoked       bool                   `protobuf:"varint,1,opt,name=revoked,proto3" json:"revoked,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeAppleSignInTokenResponse) Reset() {
+	*x = RevokeAppleSignInTokenResponse{}
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeAppleSignInTokenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeAppleSignInTokenResponse) ProtoMessage() {}
+
+func (x *RevokeAppleSignInTokenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeAppleSignInTokenResponse.ProtoReflect.Descriptor instead.
+func (*RevokeAppleSignInTokenResponse) Descriptor() ([]byte, []int) {
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *RevokeAppleSignInTokenResponse) GetRevoked() bool {
+	if x != nil {
+		return x.Revoked
+	}
+	return false
+}
+
 type GetPurchaseContextRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -827,7 +995,7 @@ type GetPurchaseContextRequest struct {
 
 func (x *GetPurchaseContextRequest) Reset() {
 	*x = GetPurchaseContextRequest{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[8]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -839,7 +1007,7 @@ func (x *GetPurchaseContextRequest) String() string {
 func (*GetPurchaseContextRequest) ProtoMessage() {}
 
 func (x *GetPurchaseContextRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[8]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -852,7 +1020,7 @@ func (x *GetPurchaseContextRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPurchaseContextRequest.ProtoReflect.Descriptor instead.
 func (*GetPurchaseContextRequest) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{8}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{12}
 }
 
 type GetPurchaseContextResponse struct {
@@ -866,7 +1034,7 @@ type GetPurchaseContextResponse struct {
 
 func (x *GetPurchaseContextResponse) Reset() {
 	*x = GetPurchaseContextResponse{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[9]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -878,7 +1046,7 @@ func (x *GetPurchaseContextResponse) String() string {
 func (*GetPurchaseContextResponse) ProtoMessage() {}
 
 func (x *GetPurchaseContextResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[9]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -891,7 +1059,7 @@ func (x *GetPurchaseContextResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPurchaseContextResponse.ProtoReflect.Descriptor instead.
 func (*GetPurchaseContextResponse) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{9}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetPurchaseContextResponse) GetAppAccountToken() string {
@@ -924,7 +1092,7 @@ type SyncAppStoreTransactionRequest struct {
 
 func (x *SyncAppStoreTransactionRequest) Reset() {
 	*x = SyncAppStoreTransactionRequest{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[10]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -936,7 +1104,7 @@ func (x *SyncAppStoreTransactionRequest) String() string {
 func (*SyncAppStoreTransactionRequest) ProtoMessage() {}
 
 func (x *SyncAppStoreTransactionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[10]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -949,7 +1117,7 @@ func (x *SyncAppStoreTransactionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncAppStoreTransactionRequest.ProtoReflect.Descriptor instead.
 func (*SyncAppStoreTransactionRequest) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{10}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *SyncAppStoreTransactionRequest) GetSignedTransactionJws() string {
@@ -968,7 +1136,7 @@ type SyncAppStoreTransactionResponse struct {
 
 func (x *SyncAppStoreTransactionResponse) Reset() {
 	*x = SyncAppStoreTransactionResponse{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[11]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -980,7 +1148,7 @@ func (x *SyncAppStoreTransactionResponse) String() string {
 func (*SyncAppStoreTransactionResponse) ProtoMessage() {}
 
 func (x *SyncAppStoreTransactionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[11]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -993,7 +1161,7 @@ func (x *SyncAppStoreTransactionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncAppStoreTransactionResponse.ProtoReflect.Descriptor instead.
 func (*SyncAppStoreTransactionResponse) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{11}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *SyncAppStoreTransactionResponse) GetAccount() *AccountEntitlement {
@@ -1012,7 +1180,7 @@ type SyncLibraryRequest struct {
 
 func (x *SyncLibraryRequest) Reset() {
 	*x = SyncLibraryRequest{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[12]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1024,7 +1192,7 @@ func (x *SyncLibraryRequest) String() string {
 func (*SyncLibraryRequest) ProtoMessage() {}
 
 func (x *SyncLibraryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[12]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1037,7 +1205,7 @@ func (x *SyncLibraryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncLibraryRequest.ProtoReflect.Descriptor instead.
 func (*SyncLibraryRequest) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{12}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *SyncLibraryRequest) GetSnapshot() *CloudLibrarySnapshot {
@@ -1057,7 +1225,7 @@ type SyncLibraryResponse struct {
 
 func (x *SyncLibraryResponse) Reset() {
 	*x = SyncLibraryResponse{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[13]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1069,7 +1237,7 @@ func (x *SyncLibraryResponse) String() string {
 func (*SyncLibraryResponse) ProtoMessage() {}
 
 func (x *SyncLibraryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[13]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1082,7 +1250,7 @@ func (x *SyncLibraryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncLibraryResponse.ProtoReflect.Descriptor instead.
 func (*SyncLibraryResponse) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{13}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *SyncLibraryResponse) GetSnapshot() *CloudLibrarySnapshot {
@@ -1110,7 +1278,7 @@ type UploadDocumentContentRequest struct {
 
 func (x *UploadDocumentContentRequest) Reset() {
 	*x = UploadDocumentContentRequest{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[14]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1122,7 +1290,7 @@ func (x *UploadDocumentContentRequest) String() string {
 func (*UploadDocumentContentRequest) ProtoMessage() {}
 
 func (x *UploadDocumentContentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[14]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1135,7 +1303,7 @@ func (x *UploadDocumentContentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadDocumentContentRequest.ProtoReflect.Descriptor instead.
 func (*UploadDocumentContentRequest) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{14}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *UploadDocumentContentRequest) GetDocumentId() string {
@@ -1170,7 +1338,7 @@ type UploadDocumentContentResponse struct {
 
 func (x *UploadDocumentContentResponse) Reset() {
 	*x = UploadDocumentContentResponse{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[15]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1182,7 +1350,7 @@ func (x *UploadDocumentContentResponse) String() string {
 func (*UploadDocumentContentResponse) ProtoMessage() {}
 
 func (x *UploadDocumentContentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[15]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1195,7 +1363,7 @@ func (x *UploadDocumentContentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadDocumentContentResponse.ProtoReflect.Descriptor instead.
 func (*UploadDocumentContentResponse) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{15}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *UploadDocumentContentResponse) GetDocumentId() string {
@@ -1228,7 +1396,7 @@ type DownloadDocumentContentRequest struct {
 
 func (x *DownloadDocumentContentRequest) Reset() {
 	*x = DownloadDocumentContentRequest{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[16]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1240,7 +1408,7 @@ func (x *DownloadDocumentContentRequest) String() string {
 func (*DownloadDocumentContentRequest) ProtoMessage() {}
 
 func (x *DownloadDocumentContentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[16]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1253,7 +1421,7 @@ func (x *DownloadDocumentContentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DownloadDocumentContentRequest.ProtoReflect.Descriptor instead.
 func (*DownloadDocumentContentRequest) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{16}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *DownloadDocumentContentRequest) GetDocumentId() string {
@@ -1275,7 +1443,7 @@ type DownloadDocumentContentResponse struct {
 
 func (x *DownloadDocumentContentResponse) Reset() {
 	*x = DownloadDocumentContentResponse{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[17]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1287,7 +1455,7 @@ func (x *DownloadDocumentContentResponse) String() string {
 func (*DownloadDocumentContentResponse) ProtoMessage() {}
 
 func (x *DownloadDocumentContentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[17]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1300,7 +1468,7 @@ func (x *DownloadDocumentContentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DownloadDocumentContentResponse.ProtoReflect.Descriptor instead.
 func (*DownloadDocumentContentResponse) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{17}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *DownloadDocumentContentResponse) GetDocumentId() string {
@@ -1340,7 +1508,7 @@ type UpsertEntitlementRequest struct {
 
 func (x *UpsertEntitlementRequest) Reset() {
 	*x = UpsertEntitlementRequest{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[18]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1352,7 +1520,7 @@ func (x *UpsertEntitlementRequest) String() string {
 func (*UpsertEntitlementRequest) ProtoMessage() {}
 
 func (x *UpsertEntitlementRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[18]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1365,7 +1533,7 @@ func (x *UpsertEntitlementRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertEntitlementRequest.ProtoReflect.Descriptor instead.
 func (*UpsertEntitlementRequest) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{18}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *UpsertEntitlementRequest) GetAccount() *AccountEntitlement {
@@ -1384,7 +1552,7 @@ type UpsertEntitlementResponse struct {
 
 func (x *UpsertEntitlementResponse) Reset() {
 	*x = UpsertEntitlementResponse{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[19]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1396,7 +1564,7 @@ func (x *UpsertEntitlementResponse) String() string {
 func (*UpsertEntitlementResponse) ProtoMessage() {}
 
 func (x *UpsertEntitlementResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[19]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1409,7 +1577,7 @@ func (x *UpsertEntitlementResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertEntitlementResponse.ProtoReflect.Descriptor instead.
 func (*UpsertEntitlementResponse) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{19}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *UpsertEntitlementResponse) GetAccount() *AccountEntitlement {
@@ -1429,7 +1597,7 @@ type ErrorResponse struct {
 
 func (x *ErrorResponse) Reset() {
 	*x = ErrorResponse{}
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[20]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1441,7 +1609,7 @@ func (x *ErrorResponse) String() string {
 func (*ErrorResponse) ProtoMessage() {}
 
 func (x *ErrorResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_acacia_pro_v1_account_proto_msgTypes[20]
+	mi := &file_acacia_pro_v1_account_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1454,7 +1622,7 @@ func (x *ErrorResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ErrorResponse.ProtoReflect.Descriptor instead.
 func (*ErrorResponse) Descriptor() ([]byte, []int) {
-	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{20}
+	return file_acacia_pro_v1_account_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ErrorResponse) GetCode() string {
@@ -1550,7 +1718,14 @@ const file_acacia_pro_v1_account_proto_rawDesc = "" +
 	"updated_at\x18\x04 \x01(\tR\tupdatedAt\"\x13\n" +
 	"\x11GetAccountRequest\"Q\n" +
 	"\x12GetAccountResponse\x12;\n" +
-	"\aaccount\x18\x01 \x01(\v2!.acacia.pro.v1.AccountEntitlementR\aaccount\"\x1b\n" +
+	"\aaccount\x18\x01 \x01(\v2!.acacia.pro.v1.AccountEntitlementR\aaccount\"\x16\n" +
+	"\x14DeleteAccountRequest\"1\n" +
+	"\x15DeleteAccountResponse\x12\x18\n" +
+	"\adeleted\x18\x01 \x01(\bR\adeleted\"N\n" +
+	"\x1dRevokeAppleSignInTokenRequest\x12-\n" +
+	"\x12authorization_code\x18\x01 \x01(\tR\x11authorizationCode\":\n" +
+	"\x1eRevokeAppleSignInTokenResponse\x12\x18\n" +
+	"\arevoked\x18\x01 \x01(\bR\arevoked\"\x1b\n" +
 	"\x19GetPurchaseContextRequest\"\x86\x01\n" +
 	"\x1aGetPurchaseContextResponse\x12*\n" +
 	"\x11app_account_token\x18\x01 \x01(\tR\x0fappAccountToken\x12\x1f\n" +
@@ -1617,7 +1792,7 @@ func file_acacia_pro_v1_account_proto_rawDescGZIP() []byte {
 }
 
 var file_acacia_pro_v1_account_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_acacia_pro_v1_account_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_acacia_pro_v1_account_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_acacia_pro_v1_account_proto_goTypes = []any{
 	(Plan)(0),                               // 0: acacia.pro.v1.Plan
 	(EntitlementSource)(0),                  // 1: acacia.pro.v1.EntitlementSource
@@ -1629,26 +1804,30 @@ var file_acacia_pro_v1_account_proto_goTypes = []any{
 	(*CloudLibrarySnapshot)(nil),            // 7: acacia.pro.v1.CloudLibrarySnapshot
 	(*GetAccountRequest)(nil),               // 8: acacia.pro.v1.GetAccountRequest
 	(*GetAccountResponse)(nil),              // 9: acacia.pro.v1.GetAccountResponse
-	(*GetPurchaseContextRequest)(nil),       // 10: acacia.pro.v1.GetPurchaseContextRequest
-	(*GetPurchaseContextResponse)(nil),      // 11: acacia.pro.v1.GetPurchaseContextResponse
-	(*SyncAppStoreTransactionRequest)(nil),  // 12: acacia.pro.v1.SyncAppStoreTransactionRequest
-	(*SyncAppStoreTransactionResponse)(nil), // 13: acacia.pro.v1.SyncAppStoreTransactionResponse
-	(*SyncLibraryRequest)(nil),              // 14: acacia.pro.v1.SyncLibraryRequest
-	(*SyncLibraryResponse)(nil),             // 15: acacia.pro.v1.SyncLibraryResponse
-	(*UploadDocumentContentRequest)(nil),    // 16: acacia.pro.v1.UploadDocumentContentRequest
-	(*UploadDocumentContentResponse)(nil),   // 17: acacia.pro.v1.UploadDocumentContentResponse
-	(*DownloadDocumentContentRequest)(nil),  // 18: acacia.pro.v1.DownloadDocumentContentRequest
-	(*DownloadDocumentContentResponse)(nil), // 19: acacia.pro.v1.DownloadDocumentContentResponse
-	(*UpsertEntitlementRequest)(nil),        // 20: acacia.pro.v1.UpsertEntitlementRequest
-	(*UpsertEntitlementResponse)(nil),       // 21: acacia.pro.v1.UpsertEntitlementResponse
-	(*ErrorResponse)(nil),                   // 22: acacia.pro.v1.ErrorResponse
-	(*timestamppb.Timestamp)(nil),           // 23: google.protobuf.Timestamp
+	(*DeleteAccountRequest)(nil),            // 10: acacia.pro.v1.DeleteAccountRequest
+	(*DeleteAccountResponse)(nil),           // 11: acacia.pro.v1.DeleteAccountResponse
+	(*RevokeAppleSignInTokenRequest)(nil),   // 12: acacia.pro.v1.RevokeAppleSignInTokenRequest
+	(*RevokeAppleSignInTokenResponse)(nil),  // 13: acacia.pro.v1.RevokeAppleSignInTokenResponse
+	(*GetPurchaseContextRequest)(nil),       // 14: acacia.pro.v1.GetPurchaseContextRequest
+	(*GetPurchaseContextResponse)(nil),      // 15: acacia.pro.v1.GetPurchaseContextResponse
+	(*SyncAppStoreTransactionRequest)(nil),  // 16: acacia.pro.v1.SyncAppStoreTransactionRequest
+	(*SyncAppStoreTransactionResponse)(nil), // 17: acacia.pro.v1.SyncAppStoreTransactionResponse
+	(*SyncLibraryRequest)(nil),              // 18: acacia.pro.v1.SyncLibraryRequest
+	(*SyncLibraryResponse)(nil),             // 19: acacia.pro.v1.SyncLibraryResponse
+	(*UploadDocumentContentRequest)(nil),    // 20: acacia.pro.v1.UploadDocumentContentRequest
+	(*UploadDocumentContentResponse)(nil),   // 21: acacia.pro.v1.UploadDocumentContentResponse
+	(*DownloadDocumentContentRequest)(nil),  // 22: acacia.pro.v1.DownloadDocumentContentRequest
+	(*DownloadDocumentContentResponse)(nil), // 23: acacia.pro.v1.DownloadDocumentContentResponse
+	(*UpsertEntitlementRequest)(nil),        // 24: acacia.pro.v1.UpsertEntitlementRequest
+	(*UpsertEntitlementResponse)(nil),       // 25: acacia.pro.v1.UpsertEntitlementResponse
+	(*ErrorResponse)(nil),                   // 26: acacia.pro.v1.ErrorResponse
+	(*timestamppb.Timestamp)(nil),           // 27: google.protobuf.Timestamp
 }
 var file_acacia_pro_v1_account_proto_depIdxs = []int32{
 	0,  // 0: acacia.pro.v1.AccountEntitlement.plan:type_name -> acacia.pro.v1.Plan
 	1,  // 1: acacia.pro.v1.AccountEntitlement.source:type_name -> acacia.pro.v1.EntitlementSource
-	23, // 2: acacia.pro.v1.AccountEntitlement.updated_at:type_name -> google.protobuf.Timestamp
-	23, // 3: acacia.pro.v1.AccountEntitlement.expires_at:type_name -> google.protobuf.Timestamp
+	27, // 2: acacia.pro.v1.AccountEntitlement.updated_at:type_name -> google.protobuf.Timestamp
+	27, // 3: acacia.pro.v1.AccountEntitlement.expires_at:type_name -> google.protobuf.Timestamp
 	3,  // 4: acacia.pro.v1.CloudAnnotation.bounds:type_name -> acacia.pro.v1.CloudPdfRect
 	4,  // 5: acacia.pro.v1.CloudAnnotation.points:type_name -> acacia.pro.v1.CloudPdfPoint
 	5,  // 6: acacia.pro.v1.CloudLibrarySnapshot.documents:type_name -> acacia.pro.v1.CloudDocument
@@ -1679,7 +1858,7 @@ func file_acacia_pro_v1_account_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_acacia_pro_v1_account_proto_rawDesc), len(file_acacia_pro_v1_account_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   21,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

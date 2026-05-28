@@ -85,7 +85,7 @@ Secondary category:
 Business
 
 Content rights:
-Does not contain, show, or access third-party content. The built-in demo documents are app-owned synthetic fixtures.
+Does not contain, show, or access third-party content. The built-in demo documents are app-owned synthetic examples.
 
 Made for Kids:
 No
@@ -153,6 +153,10 @@ https://acacia-eta.vercel.app
 ## Review Notes
 
 Acacia is a local-first PDF viewer for Mac and iOS. No account or network service is required for the core PDF library and viewer. The app launches with a seeded demo library so review can test the main flows immediately.
+
+Acacia Pro uses StoreKit for all paid digital functionality. The Pro backend validates Firebase ID tokens, verifies StoreKit transactions server-side, and stores only entitlement/cloud-sync data required for Pro features.
+
+Sign in with Apple is available from the Account panel. Signed-in users can delete their Acacia account in-app from the same Account panel via Delete Account. That flow confirms intent, revokes the Sign in with Apple authorization token through the backend, deletes Pro entitlement/cloud data, deletes the Firebase account, clears local auth tokens, and keeps local PDF documents on the device.
 
 ## Remaining App Store Work
 

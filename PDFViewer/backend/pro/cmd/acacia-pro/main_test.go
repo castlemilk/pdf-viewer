@@ -51,6 +51,27 @@ func TestLoadConfigAllowsDedicatedCloudBucket(t *testing.T) {
 	}
 }
 
+func TestLoadConfigParsesAppleTokenRevocationSettings(t *testing.T) {
+	t.Setenv("ACACIA_ENTITLEMENTS_BUCKET", "acacia-entitlements")
+	t.Setenv("ACACIA_APP_ACCOUNT_TOKEN_SECRET", "secret")
+	t.Setenv("ACACIA_BUNDLE_ID", "com.benebsworth.acacia")
+	t.Setenv("ACACIA_APPLE_TEAM_ID", "TEAMID1234")
+	t.Setenv("ACACIA_APPLE_KEY_ID", "KEYID1234")
+	t.Setenv("ACACIA_APPLE_PRIVATE_KEY", "-----BEGIN PRIVATE KEY-----\\nkey\\n-----END PRIVATE KEY-----")
+
+	config, err := loadConfig()
+
+	if err != nil {
+		t.Fatalf("expected config to load: %v", err)
+	}
+	if config.AppleClientID != "com.benebsworth.acacia" {
+		t.Fatalf("expected default apple client id from bundle id, got %q", config.AppleClientID)
+	}
+	if config.AppleTeamID != "TEAMID1234" || config.AppleKeyID != "KEYID1234" {
+		t.Fatalf("unexpected apple identifiers: %#v", config)
+	}
+}
+
 func TestLoadConfigTrimsSecretManagerNewlines(t *testing.T) {
 	t.Setenv("ACACIA_ENTITLEMENTS_BUCKET", "acacia-entitlements")
 	t.Setenv("ACACIA_APP_ACCOUNT_TOKEN_SECRET", "app-secret\n")

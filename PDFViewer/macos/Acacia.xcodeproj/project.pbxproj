@@ -293,6 +293,11 @@
 					514201482437B4B30078DB4F = {
 						CreatedOnToolsVersion = 11.4;
 						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.SignInWithApple = {
+								enabled = 1;
+							};
+						};
 					};
 					A20000000000000000000008 = {
 						CreatedOnToolsVersion = 16.0;

@@ -1,22 +1,28 @@
 import {
   decodeErrorResponse,
+  decodeDeleteAccountResponse,
   decodeGetAccountResponse,
   decodeGetPurchaseContextResponse,
   decodeDownloadDocumentContentResponse,
+  decodeRevokeAppleSignInTokenResponse,
   decodeSyncLibraryResponse,
   decodeSyncAppStoreTransactionResponse,
   decodeUploadDocumentContentResponse,
+  encodeDeleteAccountRequest,
   encodeDownloadDocumentContentRequest,
   encodeGetAccountRequest,
   encodeGetPurchaseContextRequest,
+  encodeRevokeAppleSignInTokenRequest,
   encodeSyncLibraryRequest,
   encodeSyncAppStoreTransactionRequest,
   encodeUploadDocumentContentRequest,
   PROTOBUF_CONTENT_TYPE,
   type CloudLibrarySnapshot,
+  type DeleteAccountResponse,
   type DownloadDocumentContentResponse,
   type GetAccountResponse,
   type GetPurchaseContextResponse,
+  type RevokeAppleSignInTokenResponse,
   type SyncLibraryResponse,
   type SyncAppStoreTransactionResponse,
   type UploadDocumentContentResponse,
@@ -56,6 +62,27 @@ export class ProBackendClient {
       firebaseIDToken,
       encodeGetAccountRequest(),
       decodeGetAccountResponse,
+    );
+  }
+
+  async deleteAccount(firebaseIDToken: string): Promise<DeleteAccountResponse> {
+    return this.postProtobuf(
+      '/v1/account:delete',
+      firebaseIDToken,
+      encodeDeleteAccountRequest(),
+      decodeDeleteAccountResponse,
+    );
+  }
+
+  async revokeAppleSignInToken(
+    firebaseIDToken: string,
+    authorizationCode: string,
+  ): Promise<RevokeAppleSignInTokenResponse> {
+    return this.postProtobuf(
+      '/v1/account/apple:revoke',
+      firebaseIDToken,
+      encodeRevokeAppleSignInTokenRequest(authorizationCode),
+      decodeRevokeAppleSignInTokenResponse,
     );
   }
 

@@ -23,6 +23,13 @@ All protobuf endpoints return `application/x-protobuf`.
 - `POST /v1/account:purchaseContext`
   - Requires `Authorization: Bearer <firebase-id-token>`.
   - Returns StoreKit product ids and the stable `appAccountToken` to pass into the native purchase call.
+- `POST /v1/account/apple:revoke`
+  - Requires `Authorization: Bearer <firebase-id-token>`.
+  - Body: `acacia.pro.v1.RevokeAppleSignInTokenRequest` with a fresh Sign in with Apple authorization code.
+  - Exchanges the code server-side and revokes the resulting Apple token for App Review 5.1.1 account deletion.
+- `POST /v1/account:delete`
+  - Requires `Authorization: Bearer <firebase-id-token>`.
+  - Deletes entitlement and cloud data for the Firebase UID. The app calls Apple token revocation before this endpoint for Apple-backed accounts.
 - `POST /v1/app_store/transactions:sync`
   - Requires `Authorization: Bearer <firebase-id-token>`.
   - Body: `acacia.pro.v1.SyncAppStoreTransactionRequest`.
@@ -62,6 +69,8 @@ All protobuf endpoints return `application/x-protobuf`.
 - `ACACIA_PRO_PRODUCT_IDS`: comma-separated App Store product ids. Defaults to monthly and yearly Acacia Pro ids.
 - `ACACIA_PRO_STORAGE_QUOTA_BYTES`: Pro cloud quota. Defaults to `21474836480`.
 - `ACACIA_ADMIN_TOKEN`: optional admin token for manual entitlement provisioning.
+- `ACACIA_APPLE_TEAM_ID`, `ACACIA_APPLE_KEY_ID`, `ACACIA_APPLE_CLIENT_ID`: optional Sign in with Apple REST API identifiers for account-deletion token revocation. `ACACIA_APPLE_CLIENT_ID` defaults to `ACACIA_BUNDLE_ID`.
+- `ACACIA_APPLE_PRIVATE_KEY` or `ACACIA_APPLE_PRIVATE_KEY_FILE`: optional Sign in with Apple `.p8` private key. Required with the Apple identifiers to enable `/v1/account/apple:revoke`.
 
 The Cloud Run service account needs permission to read/write objects in the entitlement and cloud buckets.
 

@@ -1,9 +1,14 @@
 import {NativeModules} from 'react-native';
+import {AcaciaAuthBridge} from '../native/AcaciaAuthBridge';
 import {StoreKitBridge} from '../native/StoreKitBridge';
 import {
   createProAccountSynchronizer,
   type ProAccountSynchronizer,
 } from './proAccountSynchronizer';
+import {
+  createProAccountDeletionCoordinator,
+  type ProAccountDeletionCoordinator,
+} from './proAccountDeletionCoordinator';
 import {ProBackendClient} from './proBackendClient';
 import {
   createProCloudSynchronizer,
@@ -14,10 +19,6 @@ import {
   type ProAuthTokenProvider,
   type ProPurchaseCoordinator,
 } from './proPurchaseCoordinator';
-
-type NativeAcaciaAuth = {
-  getFirebaseIDToken?: () => Promise<string | undefined>;
-};
 
 type NativeAcaciaConfig = {
   proApiBaseURL?: string;
@@ -46,6 +47,23 @@ export function createDefaultProAccountSynchronizer(): ProAccountSynchronizer {
   });
 }
 
+export function createDefaultProAccountDeletionCoordinator(): ProAccountDeletionCoordinator {
+  const baseUrl = getDefaultProApiBaseUrl();
+
+  return createProAccountDeletionCoordinator({
+    authTokenProvider: getNativeFirebaseAuthTokenProvider(),
+    backendClient: baseUrl ? new ProBackendClient({baseUrl}) : undefined,
+    appleAuthorizationCodeProvider:
+      typeof AcaciaAuthBridge.requestAppleAuthorizationCode === 'function'
+        ? AcaciaAuthBridge
+        : undefined,
+    nativeAccountDeleter:
+      typeof AcaciaAuthBridge.deleteFirebaseAccount === 'function'
+        ? AcaciaAuthBridge
+        : undefined,
+  });
+}
+
 export function createDefaultProCloudSynchronizer(): ProCloudSynchronizer {
   const baseUrl = getDefaultProApiBaseUrl();
 
@@ -69,13 +87,11 @@ export function getDefaultProApiBaseUrl() {
 function getNativeFirebaseAuthTokenProvider():
   | ProAuthTokenProvider
   | undefined {
-  const nativeAuth = NativeModules.AcaciaAuth as NativeAcaciaAuth | undefined;
-  const getFirebaseIDToken = nativeAuth?.getFirebaseIDToken;
-  if (typeof getFirebaseIDToken !== 'function') {
+  if (typeof AcaciaAuthBridge.getFirebaseIDToken !== 'function') {
     return undefined;
   }
 
   return {
-    getIDToken: () => getFirebaseIDToken(),
+    getIDToken: () => AcaciaAuthBridge.getFirebaseIDToken(),
   };
 }

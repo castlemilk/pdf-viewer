@@ -30,6 +30,7 @@ type Store interface {
 	PutDocumentContent(ctx context.Context, firebaseUID string, documentID string, content DocumentContent) error
 	GetDocumentContent(ctx context.Context, firebaseUID string, documentID string) (*DocumentContent, error)
 	StorageUsedBytes(ctx context.Context, firebaseUID string) (int64, error)
+	DeleteAccount(ctx context.Context, firebaseUID string) error
 }
 
 type MemoryStore struct {
@@ -109,6 +110,22 @@ func (store *MemoryStore) StorageUsedBytes(_ context.Context, firebaseUID string
 		}
 	}
 	return total, nil
+}
+
+func (store *MemoryStore) DeleteAccount(_ context.Context, firebaseUID string) error {
+	if firebaseUID == "" {
+		return errors.New("firebase uid is required")
+	}
+
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	delete(store.libraries, firebaseUID)
+	for key := range store.contents {
+		if strings.HasPrefix(key, firebaseUID+"\x00") {
+			delete(store.contents, key)
+		}
+	}
+	return nil
 }
 
 type GCSStore struct {
@@ -229,6 +246,29 @@ func (store *GCSStore) StorageUsedBytes(ctx context.Context, firebaseUID string)
 	}
 }
 
+func (store *GCSStore) DeleteAccount(ctx context.Context, firebaseUID string) error {
+	if firebaseUID == "" {
+		return errors.New("firebase uid is required")
+	}
+
+	objects := store.bucket.Objects(ctx, &storage.Query{
+		Prefix: store.accountPrefix(firebaseUID),
+	})
+
+	for {
+		attrs, err := objects.Next()
+		if errors.Is(err, iterator.Done) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("list cloud account objects: %w", err)
+		}
+		if err := deleteGCSObject(ctx, store.bucket.Object(attrs.Name)); err != nil {
+			return fmt.Errorf("delete cloud account object: %w", err)
+		}
+	}
+}
+
 func (store *GCSStore) libraryObjectName(firebaseUID string) string {
 	return store.objectName(firebaseUID, "library.pb")
 }
@@ -238,7 +278,11 @@ func (store *GCSStore) contentObjectName(firebaseUID string, documentID string) 
 }
 
 func (store *GCSStore) contentPrefix(firebaseUID string) string {
-	name := path.Join("cloud", encodePathPart(firebaseUID), "documents") + "/"
+	return path.Join(store.accountPrefix(firebaseUID), "documents") + "/"
+}
+
+func (store *GCSStore) accountPrefix(firebaseUID string) string {
+	name := path.Join("cloud", encodePathPart(firebaseUID)) + "/"
 	if store.prefix == "" {
 		return name
 	}
@@ -266,4 +310,12 @@ func normalizedContentType(value string) string {
 		return "application/pdf"
 	}
 	return value
+}
+
+func deleteGCSObject(ctx context.Context, object *storage.ObjectHandle) error {
+	err := object.Delete(ctx)
+	if errors.Is(err, storage.ErrObjectNotExist) {
+		return nil
+	}
+	return err
 }

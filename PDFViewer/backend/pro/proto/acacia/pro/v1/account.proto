@@ -93,6 +93,20 @@ message GetAccountResponse {
   AccountEntitlement account = 1;
 }
 
+message DeleteAccountRequest {}
+
+message DeleteAccountResponse {
+  bool deleted = 1;
+}
+
+message RevokeAppleSignInTokenRequest {
+  string authorization_code = 1;
+}
+
+message RevokeAppleSignInTokenResponse {
+  bool revoked = 1;
+}
+
 message GetPurchaseContextRequest {}
 
 message GetPurchaseContextResponse {

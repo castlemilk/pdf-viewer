@@ -64,12 +64,19 @@ import {
   PdfKitBridge,
 } from './src/native/PdfKitBridge';
 import {
+  AcaciaAuthBridge,
+  type AppleSignInResult,
+} from './src/native/AcaciaAuthBridge';
+import {
   applyCloudLibrarySnapshot,
   createCloudLibrarySnapshot,
+  createDefaultProAccountDeletionCoordinator,
   createDefaultProAccountSynchronizer,
   createDefaultProCloudSynchronizer,
   createDefaultProPurchaseCoordinator,
   ProBackendError,
+  type ProAccountDeletionCoordinator,
+  ProAccountDeletionUnavailableError,
   type ProAccountSynchronizer,
   type ProCloudSynchronizer,
   type ProPurchaseCoordinator,
@@ -94,6 +101,7 @@ type AppProps = {
   isProPurchaseTestingLaunch?: boolean;
   proAccountSynchronizer?: ProAccountSynchronizer;
   proCloudSynchronizer?: ProCloudSynchronizer;
+  proAccountDeleter?: ProAccountDeletionCoordinator;
   proPurchaseCoordinator?: ProPurchaseCoordinator;
 };
 
@@ -507,6 +515,7 @@ function App({
   isProPurchaseTestingLaunch = false,
   proAccountSynchronizer,
   proCloudSynchronizer,
+  proAccountDeleter,
   proPurchaseCoordinator,
 }: AppProps) {
   const isScreenshotLaunch = screenshotMode !== undefined;
@@ -551,6 +560,8 @@ function App({
     signedIn: false,
     plan: 'free',
   });
+  const [appleSignInInProgress, setAppleSignInInProgress] = useState(false);
+  const [accountDeleting, setAccountDeleting] = useState(false);
   const [proUnlocking, setProUnlocking] = useState(false);
   const [compareSynced, setCompareSynced] = useState(true);
   const accountSynchronizer = useMemo(
@@ -560,6 +571,10 @@ function App({
   const cloudSynchronizer = useMemo(
     () => proCloudSynchronizer ?? createDefaultProCloudSynchronizer(),
     [proCloudSynchronizer],
+  );
+  const accountDeleter = useMemo(
+    () => proAccountDeleter ?? createDefaultProAccountDeletionCoordinator(),
+    [proAccountDeleter],
   );
   const windowMetrics = useWindowDimensions();
   const systemColorScheme = useColorScheme();
@@ -1222,6 +1237,94 @@ function App({
     await activateReviewFeatures('restore');
   }
 
+  async function signInWithAppleAccount() {
+    if (appleSignInInProgress) {
+      return;
+    }
+
+    setAppleSignInInProgress(true);
+
+    try {
+      const result = await AcaciaAuthBridge.signInWithApple();
+      const syncResult = await accountSynchronizer.syncAccount();
+      proActivationGenerationRef.current += 1;
+
+      if (syncResult) {
+        setAccountState(syncResult.accountState);
+        if (syncResult.storageLimitGb !== undefined) {
+          dispatchLibrary({
+            type: 'setStorageQuota',
+            storageLimitGb: syncResult.storageLimitGb,
+          });
+        }
+        if (syncResult.storageUsedGb !== undefined) {
+          dispatchLibrary({
+            type: 'setStorageUsage',
+            storageUsedGb: syncResult.storageUsedGb,
+          });
+        }
+      } else {
+        setAccountState(current => ({
+          signedIn: true,
+          plan: current.plan === 'pro' ? 'pro' : 'free',
+        }));
+      }
+
+      Alert.alert('Sign in with Apple', appleSignInSuccessMessage(result));
+    } catch (error) {
+      Alert.alert('Sign in with Apple', appleSignInFailureMessage(error));
+    } finally {
+      setAppleSignInInProgress(false);
+    }
+  }
+
+  function confirmDeleteAccount() {
+    if (accountDeleting) {
+      return;
+    }
+
+    Alert.alert(
+      'Delete Account',
+      'Delete your Acacia account and cloud data? Local documents remain on this device.',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: () => {
+            deleteAccount().catch(() => {});
+          },
+        },
+      ],
+    );
+  }
+
+  async function deleteAccount() {
+    if (accountDeleting) {
+      return;
+    }
+
+    setAccountDeleting(true);
+
+    try {
+      await accountDeleter.deleteAccount();
+      proActivationGenerationRef.current += 1;
+      cloudSyncFingerprintRef.current = '';
+      cloudUploadedDocumentKeysRef.current.clear();
+      setAccountState({signedIn: false, plan: 'free'});
+      dispatchLibrary({type: 'setStorageQuota', storageLimitGb: 0});
+      dispatchLibrary({type: 'setStorageUsage', storageUsedGb: 0});
+      Alert.alert(
+        'Account Deleted',
+        'Your Acacia account and cloud data were deleted. Local documents remain on this device.',
+      );
+    } catch (error) {
+      Alert.alert('Delete Account', accountDeletionFailureMessage(error));
+    } finally {
+      setAccountDeleting(false);
+    }
+  }
+
   function toggleFavorite(document: DocumentRecord) {
     dispatchLibrary({
       type: 'updateDocument',
@@ -1540,6 +1643,10 @@ function App({
           onDismissAnnotationSheet={() => setMobileAnnotationSheetOpen(false)}
           onUnlockReviewFeatures={unlockReviewFeatures}
           onRestoreReviewFeatures={restoreReviewFeatures}
+          onSignInWithApple={signInWithAppleAccount}
+          accountState={accountState}
+          accountDeleting={accountDeleting}
+          onDeleteAccount={confirmDeleteAccount}
           onSelectSignature={setActiveSignatureId}
           onSaveSignature={saveSignature}
           onSelectHighlightColor={selectHighlightColor}
@@ -1614,7 +1721,15 @@ function App({
             storageUsedGb={libraryState.storageUsedGb}
             storageLimitGb={libraryState.storageLimitGb}
             canShowStorage={hasProEntitlement}
+            accountState={accountState}
+            appleSignInInProgress={appleSignInInProgress}
+            accountDeleting={accountDeleting}
+            proUnlocking={proUnlocking}
             onOpenFile={openImportedPdf}
+            onSignInWithApple={signInWithAppleAccount}
+            onDeleteAccount={confirmDeleteAccount}
+            onUnlockReviewFeatures={unlockReviewFeatures}
+            onRestoreReviewFeatures={restoreReviewFeatures}
             onFilterChange={patch =>
               updateFilterFromUser(current => ({...current, ...patch}))
             }
@@ -1800,6 +1915,10 @@ function MobileExperience({
   onDismissAnnotationSheet,
   onUnlockReviewFeatures,
   onRestoreReviewFeatures,
+  onSignInWithApple,
+  accountState,
+  accountDeleting,
+  onDeleteAccount,
   onSelectSignature,
   onSaveSignature,
   onSelectHighlightColor,
@@ -1835,6 +1954,10 @@ function MobileExperience({
   onDismissAnnotationSheet: () => void;
   onUnlockReviewFeatures: () => void;
   onRestoreReviewFeatures: () => void;
+  onSignInWithApple: () => void;
+  accountState: AccountState;
+  accountDeleting: boolean;
+  onDeleteAccount: () => void;
   onSelectSignature: (signatureId: string) => void;
   onSaveSignature: (value: string) => void;
   onSelectHighlightColor: (color: string) => void;
@@ -2069,6 +2192,37 @@ function MobileExperience({
                 }}
               />
             ))}
+          </View>
+          <View style={mobileStyles.accountPanel}>
+            {accountState.signedIn ? (
+              <MobileButton
+                label={accountDeleting ? 'Deleting...' : 'Delete Account'}
+                icon="trash"
+                disabled={accountDeleting}
+                onPress={onDeleteAccount}
+                testID="mobile-delete-account-button"
+                accessibilityLabel="Delete Acacia account"
+                accessibilityHint="Deletes your Acacia account and cloud data while keeping local documents on this device"
+              />
+            ) : (
+              <MobileButton
+                label="Sign in with Apple"
+                icon="user"
+                onPress={onSignInWithApple}
+                testID="mobile-sign-in-with-apple-button"
+              />
+            )}
+            <MobileButton
+              label="Start Pro"
+              icon="bolt"
+              primary
+              onPress={onUnlockReviewFeatures}
+            />
+            <MobileButton
+              label="Restore"
+              icon="rotate"
+              onPress={onRestoreReviewFeatures}
+            />
           </View>
         </ScrollView>
       </View>
@@ -3379,6 +3533,10 @@ function LibraryScreen({
   storageUsedGb,
   storageLimitGb,
   canShowStorage,
+  accountState,
+  appleSignInInProgress,
+  accountDeleting,
+  proUnlocking,
   onFilterChange,
   onClearFilters,
   onToggleFilterPanel,
@@ -3390,6 +3548,10 @@ function LibraryScreen({
   onToggleFavorite,
   onShare,
   onOpenFile,
+  onSignInWithApple,
+  onDeleteAccount,
+  onUnlockReviewFeatures,
+  onRestoreReviewFeatures,
   onCompare,
 }: {
   filter: LibraryFilter;
@@ -3403,6 +3565,10 @@ function LibraryScreen({
   storageUsedGb: number;
   storageLimitGb: number;
   canShowStorage: boolean;
+  accountState: AccountState;
+  appleSignInInProgress: boolean;
+  accountDeleting: boolean;
+  proUnlocking: boolean;
   onFilterChange: (patch: Partial<LibraryFilter>) => void;
   onClearFilters: () => void;
   onToggleFilterPanel: () => void;
@@ -3414,6 +3580,10 @@ function LibraryScreen({
   onToggleFavorite: (document: DocumentRecord) => void;
   onShare: (document: DocumentRecord) => void;
   onOpenFile: () => void;
+  onSignInWithApple: () => void;
+  onDeleteAccount: () => void;
+  onUnlockReviewFeatures: () => void;
+  onRestoreReviewFeatures: () => void;
   onCompare: () => void;
 }) {
   const filterCount = activeFilterCount(filter);
@@ -3436,12 +3606,20 @@ function LibraryScreen({
         storageUsedGb={storageUsedGb}
         storageLimitGb={storageLimitGb}
         canShowStorage={canShowStorage}
+        accountState={accountState}
+        appleSignInInProgress={appleSignInInProgress}
+        accountDeleting={accountDeleting}
+        proUnlocking={proUnlocking}
         onSelectScope={onSelectScope}
         onSelectTag={tagId => onFilterChange({scope: 'library', tagId})}
         onSelectCollection={collectionId =>
           onFilterChange({scope: 'library', collectionId})
         }
         onAddCollection={onAddCollection}
+        onSignInWithApple={onSignInWithApple}
+        onDeleteAccount={onDeleteAccount}
+        onUnlockReviewFeatures={onUnlockReviewFeatures}
+        onRestoreReviewFeatures={onRestoreReviewFeatures}
       />
       <ScrollView style={styles.libraryMain}>
         <View style={styles.libraryToolbar}>
@@ -4125,10 +4303,18 @@ function Sidebar({
   storageUsedGb,
   storageLimitGb,
   canShowStorage,
+  accountState,
+  appleSignInInProgress,
+  accountDeleting,
+  proUnlocking,
   onSelectScope,
   onSelectTag,
   onSelectCollection,
   onAddCollection,
+  onSignInWithApple,
+  onDeleteAccount,
+  onUnlockReviewFeatures,
+  onRestoreReviewFeatures,
 }: {
   tags: Tag[];
   collections: Collection[];
@@ -4139,10 +4325,18 @@ function Sidebar({
   storageUsedGb: number;
   storageLimitGb: number;
   canShowStorage: boolean;
+  accountState: AccountState;
+  appleSignInInProgress: boolean;
+  accountDeleting: boolean;
+  proUnlocking: boolean;
   onSelectScope: (scope: LibraryScope) => void;
   onSelectTag: (tagId: string) => void;
   onSelectCollection: (collectionId: string) => void;
   onAddCollection: () => void;
+  onSignInWithApple: () => void;
+  onDeleteAccount: () => void;
+  onUnlockReviewFeatures: () => void;
+  onRestoreReviewFeatures: () => void;
 }) {
   const accessibility = useAppleAccessibility();
 
@@ -4337,6 +4531,101 @@ function Sidebar({
         </Text>
       </View>
       ) : null}
+      <AccountPanel
+        accountState={accountState}
+        appleSignInInProgress={appleSignInInProgress}
+        accountDeleting={accountDeleting}
+        proUnlocking={proUnlocking}
+        onSignInWithApple={onSignInWithApple}
+        onDeleteAccount={onDeleteAccount}
+        onUnlockReviewFeatures={onUnlockReviewFeatures}
+        onRestoreReviewFeatures={onRestoreReviewFeatures}
+      />
+    </View>
+  );
+}
+
+function AccountPanel({
+  accountState,
+  appleSignInInProgress,
+  accountDeleting,
+  proUnlocking,
+  onSignInWithApple,
+  onDeleteAccount,
+  onUnlockReviewFeatures,
+  onRestoreReviewFeatures,
+}: {
+  accountState: AccountState;
+  appleSignInInProgress: boolean;
+  accountDeleting: boolean;
+  proUnlocking: boolean;
+  onSignInWithApple: () => void;
+  onDeleteAccount: () => void;
+  onUnlockReviewFeatures: () => void;
+  onRestoreReviewFeatures: () => void;
+}) {
+  const signedIn = accountState.signedIn;
+  const isPro = accountState.plan === 'pro';
+
+  return (
+    <View
+      testID="account-panel"
+      accessible={Platform.OS === 'macos'}
+      accessibilityLabel={signedIn ? 'Acacia account signed in' : 'Acacia account'}
+      accessibilityHint="Manages Apple sign-in and Acacia Pro purchase access"
+      style={styles.accountPanel}>
+      <Text style={styles.sidebarCaption}>Account</Text>
+      <Text testID="account-status-label" style={styles.accountStatus}>
+        {signedIn
+          ? isPro
+            ? 'Signed in · Pro'
+            : 'Signed in with Apple'
+          : 'Local library'}
+      </Text>
+      {!signedIn ? (
+        <ButtonChrome
+          label={appleSignInInProgress ? 'Signing in...' : 'Sign in with Apple'}
+          icon="user"
+          flush
+          disabled={appleSignInInProgress}
+          onPress={onSignInWithApple}
+          testID="sign-in-with-apple-button"
+          accessibilityLabel="Sign in with Apple"
+          accessibilityHint="Uses your Apple ID to sync Acacia Pro documents"
+        />
+      ) : (
+        <ButtonChrome
+          label={accountDeleting ? 'Deleting...' : 'Delete Account'}
+          icon="trash"
+          flush
+          disabled={accountDeleting}
+          onPress={onDeleteAccount}
+          testID="delete-account-button"
+          accessibilityLabel="Delete Acacia account"
+          accessibilityHint="Deletes your Acacia account and cloud data while keeping local documents on this device"
+        />
+      )}
+      <View style={styles.accountActions}>
+        {!isPro ? (
+          <ButtonChrome
+            label={proUnlocking ? 'Starting...' : 'Start Pro'}
+            icon="bolt"
+            primary
+            flush
+            disabled={proUnlocking}
+            onPress={onUnlockReviewFeatures}
+            testID="account-start-pro-button"
+          />
+        ) : null}
+        <ButtonChrome
+          label="Restore"
+          icon="rotate"
+          flush
+          disabled={proUnlocking}
+          onPress={onRestoreReviewFeatures}
+          testID="account-restore-pro-button"
+        />
+      </View>
     </View>
   );
 }
@@ -6616,6 +6905,45 @@ function isJestRuntime() {
   return typeof globals.it === 'function' || globals.jest !== undefined;
 }
 
+function appleSignInSuccessMessage(result: AppleSignInResult) {
+  if (result.email) {
+    return `Signed in as ${result.email}.`;
+  }
+
+  return 'Signed in with Apple.';
+}
+
+function appleSignInFailureMessage(error: unknown) {
+  const bridgedError = error as {code?: string; message?: string};
+  if (
+    bridgedError.code === 'apple_sign_in_cancelled' ||
+    bridgedError.code === 'ASAuthorizationError.canceled'
+  ) {
+    return 'Sign in with Apple was cancelled.';
+  }
+  if (bridgedError.message) {
+    return bridgedError.message;
+  }
+
+  return 'Could not sign in with Apple. Try again in a moment.';
+}
+
+function accountDeletionFailureMessage(error: unknown) {
+  if (error instanceof ProAccountDeletionUnavailableError) {
+    return error.message;
+  }
+  if (error instanceof ProBackendError) {
+    return error.message;
+  }
+
+  const bridgedError = error as {message?: string};
+  if (bridgedError.message) {
+    return bridgedError.message;
+  }
+
+  return 'Acacia could not delete this account. Try again in a moment.';
+}
+
 function proPurchaseFailureMessage(error: unknown) {
   if (error instanceof ProPurchaseUnavailableError) {
     return error.message;
@@ -6994,8 +7322,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   storageBlock: {
-    marginTop: 'auto',
-    paddingBottom: 22,
+    marginTop: 16,
+    paddingBottom: 14,
   },
   storageTrack: {
     height: 3,
@@ -7005,6 +7333,22 @@ const styles = StyleSheet.create({
   storageFill: {
     height: 3,
     backgroundColor: '#2E74F5',
+  },
+  accountPanel: {
+    marginTop: 'auto',
+    borderTopColor: acacia.color.hairline,
+    borderTopWidth: 1,
+    paddingTop: 14,
+    paddingBottom: 16,
+    gap: 8,
+  },
+  accountStatus: {
+    color: acacia.color.ink2,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  accountActions: {
+    gap: 8,
   },
   libraryMain: {
     flex: 1,
@@ -8452,6 +8796,11 @@ const mobileStyles = StyleSheet.create({
     borderRadius: 0,
     backgroundColor: '#FFFFFF',
     overflow: 'hidden',
+  },
+  accountPanel: {
+    gap: 10,
+    paddingTop: 18,
+    paddingBottom: 24,
   },
   documentRow: {
     minHeight: 76,

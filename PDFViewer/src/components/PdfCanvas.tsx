@@ -789,7 +789,7 @@ function DemoPageContent({
         style={isRoadmap ? styles.readerParagraph : styles.paragraph}>
         {isRoadmap
           ? 'The first commitment, Platform, replaces our patchwork of integrations with a single contract surface.'
-          : 'The document view is powered by PDFKit for local PDFs and this fixture surface for the built-in demo set. Imported documents render in the native PDF canvas.'}
+          : 'The document view is powered by PDFKit for local PDFs, with an offline preview available for the built-in demo set. Imported documents render in the native PDF canvas.'}
       </Text>
       {isRoadmap ? null : (
         <>
@@ -803,7 +803,7 @@ function DemoPageContent({
                 : undefined
             }
             accessibilityHint={
-              pageIndex === 0 ? 'Summarizes the sample document chart' : undefined
+              pageIndex === 0 ? 'Summarizes the current document chart' : undefined
             }
             style={styles.chartBlock}>
             {[3.1, 4, 5.2, 6.1, 7.3].map((value, index) => (
@@ -837,7 +837,7 @@ function DemoPageContent({
               }
               accessibilityHint={
                 pageIndex === 0
-                  ? 'Summarizes the sample document market share chart'
+                  ? 'Summarizes the current document market share chart'
                   : undefined
               }
               style={styles.donut}>
