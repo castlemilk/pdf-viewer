@@ -6,7 +6,7 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint .",
-    "macos:build": "xcodebuild -workspace macos/PDFViewer.xcworkspace -scheme PDFViewer-macOS -configuration Debug -destination 'platform=macOS' build",
+    "macos:build": "xcodebuild -workspace macos/PDFViewer.xcworkspace -scheme PDFViewer-macOS -configuration Debug -destination 'platform=macOS' build CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- CODE_SIGN_ENTITLEMENTS= CODE_SIGNING_REQUIRED=NO PROVISIONING_PROFILE_SPECIFIER= DEVELOPMENT_TEAM= ENABLE_HARDENED_RUNTIME=NO",
     "macos:test": "xcodebuild build-for-testing -workspace macos/PDFViewer.xcworkspace -scheme PDFViewer-macOS-Unit -destination 'platform=macOS' -derivedDataPath /tmp/PDFViewerDerivedData && xcrun xctest /tmp/PDFViewerDerivedData/Build/Products/Debug/Acacia-macOSTests.xctest",
     "macos:ui-build": "FORCE_BUNDLING=1 xcodebuild -quiet build-for-testing -workspace macos/PDFViewer.xcworkspace -scheme PDFViewer-macOS-UI -configuration Release -destination 'platform=macOS' -derivedDataPath /tmp/PDFViewerUIDerivedData ONLY_ACTIVE_ARCH=YES ARCHS=$(uname -m) ENABLE_HARDENED_RUNTIME=NO",
     "macos:ui-test": "scripts/run-macos-e2e.sh",
