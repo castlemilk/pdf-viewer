@@ -23,3 +23,25 @@ test('revokes Apple token before deleting backend and native account', async () 
   expect(deleteAccount).toHaveBeenCalledWith('firebase-token');
   expect(deleteFirebaseAccount).toHaveBeenCalledTimes(1);
 });
+
+test('continues account deletion when Apple token revocation fails', async () => {
+  const revokeAppleSignInToken = jest.fn(async () => {
+    throw new Error('revocation unavailable');
+  });
+  const deleteAccount = jest.fn(async () => ({deleted: true}));
+  const deleteFirebaseAccount = jest.fn(async () => {});
+  const coordinator = createProAccountDeletionCoordinator({
+    authTokenProvider: {getIDToken: jest.fn(async () => 'firebase-token')},
+    backendClient: {deleteAccount, revokeAppleSignInToken},
+    appleAuthorizationCodeProvider: {
+      requestAppleAuthorizationCode: jest.fn(async () => 'apple-auth-code'),
+    },
+    nativeAccountDeleter: {deleteFirebaseAccount},
+  });
+
+  await expect(coordinator.deleteAccount()).resolves.toEqual({deleted: true});
+
+  expect(revokeAppleSignInToken).toHaveBeenCalledTimes(1);
+  expect(deleteAccount).toHaveBeenCalledWith('firebase-token');
+  expect(deleteFirebaseAccount).toHaveBeenCalledTimes(1);
+});

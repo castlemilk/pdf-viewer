@@ -156,7 +156,7 @@ Acacia is a local-first PDF viewer for Mac and iOS. No account or network servic
 
 Acacia Pro uses StoreKit for all paid digital functionality. The Pro backend validates Firebase ID tokens, verifies StoreKit transactions server-side, and stores only entitlement/cloud-sync data required for Pro features.
 
-Sign in with Apple is available from the Account panel. Signed-in users can delete their Acacia account in-app from the same Account panel via Delete Account. That flow confirms intent, revokes the Sign in with Apple authorization token through the backend, deletes Pro entitlement/cloud data, deletes the Firebase account, clears local auth tokens, and keeps local PDF documents on the device.
+Sign in with Apple is available from the Account panel. Signed-in users can delete their Acacia account in-app from the same Account panel via Delete Account. That flow confirms intent, requests Sign in with Apple token revocation through the backend when Apple authorization is available, deletes Pro entitlement/cloud data, deletes the Firebase account, clears local auth tokens, and keeps local PDF documents on the device.
 
 ## Remaining App Store Work
 

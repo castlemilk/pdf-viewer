@@ -74,10 +74,16 @@ export function createProAccountDeletionCoordinator({
           const authorizationCode =
             await appleAuthorizationCodeProvider.requestAppleAuthorizationCode();
           if (authorizationCode) {
-            await backendClient.revokeAppleSignInToken(
-              firebaseIDToken,
-              authorizationCode,
-            );
+            try {
+              await backendClient.revokeAppleSignInToken(
+                firebaseIDToken,
+                authorizationCode,
+              );
+            } catch {
+              // Apple token revocation is best-effort so account deletion still
+              // satisfies the user's request if Apple or backend revocation is
+              // temporarily unavailable.
+            }
           }
         }
         await backendClient.deleteAccount(firebaseIDToken);
